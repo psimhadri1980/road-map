@@ -42,7 +42,9 @@ runtimes:
     memory: 1g
     entrypoint: sh
     # Settings are read from KC_* variables set here so the admin and database passwords stay in the
-    # environment, not on a command line. Only the HTTPS and management ports listen, on 127.0.0.1.
+    # environment, not on a command line. Only the HTTPS and management ports listen, on 127.0.0.1;
+    # `--cache=local` keeps Keycloak a single node, so Infinispan/JGroups open no clustering sockets
+    # (they listen on every address, which broke FR-015; found by run/exposure.test.ts, T027).
     command:
       - -c
       - |
@@ -51,5 +53,5 @@ runtimes:
         exec /opt/keycloak/bin/kc.sh start --optimized --import-realm \
           --http-enabled=false --hostname=https://127.0.0.1:18444 \
           --https-port=18444 --https-certificate-file=/tls/server.crt --https-certificate-key-file=/tls/server.key \
-          --https-protocols=TLSv1.3 --http-management-port=19000 --http-host=127.0.0.1 \
+          --https-protocols=TLSv1.3 --http-management-port=19000 --http-host=127.0.0.1 --cache=local \
           --db-url="jdbc:postgresql://127.0.0.1:15432/keycloak?sslmode=verify-full&sslrootcert=/tls/ca.crt"
