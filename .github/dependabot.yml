@@ -1,0 +1,16 @@
+# Weekly update pull requests for every dependency source (T035, FR-021). Each goes through the same gates.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: maven
+    directory: /api
+    schedule: { interval: weekly }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  # The images are pinned in run/env/images.env, which Dependabot cannot read; it watches the Containerfiles' base FROMs.
+  - package-ecosystem: docker
+    directories: [/api, /infra/nginx, /infra/keycloak]
+    schedule: { interval: weekly }

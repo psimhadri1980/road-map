@@ -5,7 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { c, capture, elapsed, exec, log, RunError } from './log.ts';
-import { component, ROOT, type Component, type Runtime } from './components.ts';
+import { component, loadComponents, ROOT, type Component, type Runtime } from './components.ts';
 import { baseEnv, ENGINE } from './env.ts';
 import { ensureDeps, sourcesOf, toolEnv } from './build.ts';
 import { checkHealth, whereRunning } from './runtime.ts';
@@ -206,6 +206,10 @@ export async function test(comp: Component | 'stack', rtArg: Runtime | undefined
   if (suite === 'static') await prettier(comp, true);
   // Whole-repository gates (images, history, Containerfiles) run once, for the stack.
   if (suite === 'static' && comp === 'stack') await scan();
+
+  // The stack's Java components run through Maven (Spotless, Checkstyle, SpotBugs, tests); the turbo path below is Node only.
+  if (comp === 'stack')
+    for (const j of loadComponents().values()) if (j.test.maven) await mavenSuite(j, suite, t, j.name);
 
   if (comp !== 'stack' && comp.test.maven) return mavenSuite(comp, suite as keyof typeof MAVEN_GOALS, t, name);
 
