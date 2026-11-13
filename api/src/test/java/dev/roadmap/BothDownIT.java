@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -39,7 +40,7 @@ class BothDownIT {
     for (String internal :
         new String[] {"jdbc", "postgres", "redis", "Exception", "hikari", "127.0.0.1"}) {
       assertFalse(
-          body.toLowerCase().contains(internal.toLowerCase()),
+          body.toLowerCase(Locale.ROOT).contains(internal.toLowerCase(Locale.ROOT)),
           "the error leaks '" + internal + "': " + body);
     }
   }

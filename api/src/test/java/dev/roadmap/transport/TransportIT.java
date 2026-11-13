@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -123,7 +124,8 @@ class TransportIT {
         (SSLSocket)
             context
                 .getSocketFactory()
-                .createSocket(new Socket("127.0.0.1", REDIS), host, REDIS, true);
+                .createSocket(
+                    new Socket(InetAddress.getLoopbackAddress(), REDIS), host, REDIS, true);
     SSLParameters parameters = socket.getSSLParameters();
     parameters.setEndpointIdentificationAlgorithm("HTTPS");
     socket.setSSLParameters(parameters);
@@ -149,7 +151,7 @@ class TransportIT {
 
   @Test
   void redisRefusesPlainText() throws Exception {
-    try (Socket plain = new Socket("127.0.0.1", REDIS)) {
+    try (Socket plain = new Socket(InetAddress.getLoopbackAddress(), REDIS)) {
       plain.setSoTimeout(3000);
       plain.getOutputStream().write("PING\r\n".getBytes(StandardCharsets.US_ASCII));
       byte[] answer = new byte[16];
