@@ -1,5 +1,6 @@
 # Changes to specs/001-walking-skeleton/contracts/openapi.yaml made by spec 002. The 001 file is not edited
 # (it is the record of spec 001); an implementation task merges this delta into it when the code lands.
+# Merged in T006: the 001 contract file now carries these changes (version 0.2.0); this file stays as the record.
 openapi: 3.1.0
 info: { title: road-map service, version: 0.2.0 }
 security:

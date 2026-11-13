@@ -1,6 +1,6 @@
 # PLAN — road-map
 
-Status: approved 2026-11-13 (revision 4). Spec 001 (walking skeleton) is built and this file matches it (T038); later specs follow §8.
+Status: approved 2026-11-13 (revision 4). Specs 001 (walking skeleton) and 002 (sign-in and token enforcement) are built and this file matches them; later specs follow §8.
 
 Changes in revision 2: the separate Design phase is gone — the full Spec Kit lifecycle carries the design work
 (§5, §8); and authorisation is token-based (§4).

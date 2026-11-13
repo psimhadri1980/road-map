@@ -30,7 +30,7 @@ curl --cacert run/certs/ca.crt -i -H 'Authorization: Bearer x.y.z' https://127.0
 ## 3. Renewal and sign-out (US3, SC-004, SC-005)
 
 Stay on the page past 5 minutes: roadmap requests keep succeeding. Use "Sign out"; reopening the page asks
-for sign-in again. `run/run.sh stack:test smoke` signs in with a real browser and signs out.
+for sign-in again. `run/run.sh stack:test smoke` signs in with a real browser; renewal and sign-out are exercised against the real Keycloak in `infra/nginx/nginx.test.ts` (the button click itself is not driven by a browser test).
 
 ## 4. No secrets (US4, SC-006)
 
@@ -39,7 +39,10 @@ run/run.sh stack:test static          # gitleaks, Trivy, hadolint on everything,
 git grep -n "SAMPLE_USER_PASSWORD" -- ':!run/secrets'   # placeholders only
 ```
 
-## 5. Measurements to record when implemented
+## 5. Measurements (recorded 2026-11-14 on the development machine, T006)
 
-SC-001 (page open to roadmap, signed-in path), SC-004 (30 min, scripted), SC-007 (time to first roadmap with
-sign-in minus spec 001's 0.36 s baseline).
+| Check                                       | Target             | Measured                                                                                                                                                                                                                                                            |
+| ------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SC-001 page open to roadmap, signed-in path | < 30 s             | 0.94-0.98 s over 5 runs, including Chrome start-up, the redirect to Keycloak, the scripted login and the return                                                                                                                                                     |
+| SC-007 sign-in cost over spec 001           | <= 2 s over 0.36 s | about 0.6 s added (0.95 s against 0.36 s); a cold start of the browser is part of the 0.95 s, so this overstates the cost                                                                                                                                           |
+| SC-004 no interruption while working        | 30 min             | **Not run for 30 min.** Scripted instead over 12 renewals of the 5-second development token (60 s, twelve token lifetimes): every renewal succeeded and every roadmap request through the front door answered `200`. The real 5-minute lifetime was not waited out. |
