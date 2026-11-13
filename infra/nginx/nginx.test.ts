@@ -27,6 +27,44 @@ const get = (path: string, opts: RequestOptions = {}) =>
     },
   );
 
+const secrets = Object.fromEntries(
+  readFileSync(join(import.meta.dirname, '..', '..', 'run/secrets/dev.env'), 'utf8')
+    .split('\n')
+    .filter((l) => l.includes('='))
+    .map((l) => l.split('=') as [string, string]),
+);
+
+/** A real access token of the sample user from the development client, through the front door itself. */
+async function token(client = 'road-map-test'): Promise<string> {
+  const body = new URLSearchParams({
+    grant_type: 'password',
+    scope: 'openid', // userinfo, which nginx asks, requires it; the browser's tokens carry it
+    client_id: client,
+    username: 'sample',
+    password: secrets['SAMPLE_USER_PASSWORD']!,
+  }).toString();
+  const r = await new Promise<string>((resolve, reject) => {
+    const req = request(
+      {
+        host: '127.0.0.1',
+        port: 8443,
+        path: '/auth/realms/road-map/protocol/openid-connect/token',
+        method: 'POST',
+        ca,
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      },
+      (res) => {
+        let b = '';
+        res.on('data', (d) => (b += d));
+        res.on('end', () => resolve(b));
+      },
+    );
+    req.on('error', reject).end(body);
+  });
+  return (JSON.parse(r) as { access_token: string }).access_token;
+}
+const bearer = async () => ({ authorization: `Bearer ${await token()}` });
+
 test('healthy, as nginx (101) on a read-only filesystem, loopback only', () => {
   assert.equal(spawnSync('podman', ['exec', 'rm-nginx', 'id', '-u'], { encoding: 'utf8' }).stdout.trim(), '101');
   assert.notEqual(spawnSync('podman', ['exec', 'rm-nginx', 'touch', '/etc/nginx/probe']).status, 0);
@@ -79,7 +117,7 @@ test('the plain port only redirects to HTTPS', async () => {
 test('actuator is not routed; /api/ reaches the service and /auth/ reaches Keycloak over verified TLS', async () => {
   assert.equal((await get('/api/actuator/health')).status, 404);
   // The service answers (its own 404 for an unknown path); a failed upstream verification would be 502.
-  assert.equal((await get('/api/nothing-here')).status, 404);
+  assert.equal((await get('/api/nothing-here', { headers: await bearer() })).status, 404);
   assert.notEqual((await get('/auth/realms/road-map')).status, 502);
   assert.equal((await get('/auth/realms/road-map')).status, 200);
 });
@@ -105,4 +143,33 @@ test('a client is limited to a burst of 20 (FR-019)', async () => {
   assert.ok(accepted >= 20 && accepted <= 23, `${accepted} of ${codes.length} were accepted`);
   assert.equal(codes.filter((c) => c !== 200 && c !== 429).length, 0);
   await new Promise((r) => setTimeout(r, 3000)); // let the bucket refill for the next run
+});
+
+// 002-T004 (FR-007): the front door refuses before the service sees the request. nginx's own 401 page is HTML,
+// the service's is JSON with code "unauthenticated", so the body shows which layer refused.
+const refusedByNginx = (r: { status: number; body: string }) => {
+  assert.equal(r.status, 401);
+  assert.ok(!r.body.includes('unauthenticated'), 'the service answered; nginx should have refused first');
+};
+
+test('requests without a valid token are refused at nginx (FR-007)', async () => {
+  const good = await token();
+  const tampered = `${good.slice(0, -10)}${good.at(-10) === 'A' ? 'B' : 'A'}${good.slice(-9)}`;
+  const notIssuedHere = `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from('{"sub":"x","exp":9999999999}').toString('base64url')}.`;
+  for (const authorization of [undefined, 'Bearer junk', `Bearer ${tampered}`, `Bearer ${notIssuedHere}`]) {
+    refusedByNginx(await get('/api/roadmaps/sample', authorization ? { headers: { authorization } } : {}));
+    await new Promise((r) => setTimeout(r, 120)); // stay inside the rate limit
+  }
+});
+
+test('an expired token is refused at nginx', async () => {
+  const short = await token(); // lives 5 s
+  await new Promise((r) => setTimeout(r, 7000));
+  refusedByNginx(await get('/api/roadmaps/sample', { headers: { authorization: `Bearer ${short}` } }));
+});
+
+test('a valid token gets the roadmap; the page, /auth/ and the redirect port need no token', async () => {
+  assert.equal((await get('/api/roadmaps/sample', { headers: await bearer() })).status, 200);
+  assert.equal((await get('/')).status, 200);
+  assert.equal((await get('/auth/realms/road-map')).status, 200);
 });
