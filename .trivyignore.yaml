@@ -1,10 +1,2 @@
-# Accepted Trivy findings (T034). Each carries its reason and an expiry, after which the gate fails again.
-vulnerabilities:
-  - id: CVE-2026-102554
-    paths:
-      - opt/keycloak/lib/lib/main/com.google.guava.guava-33.6.0-jre.jar
-    # Guava 33.6.0 is bundled in Keycloak 26.8.2, the latest Keycloak release (2026-11-05); the fix is Guava 33.7.2.
-    # Accepted while Keycloak listens on 127.0.0.1 only and holds an empty realm (spec 001). Bump Keycloak
-    # when a release ships the fix.
-    statement: bundled in the newest Keycloak; no fixed Keycloak release exists yet
-    expired_at: 2026-12-13
+# proof
+vulnerabilities: []
