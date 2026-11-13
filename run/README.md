@@ -17,9 +17,31 @@ run/run.sh ls | status | doctor | help [component]
 
 - **runtime:** `local` (a process on local Node 24) or `podman` (a container on the host network); optional, each component has a default.
 - **component:** a name, a category (`ui`, `service`, `infra`, `tool`), a group, `stack` or a list (`api,worker`).
-- **command:** `build`, `deploy`, `start`, `stop`, `reset`, `status`, `logs`, `test`, `exec`, `shell`.
+- **command:** `build`, `deploy`, `start`, `stop`, `reset`, `status`, `logs`, `test`, `format`, `exec`, `shell`.
 
-.
+## Command forms that apply to road-map (FR-009, SC-008)
+
+Every D4 form below is accepted with D4's meaning; `format` is the one addition (FR-010).
+`run/command-forms.test.ts` runs each of them. `<c>` is a component (`api`, `nginx`, `postgres`,
+`redis`, `keycloak`, `web`), a category, a list, or `stack`.
+
+| Form                                          | Meaning                                                                           |
+| --------------------------------------------- | --------------------------------------------------------------------------------- |
+| `help`, `help <c>`, `ls`                      | Usage, one component's contract, the component list                               |
+| `status`, `<c>:status [--json]`               | Where each component runs, state, health                                          |
+| `doctor`                                      | Prerequisites, each missing one named with how to install it                      |
+| `[<runtime>:]<c>:build`                       | Compile and, on podman, package the image when its inputs changed                 |
+| `[<runtime>:]<c>:deploy`                      | Build, start, wait until healthy (a second deploy changes nothing)                |
+| `[<runtime>:]<c>:start`                       | Start without building                                                            |
+| `<c>:stop`                                    | Stop                                                                              |
+| `<c>:reset [--yes]`                           | Stop and delete container and volumes; asks first without `--yes`                 |
+| `<c>:logs [-n N] [--no-follow]`               | Container output                                                                  |
+| `<c>:test [unit\|integration\|static\|smoke]` | The suite; changed packages only unless `--all`; `-- args` pass through           |
+| `<c>:format [--check]`                        | Rewrite to the house format; `--check` only lists the files that differ           |
+| `<c>:exec -- <command>`, `<c>:shell`          | A command or a shell in the running container (`exec`/`shell` take one component) |
+
+Not carried over from D4 because road-map has nothing for them: tenants, ops, the `cli` and
+`publish` components, and the browser `e2e` suite (road-map's browser check is `stack:test smoke`).
 
 ## What is here
 
