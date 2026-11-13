@@ -118,7 +118,7 @@ Two choices depart from strict story order, both for constitution reasons:
 - [x] T033 [P] [US4] Web gates: `eslint.config.mjs` (typescript-eslint, react-hooks, `eslint-plugin-jsdoc` for exported symbols, zero warnings) and TypeScript strict, run by `web:test static`. [FR-021, FR-025]
 - [x] T034 [US4] Container and secret gates in `test static`: hadolint on every Containerfile, Trivy on every built image and the repository, gitleaks on the repository and its history including the submodule, each in its pinned image. [FR-021, SC-006]
 - [x] T035 [US4] Complete CI: jobs `unit`, `integration`, `smoke` in `.github/workflows/ci.yml`; `codeql.yml` (Java and TypeScript); `dependency-review.yml`; `.github/dependabot.yml` (npm, maven, github-actions, docker); all required by branch protection. [FR-011, FR-021, FR-022, FR-023]
-- [ ] T036 [US4] Gate proof: one throw-away pull request per gate, each breaking only that gate, all blocked with the finding named; then closed. Record the results in `specs/001-walking-skeleton/quickstart.md`. [FR-022, SC-007]
+- [x] T036 [US4] Gate proof: one throw-away pull request per gate, each breaking only that gate, all blocked with the finding named; then closed. Record the results in `specs/001-walking-skeleton/quickstart.md`. [FR-022, SC-007]
 
 ---
 
