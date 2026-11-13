@@ -22,16 +22,20 @@ export async function browse(url: string, certFile: string, script: string, seco
       '--headless=new',
       '--no-sandbox',
       '--disable-gpu',
+      // CI runners have a small /dev/shm; Chrome then crashes or stalls at start-up (seen as a flaky smoke job).
+      '--disable-dev-shm-usage',
       '--remote-debugging-port=0',
       `--user-data-dir=${profile}`,
       `--ignore-certificate-errors-spki-list=${spki}`,
       '--window-size=1400,900',
       'about:blank',
     ],
-    { stdio: 'ignore' },
+    { stdio: ['ignore', 'ignore', 'pipe'] },
   ).on('error', () => undefined);
+  let stderr = '';
+  chrome.stderr?.on('data', (d) => (stderr = (stderr + String(d)).slice(-600)));
   try {
-    const port = await devtoolsPort(profile);
+    const port = await devtoolsPort(profile, () => stderr);
     const target = (await (
       await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' })
     ).json()) as { webSocketDebuggerUrl: string };
@@ -73,14 +77,18 @@ export async function browse(url: string, certFile: string, script: string, seco
   }
 }
 
-/** Chrome writes its chosen debugging port into the profile folder once it is listening. */
-async function devtoolsPort(profile: string): Promise<string> {
-  for (let i = 0; i < 100; i++) {
+/**
+ * Chrome writes its chosen debugging port into the profile folder once it is listening. Waits up to 30 s
+ * (a cold runner needs more than the 10 s the first version allowed) and puts Chrome's own last words in the
+ * error, so a failure says why instead of only that it happened.
+ */
+async function devtoolsPort(profile: string, stderr: () => string): Promise<string> {
+  for (let i = 0; i < 300; i++) {
     try {
       return readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]!;
     } catch {
       await new Promise((r) => setTimeout(r, 100));
     }
   }
-  throw new RunError('headless Chrome did not start (set CHROME to its path)');
+  throw new RunError('headless Chrome did not start (set CHROME to its path)', { tail: [stderr()] });
 }
