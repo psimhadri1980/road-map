@@ -1,0 +1,4 @@
+{
+  "extends": "../vendor/gantt/tsconfig.json",
+  "include": ["src", "vite.config.ts"]
+}
