@@ -23,6 +23,8 @@ spring:
     url: jdbc:postgresql://127.0.0.1:${POSTGRES_PORT}/roadmap?sslmode=verify-full&sslrootcert=/tls/ca.crt
     username: roadmap_app
     password: ${ROADMAP_APP_PASSWORD}
+    # Fail fast when the database is down, so the caller gets 503 instead of waiting (FR-008, contract).
+    hikari.connection-timeout: 2000
   flyway:
     # Migrations run as the schema owner, the only use of that role (data-model.md).
     url: ${spring.datasource.url}
@@ -33,6 +35,9 @@ spring:
     port: ${REDIS_PORT}
     username: roadmap_app
     password: ${REDIS_APP_PASSWORD}
+    # Short timeouts: a Redis outage costs a request half a second, then the database answers (FR-008).
+    timeout: 500ms
+    connect-timeout: 500ms
     ssl:
       enabled: true
       bundle: ca
