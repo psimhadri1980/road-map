@@ -141,7 +141,7 @@ the right owner by the container command before `postgres` starts. Settled by a 
 
 | Component | Port | Protocol |
 | --- | --- | --- |
-| nginx | 8443 (and 8080 redirect only) | HTTPS |
+| nginx | 8443 (and 18080 redirect only; D4 holds 8080 and 8081) | HTTPS |
 | api | 18443 | HTTPS |
 | keycloak | 18444, management 19000 | HTTPS |
 | postgres | 15432 | PostgreSQL over TLS |
