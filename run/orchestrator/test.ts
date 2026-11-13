@@ -12,6 +12,7 @@ import { checkHealth, whereRunning } from './runtime.ts';
 import { plan, up } from './lifecycle.ts';
 import { maven, MAVEN_GOALS } from './maven.ts';
 import { prettier } from './format.ts';
+import { scan } from './scan.ts';
 import { browse } from './browser.ts';
 import { CERT_DIR } from './certs.ts';
 
@@ -203,6 +204,8 @@ export async function test(comp: Component | 'stack', rtArg: Runtime | undefined
   if (suite === 'smoke') return smoke();
   // Java formatting is checked by Maven's verify (Spotless); everything else by Prettier, here.
   if (suite === 'static') await prettier(comp, true);
+  // Whole-repository gates (images, history, Containerfiles) run once, for the stack.
+  if (suite === 'static' && comp === 'stack') await scan();
 
   if (comp !== 'stack' && comp.test.maven) return mavenSuite(comp, suite as keyof typeof MAVEN_GOALS, t, name);
 

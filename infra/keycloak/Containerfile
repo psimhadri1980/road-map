@@ -3,3 +3,5 @@
 ARG KEYCLOAK_IMAGE
 FROM ${KEYCLOAK_IMAGE}
 RUN /opt/keycloak/bin/kc.sh build --db=postgres --health-enabled=true
+# The base image already runs as uid 1000 (keycloak); said here so the image cannot silently become root (T034).
+USER 1000
