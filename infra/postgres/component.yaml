@@ -1,0 +1,60 @@
+# PostgreSQL (T009): the roadmap database and Keycloak's, TLS only (FR-013, FR-014, FR-016, FR-018).
+apiVersion: road-map/v1
+kind: Component
+name: postgres
+category: infra
+description: PostgreSQL over TLS; databases roadmap and keycloak
+ports:
+  postgres: 15432
+health:
+  # pg_isready checks that the server accepts connections; TLS and roles are tested in postgres.test.ts.
+  cmd: pg_isready -h /var/run/postgresql -p 15432
+  timeout: 60
+provides:
+  common:
+    POSTGRES_HOST: 127.0.0.1
+    POSTGRES_PORT: "15432"
+env:
+  common:
+    # The superuser exists only to initialise the container; nothing connects as it over the network.
+    POSTGRES_USER: postgres
+    POSTGRES_DB: postgres
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ROADMAP_MIGRATOR_PASSWORD: ${ROADMAP_MIGRATOR_PASSWORD}
+    ROADMAP_APP_PASSWORD: ${ROADMAP_APP_PASSWORD}
+    KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+runtimes:
+  default: podman
+  podman:
+    image: ${POSTGRES_IMAGE}
+    # Runs as postgres (uid 70), never as root. The host user maps to uid 70, so the mounted key
+    # (host-owned, mode 0600) is owned by postgres as PostgreSQL insists, and no copy is needed.
+    user: "70:70"
+    userns: keep-id:uid=70,gid=70
+    readOnly: true
+    tmpfs: [/tmp, /var/run/postgresql]
+    mounts:
+      - { src: infra/postgres/pg_hba.conf, dst: /etc/postgresql/pg_hba.conf, ro: true }
+      - { src: infra/postgres/init.sh, dst: /docker-entrypoint-initdb.d/10-init.sh, ro: true }
+      - { src: run/certs/postgres.crt, dst: /tls/server.crt, ro: true }
+      - { src: run/certs/postgres.key, dst: /tls/server.key, ro: true }
+      - { src: run/certs/ca.crt, dst: /tls/ca.crt, ro: true }
+    volumes:
+      - { name: rm-postgres-data, dst: /var/lib/postgresql }
+    memory: 512m
+    command:
+      - postgres
+      - -c
+      - port=15432
+      - -c
+      - listen_addresses=127.0.0.1
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/tls/server.crt
+      - -c
+      - ssl_key_file=/tls/server.key
+      - -c
+      - ssl_min_protocol_version=TLSv1.3

@@ -43,6 +43,8 @@ export interface PodmanSpec {
   shm?: string;
   restart?: string;
   user?: string;
+  /** Podman `--userns`, e.g. keep-id:uid=70,gid=70 to map the host user to the image's user. */
+  userns?: string;
 }
 
 export interface Component {

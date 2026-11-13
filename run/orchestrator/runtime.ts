@@ -80,6 +80,9 @@ function runArgs(comp: Component, image: string, envFile: string, envHash: strin
   if (spec.shm) args.push('--shm-size', spec.shm);
   if (spec.restart) args.push('--restart', spec.restart);
   if (spec.user) args.push('--user', spec.user);
+  if (spec.userns) args.push('--userns', spec.userns);
+  // FR-018: no extra privileges for any component.
+  args.push('--cap-drop=ALL', '--security-opt', 'no-new-privileges');
   if (spec.entrypoint) args.push('--entrypoint', spec.entrypoint);
   // Podman may never run these on its own (see waitHealthy); they still define the check.
   if (hc) args.push('--health-cmd', hc, '--health-interval', '5s', '--health-retries', '3', '--health-timeout', '10s');

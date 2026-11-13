@@ -87,7 +87,8 @@
             "cpus": { "type": "number" },
             "shm": { "type": "string" },
             "restart": { "type": "string" },
-            "user": { "type": "string" }
+            "user": { "type": "string" },
+            "userns": { "type": "string", "description": "Podman --userns, e.g. keep-id:uid=70,gid=70." }
           }
         }
       }
