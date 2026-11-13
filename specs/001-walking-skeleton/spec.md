@@ -77,7 +77,7 @@ confirm the result each time; confirm the CI definition calls only this entry po
 ### User Story 3 - Nothing travels in clear text (Priority: P2)
 
 An operator can verify that every connection between components is encrypted with the other
-side's identity checked, that only the front door can be reached from outside the machine, and
+side's identity checked, that no component can be reached from another machine, and
 that no secret or private key is stored in the repository.
 
 **Why this priority**: Security added after the first feature is security retrofitted. The
