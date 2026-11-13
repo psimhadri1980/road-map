@@ -15,6 +15,8 @@ cpSync(join(real, 'run/orchestrator'), join(root, 'run/orchestrator'), { recursi
 cpSync(join(real, 'run/env'), join(root, 'run/env'), { recursive: true });
 for (const f of ['package.json']) cpSync(join(real, f), join(root, f));
 symlinkSync(join(real, 'node_modules'), join(root, 'node_modules'));
+const { initLogs } = await import(join(root, 'run/orchestrator/log.ts'));
+initLogs(join(root, 'run/.run/logs')); // command logs stay in the temp root
 const { ensureCerts, expiringCerts, CERT_DIR } = await import(join(root, 'run/orchestrator/certs.ts'));
 const p = (f: string) => join(CERT_DIR, f);
 const cert = (f: string) => new X509Certificate(readFileSync(p(f)));
