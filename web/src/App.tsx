@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 
 /**
  * View-only: the server is the authority (constitution III) and this spec has no editing, so the
- * browser is given `view` and nothing else. It hides controls; it grants nothing. FR-005.
+ * browser is given `view` and nothing else, and `readOnly` switches the editing controls off. They
+ * only hide and disable; they grant nothing. FR-005.
  */
 const VIEW_ONLY: AccessRules = {
   subject: { id: 'anonymous' },
@@ -25,5 +26,5 @@ export function App() {
 
   if (loaded.state === 'error') return <p role="alert">The roadmap could not be loaded. Try again in a moment.</p>;
   if (loaded.state === 'loading') return <p>Loading the roadmap…</p>;
-  return <Gantt data={loaded.data} access={VIEW_ONLY} height={640} />;
+  return <Gantt data={loaded.data} access={VIEW_ONLY} readOnly height={640} />;
 }
