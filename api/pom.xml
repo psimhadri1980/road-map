@@ -19,6 +19,8 @@
 
   <properties>
     <java.version>25</java.version>
+    <!-- Where the gantt files live: the submodule here, a copy staged by run/run.sh in the image build. -->
+    <gantt.dir>${project.basedir}/../vendor/gantt</gantt.dir>
   </properties>
 
   <dependencies>
@@ -51,14 +53,41 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-redis</artifactId>
     </dependency>
+    <!-- Checks a roadmap against the gantt JSON Schema (FR-006); a schema library, not hand-written checks. -->
+    <dependency>
+      <groupId>com.networknt</groupId>
+      <artifactId>json-schema-validator</artifactId>
+      <version>3.0.9</version>
+    </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <scope>runtime</scope>
     </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
+    <!-- The gantt schema and sample go into the jar unmodified (the library stays a pinned input). -->
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>${gantt.dir}/packages/contract/schema</directory>
+        <includes><include>gantt-roadmap-1.schema.json</include></includes>
+        <targetPath>gantt</targetPath>
+      </resource>
+      <resource>
+        <directory>${gantt.dir}/packages/mock/src/samples</directory>
+        <includes><include>small.json</include></includes>
+        <targetPath>gantt</targetPath>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>
