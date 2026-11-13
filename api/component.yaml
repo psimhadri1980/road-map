@@ -1,0 +1,41 @@
+# The roadmap service (T013): Spring Boot, HTTPS only, PostgreSQL and Redis over verified TLS
+# (FR-001, FR-002, FR-011a, FR-013, FR-018).
+apiVersion: road-map/v1
+kind: Component
+name: api
+category: service
+description: Spring Boot service that serves roadmaps from PostgreSQL through Redis
+dependsOn: [postgres, redis]
+ports:
+  https: 18443
+health:
+  # Readiness is the database only; the probe is HTTPS verified against the project CA.
+  http: /actuator/health/readiness
+  timeout: 120
+env:
+  common:
+    ROADMAP_APP_PASSWORD: ${ROADMAP_APP_PASSWORD}
+    ROADMAP_MIGRATOR_PASSWORD: ${ROADMAP_MIGRATOR_PASSWORD}
+    REDIS_APP_PASSWORD: ${REDIS_APP_PASSWORD}
+test:
+  maven: true
+  integration:
+    needs: [postgres, redis, keycloak]
+runtimes:
+  default: podman
+  podman:
+    build:
+      artifact: none
+      args:
+        MAVEN_IMAGE: ${MAVEN_IMAGE}
+        JRE_IMAGE: ${JRE_IMAGE}
+    # uid 1000 owns the mounted 0600 key: the host user maps to it (keep-id), as for the other components.
+    user: "1000:1000"
+    userns: keep-id:uid=1000,gid=1000
+    readOnly: true
+    tmpfs: [/tmp]
+    mounts:
+      - { src: run/certs/api.crt, dst: /tls/server.crt, ro: true }
+      - { src: run/certs/api.key, dst: /tls/server.key, ro: true }
+      - { src: run/certs/ca.crt, dst: /tls/ca.crt, ro: true }
+    memory: 512m

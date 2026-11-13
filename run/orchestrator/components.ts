@@ -1,4 +1,4 @@
-// Components: every component.yaml under apps/, packages/ and infra/, checked against the
+// Components: every component.yaml in api/, web/ and infra/, checked against the
 // contract (run/schema/component.schema.json), and how a selector (`api`, `service`, `stack`,
 // `api,worker`) resolves to components in dependency order.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -195,17 +195,15 @@ let cache: Map<string, Component> | undefined;
 export function loadComponents(): Map<string, Component> {
   if (cache) return cache;
   const found = new Map<string, Component>();
-  for (const top of ['infra', 'apps', 'packages']) {
-    const base = join(ROOT, top);
-    if (!existsSync(base)) continue;
-    for (const d of readdirSync(base, { withFileTypes: true })) {
-      const file = join(base, d.name, 'component.yaml');
-      if (!d.isDirectory() || !existsSync(file)) continue;
-      const comp = parseComponent(file);
-      const dup = found.get(comp.name);
-      if (dup) throw new RunError(`component '${comp.name}' is defined twice: ${dup.rel} and ${comp.rel}`);
-      found.set(comp.name, comp);
-    }
+  // One component per folder: api/ and web/ at the top (one of each), the rest under infra/.
+  const files = ['api', 'web'].map((d) => join(ROOT, d, 'component.yaml'));
+  if (existsSync(join(ROOT, 'infra'))) for (const d of readdirSync(join(ROOT, 'infra'), { withFileTypes: true })) if (d.isDirectory()) files.push(join(ROOT, 'infra', d.name, 'component.yaml'));
+  for (const file of files) {
+    if (!existsSync(file)) continue;
+    const comp = parseComponent(file);
+    const dup = found.get(comp.name);
+    if (dup) throw new RunError(`component '${comp.name}' is defined twice: ${dup.rel} and ${comp.rel}`);
+    found.set(comp.name, comp);
   }
   const seenPorts = new Map<number, string>();
   for (const comp of found.values()) {

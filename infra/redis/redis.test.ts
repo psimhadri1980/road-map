@@ -39,6 +39,7 @@ test('roadmap_app reaches only roadmap::* keys and get/set/ping', () => {
   assert.equal(cli(['get', 'roadmap::probe']).out, '1');
   assert.equal(cli(['set', 'other::probe', '1']).ok, false, 'wrote outside its keys');
   assert.equal(cli(['get', 'other::probe']).ok, false, 'read outside its keys');
+  assert.match(cli(['info', 'server']).out, /redis_version/); // the service's health report reads it
   assert.equal(cli(['del', 'roadmap::probe']).ok, false, 'del allowed');
   assert.equal(cli(['flushall']).ok, false, 'flushall allowed');
   assert.equal(cli(['config', 'get', 'save']).ok, false, 'config allowed');

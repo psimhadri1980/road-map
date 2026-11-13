@@ -49,4 +49,4 @@ All three authenticate with SCRAM over TLS only. The superuser password exists o
 | User | Rights |
 | --- | --- |
 | `default` | Disabled |
-| `roadmap_app` | Keys `roadmap::*` only; `get`, `set`, `ping` and connection commands |
+| `roadmap_app` | Keys `roadmap::*` only; `get`, `set`, `ping`, `info` (read-only server statistics, for the service's health report) and connection commands |
