@@ -34,11 +34,12 @@
     "health": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["timeout"],
       "properties": {
-        "http": { "type": "string", "description": "Path probed on the main port (local runtime, and in the container with wget unless cmd is set)." },
+        "http": { "type": "string", "description": "Path probed over HTTPS on the main port by run.sh, the certificate verified against the project CA (unless cmd is set)." },
         "port": { "type": "integer" },
         "cmd": { "type": "string", "description": "Shell command run inside the container (podman healthcheck run, every 5 s while starting)." },
-        "timeout": { "type": "integer", "description": "Seconds to become healthy (default 120)." }
+        "timeout": { "type": "integer", "description": "Seconds to become healthy. Required: every component states its own limit." }
       }
     },
     "route": { "type": "string", "description": "The path the gateway serves it at (shown by status)." },
@@ -86,7 +87,8 @@
             "cpus": { "type": "number" },
             "shm": { "type": "string" },
             "restart": { "type": "string" },
-            "user": { "type": "string" }
+            "user": { "type": "string" },
+            "userns": { "type": "string", "description": "Podman --userns, e.g. keep-id:uid=70,gid=70." }
           }
         }
       }

@@ -6,6 +6,8 @@ import { c, initLogs, log, opts, reportError, RunError } from './log.ts';
 import { CATEGORIES, component, isProcess, loadComponents, mainPort, ROOT, RUNTIMES, select, STATE_DIR, type Runtime } from './components.ts';
 import { build, ensureDependencies, execIn, logs, plan, reset, shell, status, stop, up } from './lifecycle.ts';
 import { doctor } from './extras.ts';
+import { ensureSecrets } from './secrets.ts';
+import { ensureCerts, expiringCerts } from './certs.ts';
 import { test } from './test.ts';
 
 const COMMANDS = ['build', 'deploy', 'start', 'stop', 'reset', 'status', 'logs', 'test', 'exec', 'shell'] as const;
@@ -86,7 +88,10 @@ async function main(argv: string[]): Promise<number> {
     throw new RunError('vendor/gantt is empty: the gantt submodule is not checked out', { hint: 'git submodule update --init', code: 2 });
   if (first === 'ls') { ls(); return 0; }
   if (first === 'doctor') return doctor();
-  if (first === 'status') return status(select('stack').concat([...loadComponents().values()].filter((x) => x.optional || !isProcess(x))), undefined, flags.has('json'));
+  if (first === 'status') {
+    for (const w of expiringCerts([...loadComponents().keys()])) log.warn(w);
+    return status(select('stack').concat([...loadComponents().values()].filter((x) => x.optional || !isProcess(x))), undefined, flags.has('json'));
+  }
 
   const { rt, sel, cmd } = parseTarget(first);
   const comps = select(sel);
@@ -94,13 +99,20 @@ async function main(argv: string[]): Promise<number> {
   const rest = args.filter((a) => a !== '--');
   const after = args.includes('--') ? args.slice(args.indexOf('--') + 1) : rest;
 
+  if (cmd === 'deploy' || cmd === 'start') {
+    ensureSecrets();
+    await ensureCerts(comps.filter((x) => Object.keys(x.ports).length).map((x) => x.name));
+  }
+
   switch (cmd) {
     case 'build': await build(plan(comps, rt, single)); return 0;
     case 'deploy': await up(plan(comps, rt, single), { build: true }); return 0;
     case 'start': await up(plan(comps.filter(isProcess), rt, single), { build: false }); return 0;
     case 'stop': await stop(plan(comps, undefined, false), rt); return 0;
     case 'reset': await reset(plan(comps, undefined, false), rt, sel === 'stack'); return 0;
-    case 'status': return status(sel === 'stack' ? comps.concat([...loadComponents().values()].filter((x) => x.optional)) : comps, rt, flags.has('json'));
+    case 'status':
+      for (const w of expiringCerts(comps.map((x) => x.name))) log.warn(w);
+      return status(sel === 'stack' ? comps.concat([...loadComponents().values()].filter((x) => x.optional)) : comps, rt, flags.has('json'));
     case 'logs': await logs(plan(comps, rt, single), rt, rest); return 0;
     case 'test': await test(sel === 'stack' ? 'stack' : single ? comps[0]! : failMany(sel, 'test'), rt, args); return 0;
     case 'shell': await shell(onlyOne(comps, sel, 'shell'), rt); return 0;

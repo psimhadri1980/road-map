@@ -43,6 +43,8 @@ export interface PodmanSpec {
   shm?: string;
   restart?: string;
   user?: string;
+  /** Podman `--userns`, e.g. keep-id:uid=70,gid=70 to map the host user to the image's user. */
+  userns?: string;
 }
 
 export interface Component {
@@ -139,6 +141,8 @@ function parseComponent(file: string): Component {
   }));
   const health = doc['health'];
   if (health !== undefined && !isObj(health)) fail(rel, 'health must be a map');
+  // Each component states its own limit (FR-002): no shared default to hide a slow start.
+  if (isObj(health) && !(Number.isInteger(health['timeout']) && (health['timeout'] as number) > 0)) fail(rel, 'health.timeout (seconds, a positive integer) is required');
   const hooks = isObj(doc['hooks']) ? doc['hooks'] : {};
   const test = isObj(doc['test']) ? doc['test'] : {};
   const integration = test['integration'];
@@ -161,7 +165,7 @@ function parseComponent(file: string): Component {
         ...(typeof health['http'] === 'string' && { http: health['http'] }),
         ...(typeof health['port'] === 'number' && { port: health['port'] }),
         ...(typeof health['cmd'] === 'string' && { cmd: health['cmd'] }),
-        timeout: typeof health['timeout'] === 'number' ? health['timeout'] : 120,
+        timeout: health['timeout'] as number,
       },
     }),
     ...(typeof doc['route'] === 'string' && { route: doc['route'] }),
