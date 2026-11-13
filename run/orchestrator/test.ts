@@ -75,7 +75,9 @@ function serviceEnv(): Record<string, string> {
   const pick = (...keys: string[]) => Object.fromEntries(keys.map((k) => [k, env[k] ?? '']));
   return {
     ...pick('PORT_POSTGRES', 'PORT_REDIS', 'PORT_KEYCLOAK', 'ROADMAP_MIGRATOR_PASSWORD', 'ROADMAP_APP_PASSWORD', 'REDIS_APP_PASSWORD', 'KEYCLOAK_DB_PASSWORD'),
-    RM_TEST_CA_FILE: '/repo/run/certs/ca.crt', // path as seen inside the Maven container
+    // Paths as seen inside the Maven container.
+    RM_TEST_CA_FILE: '/repo/run/certs/ca.crt',
+    RM_TEST_CERT_DIR: '/repo/run/certs',
   };
 }
 const noServices: Record<string, string> = {};
