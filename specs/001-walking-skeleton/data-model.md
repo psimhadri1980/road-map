@@ -42,11 +42,11 @@ service's read path.
 | `keycloak` | `keycloak` | Owner of its own database; no access to `roadmap` |
 
 All three authenticate with SCRAM over TLS only. The superuser password exists only in
-`run/env/dev-secrets.env` (or `local.env`) for container initialisation.
+`run/secrets/dev.env` (generated, git-ignored) for container initialisation.
 
 ## Redis users (ACL)
 
 | User | Rights |
 | --- | --- |
 | `default` | Disabled |
-| `roadmap_app` | Keys `roadmap::*` only; `get`, `set`, `del`, `ping` and connection commands |
+| `roadmap_app` | Keys `roadmap::*` only; `get`, `set`, `ping` and connection commands |
