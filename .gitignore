@@ -1,0 +1,12 @@
+# Orchestrator state, generated certificates and secrets (FR-017): never committed.
+run/.run/
+run/certs/*
+!run/certs/README.md
+!run/certs/.gitkeep
+run/secrets/*
+!run/secrets/.gitkeep
+run/env/local.env
+
+node_modules/
+dist/
+api/target/

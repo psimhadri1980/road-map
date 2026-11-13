@@ -1,0 +1,10 @@
+{
+  "name": "road-map-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "yaml": "^2.8.0"
+  }
+}
