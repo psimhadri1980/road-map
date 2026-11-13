@@ -18,6 +18,7 @@ and the official GitHub releases and Docker Hub tags of each product.
 | Keycloak | 26.8.2 | `quay.io/keycloak/keycloak:26.8.2` | keycloak/keycloak releases |
 | nginx | 1.30.6 (stable line) | `nginxinc/nginx-unprivileged:1.30.6-alpine` | Docker Hub; same line as D4 |
 | Node | 24 | `node:24-alpine` (build only) | as gantt and D4 |
+| pnpm | 12.16.1 | — | as gantt after psimhadri1980/gantt#10; 12.18.0 is newer but under two weeks old |
 | Flyway | 13.12.2 | — | flyway/flyway releases (managed by Spring Boot where it pins one) |
 | json-schema-validator | 3.0.9 | — | networknt/json-schema-validator releases |
 | Spotless (Maven) | 3.11.0 | — | diffplug/spotless releases |
@@ -56,23 +57,30 @@ PLAN §6 item 3 already covers the gantt change this needs.
 
 ## R3. Consuming the gantt library
 
-**Decision**: Git submodule at `vendor/gantt`, pinned to commit `a45646d`. road-map's pnpm
-workspace includes `web` and `vendor/gantt/packages/*`, with `link-workspace-packages: true` so
-the gantt packages' `"*"` dependencies on each other resolve to the submodule, never to a registry.
-The gantt `apps/` folder is not in the workspace.
+**Decision**: Git submodule at `vendor/gantt`, pinned to the merge commit of
+[psimhadri1980/gantt#10](https://github.com/psimhadri1980/gantt/pull/10), which moves gantt
+itself to pnpm 12.16.1 with `workspace:*` dependencies between its packages. road-map's pnpm
+workspace includes `web` and `vendor/gantt/packages/*`; `workspace:*` makes those packages
+resolve to the submodule, never to a registry. The gantt `apps/` folder is not in the workspace.
+road-map pins the same pnpm (12.16.1) in its `packageManager`.
 
 **Why**: The gantt packages are private TypeScript source with no build step and no releases;
 there is nothing to install from a registry. Vite compiles them as part of the web app, which
-is exactly how the gantt demo itself consumes them.
+is exactly how the gantt demo itself consumes them. With both repositories on pnpm, the
+packages resolve the same way in both, and D4's pnpm and turbo orchestrator works unchanged.
 
-**Turned down**: npm workspaces (gantt's own tool) — the D4 orchestrator is built on pnpm and
-turbo (`pnpm install --frozen-lockfile`, `pnpm deploy`, `turbo run build|test|lint`), and
-replacing that is a larger change than one workspace setting. Copying the gantt sources —
-forbidden by Principle III.
+**Turned down**: keeping gantt on npm and setting `link-workspace-packages: true` in road-map
+(the earlier version of this decision) — two package managers for one dependency graph.
+Copying the gantt sources — forbidden by Principle III.
 
-**Risk**: pnpm installs the gantt packages' dependencies from their `package.json` files, not
-from gantt's `package-lock.json`, so versions can differ from what the gantt tests ran with. The
-web build and the gantt tests run in CI (`run/run.sh stack:test`) catch a break.
+**Carried over by hand**: gantt's `pnpm-workspace.yaml` is ignored when gantt is nested inside
+road-map's workspace. road-map's own `pnpm-workspace.yaml` therefore repeats gantt's
+supply-chain policies (`trustPolicy: no-downgrade`, `minimumReleaseAge: 1440`) and its
+`minimatch` override.
+
+**Risk**: road-map's lockfile, not gantt's, decides the versions of the gantt packages'
+dependencies, so they can differ from what the gantt tests ran with. The web build and the gantt
+tests run in CI (`run/run.sh stack:test`) catch a break.
 
 ## R4. The entry point: what is copied from D4 and what changes
 
