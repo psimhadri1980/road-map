@@ -1,0 +1,47 @@
+# T013. Every connection is TLS with the server certificate verified against the project CA
+# (FR-013). Passwords and ports come from the environment that run/run.sh builds; none is stored here.
+# Paths under /tls are single-file read-only mounts (api/component.yaml).
+server:
+  port: 18443
+  address: 127.0.0.1
+  ssl:
+    bundle: server
+    enabled-protocols: TLSv1.3
+
+spring:
+  application.name: road-map-api
+  ssl.bundle.pem:
+    server:
+      keystore:
+        certificate: file:/tls/server.crt
+        private-key: file:/tls/server.key
+    ca:
+      truststore:
+        certificate: file:/tls/ca.crt
+  datasource:
+    # The service's own least-privileged role (FR-018); never the user's token.
+    url: jdbc:postgresql://127.0.0.1:${POSTGRES_PORT}/roadmap?sslmode=verify-full&sslrootcert=/tls/ca.crt
+    username: roadmap_app
+    password: ${ROADMAP_APP_PASSWORD}
+  flyway:
+    # Migrations run as the schema owner, the only use of that role (data-model.md).
+    url: ${spring.datasource.url}
+    user: roadmap_migrator
+    password: ${ROADMAP_MIGRATOR_PASSWORD}
+  data.redis:
+    host: 127.0.0.1
+    port: ${REDIS_PORT}
+    username: roadmap_app
+    password: ${REDIS_APP_PASSWORD}
+    ssl:
+      enabled: true
+      bundle: ca
+  cache:
+    type: redis
+
+management:
+  endpoints.web.exposure.include: health
+  endpoint.health:
+    probes.enabled: true
+    show-components: always   # names and UP/DOWN only; the front door does not route actuator (T014)
+    group.readiness.include: db   # Redis is reported but never fails readiness (FR-008)

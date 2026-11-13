@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { createInterface } from 'node:readline/promises';
 import { join } from 'node:path';
 import { c, capture, elapsed, exec, log, opts, RunError } from './log.ts';
-import { component, containerName, dependencies, isProcess, mainPort, order, ROOT, runtimeFor, STATE_DIR, type Component, type Runtime } from './components.ts';
+import { component, containerName, loadComponents, dependencies, isProcess, mainPort, order, ROOT, runtimeFor, STATE_DIR, type Component, type Runtime } from './components.ts';
 import { baseEnv, ENGINE, writeComponentEnv } from './env.ts';
 import { compile, ensureDeps, ensureImage, imageExists, imageHash, imageRef, prefetchHashes, sourcesOf } from './build.ts';
 import {
@@ -79,7 +79,8 @@ function withDependencies(targets: Target[]): { targets: Target[]; added: string
   for (const { comp, rt } of targets) {
     if (!isProcess(comp)) continue;
     for (const d of dependencies(comp)) need.set(d.name, d);
-    if (comp.name !== 'nginx' && comp.category !== 'infra') need.set('nginx', component('nginx'));
+    // The front door runs with every service; until nginx exists (T014) there is none to start.
+    if (comp.name !== 'nginx' && comp.category !== 'infra' && loadComponents().has('nginx')) need.set('nginx', component('nginx'));
     const via = comp.runtimes.podman?.via;
     if (via) (rt === 'podman' ? servers : need).set(via, component(via));
   }

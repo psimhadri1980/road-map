@@ -42,7 +42,7 @@ runtimes:
       - |
         set -eu
         h=$(printf %s "$REDIS_APP_PASSWORD" | sha256sum | cut -d' ' -f1)
-        printf 'user default off\nuser roadmap_app on #%s ~roadmap::* +get +set +ping +hello +client|setname +client|setinfo\n' "$h" > /tmp/users.acl
+        printf 'user default off\nuser roadmap_app on #%s ~roadmap::* +get +set +ping +info +hello +client|setname +client|setinfo\n' "$h" > /tmp/users.acl
         exec redis-server --aclfile /tmp/users.acl --bind 127.0.0.1 --port 0 --tls-port 16379 \
           --tls-cert-file /tls/server.crt --tls-key-file /tls/server.key --tls-ca-cert-file /tls/ca.crt \
           --tls-auth-clients no --tls-protocols TLSv1.3 --save "" --appendonly no
