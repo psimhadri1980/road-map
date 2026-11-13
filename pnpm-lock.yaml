@@ -176,6 +176,115 @@ importers:
         specifier: ^2.8.0
         version: 2.9.1
 
+  vendor/gantt/packages/access: {}
+
+  vendor/gantt/packages/contract: {}
+
+  vendor/gantt/packages/engine:
+    dependencies:
+      '@gantt/contract':
+        specifier: workspace:*
+        version: link:../contract
+
+  vendor/gantt/packages/interchange:
+    dependencies:
+      '@gantt/contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@gantt/engine':
+        specifier: workspace:*
+        version: link:../engine
+
+  vendor/gantt/packages/mock:
+    dependencies:
+      '@gantt/access':
+        specifier: workspace:*
+        version: link:../access
+      '@gantt/contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@gantt/engine':
+        specifier: workspace:*
+        version: link:../engine
+
+  vendor/gantt/packages/proposals:
+    dependencies:
+      '@gantt/contract':
+        specifier: workspace:*
+        version: link:../contract
+
+  vendor/gantt/packages/react:
+    dependencies:
+      '@gantt/access':
+        specifier: workspace:*
+        version: link:../access
+      '@gantt/contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@gantt/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@gantt/interchange':
+        specifier: workspace:*
+        version: link:../interchange
+      '@gantt/proposals':
+        specifier: workspace:*
+        version: link:../proposals
+      '@gantt/service':
+        specifier: workspace:*
+        version: link:../service
+      '@gantt/state':
+        specifier: workspace:*
+        version: link:../state
+      react:
+        specifier: ^18.2.0 || ^19.0.0
+        version: 19.3.1
+      react-dom:
+        specifier: ^18.2.0 || ^19.0.0
+        version: 19.3.1(react@19.3.1)
+
+  vendor/gantt/packages/server:
+    dependencies:
+      '@gantt/access':
+        specifier: workspace:*
+        version: link:../access
+      '@gantt/contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@gantt/mock':
+        specifier: workspace:*
+        version: link:../mock
+      '@gantt/proposals':
+        specifier: workspace:*
+        version: link:../proposals
+      '@gantt/service':
+        specifier: workspace:*
+        version: link:../service
+
+  vendor/gantt/packages/service:
+    dependencies:
+      '@gantt/access':
+        specifier: workspace:*
+        version: link:../access
+      '@gantt/contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@gantt/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@gantt/proposals':
+        specifier: workspace:*
+        version: link:../proposals
+
+  vendor/gantt/packages/state:
+    dependencies:
+      '@gantt/contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@gantt/engine':
+        specifier: workspace:*
+        version: link:../engine
+
 packages:
 
   '@turbo/darwin-64@2.11.11':
@@ -208,6 +317,18 @@ packages:
     cpu: [arm64]
     os: [win32]
 
+  react-dom@19.3.1:
+    resolution: {integrity: sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ==}
+    peerDependencies:
+      react: ^19.3.1
+
+  react@19.3.1:
+    resolution: {integrity: sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==}
+    engines: {node: '>=0.10.0'}
+
+  scheduler@0.28.0:
+    resolution: {integrity: sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==}
+
   turbo@2.11.11:
     resolution: {integrity: sha512-AI4UJbUE/2cVZdoXJ4PODc8qvrjhQQX9Fa93eKGOI6Ims/w7+kUIb9T1jhlgSnZcf+gtUruci/ohSwqtNNC5Yw==}
     hasBin: true
@@ -236,6 +357,15 @@ snapshots:
 
   '@turbo/windows-arm64@2.11.11':
     optional: true
+
+  react-dom@19.3.1(react@19.3.1):
+    dependencies:
+      react: 19.3.1
+      scheduler: 0.28.0
+
+  react@19.3.1: {}
+
+  scheduler@0.28.0: {}
 
   turbo@2.11.11:
     optionalDependencies:
