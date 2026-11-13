@@ -1,6 +1,6 @@
 # PLAN — road-map
 
-Status: approved 2026-11-13 (revision 4). Next: step 0 in §9 — initialise Spec Kit and begin its lifecycle.
+Status: approved 2026-11-13 (revision 4). Spec 001 (walking skeleton) is built and this file matches it (T038); later specs follow §8.
 
 Changes in revision 2: the separate Design phase is gone — the full Spec Kit lifecycle carries the design work
 (§5, §8); and authorisation is token-based (§4).
@@ -36,7 +36,7 @@ Decisions already taken with you:
 
 **gantt library** (read from the repo, `main`, 2026-11-13):
 
-- A **React component** (`@gantt/react`, React 18/19), not a web component. npm workspaces, TypeScript source with
+- A **React component** (`@gantt/react`, React 18/19), not a web component. pnpm workspaces (this repository builds it with pnpm), TypeScript source with
   no build step, Node 24, Vite 8. No tags, no releases, no LICENSE, every package `private`.
 - Document format `gantt-roadmap/1` with a **JSON Schema** (`packages/contract/schema/gantt-roadmap-1.schema.json`)
   — usable directly from Java for validation.
@@ -53,7 +53,7 @@ Decisions already taken with you:
 run in containers). The `gh` token lacks the `project` scope, so I cannot yet read or write Project 1. The GitHub
 MCP server failed to connect; the `gh` CLI works for repos.
 
-**Spec Kit**: CLI `specify`; commands `/speckit.constitution`, `.specify`, `.clarify`, `.plan`, `.checklist`,
+**Spec Kit**: CLI `specify`; commands `/speckit-constitution`, `.specify`, `.clarify`, `.plan`, `.checklist`,
 `.tasks`, `.analyze`, `.taskstoissues`, `.implement`. Sources disagree on the current release, so the version is
 taken from the official releases page at install time and recorded in the repo.
 
@@ -142,8 +142,8 @@ authority — nothing travels in clear text, including on the internal Podman ne
 | Spring Boot → Redis                             | TLS port only; the plain port is disabled                     |
 | Spring Boot → Keycloak (signing keys)           | HTTPS, certificate verified                                   |
 
-A script creates the private authority and one certificate per container; keys are mounted as Podman secrets and
-never committed. Certificate rotation is documented in the runbook (spec 009). Mutual TLS (client certificates on
+A script creates the private authority and one certificate per container; keys are generated into git-ignored `run/certs/` and bind-mounted
+read-only; none is committed. Certificate rotation is documented in the runbook (spec 009). Mutual TLS (client certificates on
 every hop) is not in v1; it can be a later spec if you want containers to prove identity to each other as well.
 
 Consequence for the gantt library: `EventSource` cannot send an `Authorization` header, so `httpBackend` needs a
@@ -154,21 +154,21 @@ way to attach the token and a fetch-based event stream (see §6, item 3).
 Run once:
 
 1. `specify init` in the repo for Claude Code; `.specify/` is committed.
-2. `/speckit.constitution` — the non-negotiable rules: the code rules in §6a, the quality gates in §7, the token and TLS rules in §4,
+2. `/speckit-constitution` — the non-negotiable rules: the code rules in §6a, the quality gates in §7, the token and TLS rules in §4,
    the comment standard, one task per PR, gantt consumed only as a pinned submodule.
 
 Then for every feature in §8, in this order:
 
 | Step | Command                  | Produces                                                                                                                                  |
 | ---- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `/speckit.specify`       | `specs/NNN-name/spec.md`: user stories and acceptance criteria, no technology                                                             |
-| 2    | `/speckit.clarify`       | Open questions answered by you and written back into the spec                                                                             |
-| 3    | `/speckit.plan`          | `plan.md`, `research.md` (decisions and pinned versions), `data-model.md`, `contracts/` (OpenAPI), `quickstart.md` — the design artefacts |
-| 4    | `/speckit.checklist`     | Requirement-quality checklists for the spec                                                                                               |
-| 5    | `/speckit.tasks`         | `tasks.md`: ordered, dependency-marked tasks                                                                                              |
-| 6    | `/speckit.analyze`       | Consistency check across spec, plan and tasks; fixed before any code                                                                      |
-| 7    | `/speckit.taskstoissues` | GitHub issues, added to [Project 1](https://github.com/users/psimhadri1980/projects/1), each linking to its spec                          |
-| 8    | `/speckit.implement`     | Code, one task per PR; done when acceptance tests and CI are green and it runs in Podman                                                  |
+| 1    | `/speckit-specify`       | `specs/NNN-name/spec.md`: user stories and acceptance criteria, no technology                                                             |
+| 2    | `/speckit-clarify`       | Open questions answered by you and written back into the spec                                                                             |
+| 3    | `/speckit-plan`          | `plan.md`, `research.md` (decisions and pinned versions), `data-model.md`, `contracts/` (OpenAPI), `quickstart.md` — the design artefacts |
+| 4    | `/speckit-checklist`     | Requirement-quality checklists for the spec                                                                                               |
+| 5    | `/speckit-tasks`         | `tasks.md`: ordered, dependency-marked tasks                                                                                              |
+| 6    | `/speckit-analyze`       | Consistency check across spec, plan and tasks; fixed before any code                                                                      |
+| 7    | `/speckit-taskstoissues` | GitHub issues, added to [Project 1](https://github.com/users/psimhadri1980/projects/1), each linking to its spec                          |
+| 8    | `/speckit-implement`     | Code, one task per PR; done when acceptance tests and CI are green and it runs in Podman                                                  |
 
 You are asked for input at two points only: the constitution (once), and step 2 of each feature, where Spec Kit
 puts its questions to you.
@@ -200,7 +200,7 @@ The browser-side scheduling engine is **not** ported; the server stores and vali
 
 ## 6a. Code rules: write code if and only if it is necessary
 
-These go into the constitution verbatim, so `/speckit.plan`, `/speckit.analyze` and every review are held to them.
+These go into the constitution verbatim, so `/speckit-plan`, `/speckit-analyze` and every review are held to them.
 
 **Before writing anything, take the first option that fully works:**
 
@@ -240,7 +240,7 @@ These go into the constitution verbatim, so `/speckit.plan`, `/speckit.analyze` 
 
 **How this is enforced, not just hoped for:** Checkstyle and Error Prone flag unused and dead code; ArchUnit
 holds the layering; the PR template asks for the acceptance criterion each change serves and the lines deleted;
-`/speckit.analyze` rejects tasks with no criterion behind them; and each PR is reviewed for the table above
+`/speckit-analyze` rejects tasks with no criterion behind them; and each PR is reviewed for the table above
 before merge.
 
 ## 7. Quality gates (all enforced in CI; a red gate blocks merge)
@@ -251,13 +251,13 @@ before merge.
 | Java lint and structure  | Checkstyle, Error Prone, ArchUnit layering check (§6a)                                                                                                                                                                                                                                                                         |
 | Java static analysis     | SpotBugs with FindSecBugs, CodeQL                                                                                                                                                                                                                                                                                              |
 | Comments                 | Checkstyle Javadoc rules: every class and public method documented; comments cite the spec/task id they implement (the convention the gantt repo already uses)                                                                                                                                                                 |
-| Tests                    | JUnit; integration tests on real PostgreSQL, Redis and Keycloak via Testcontainers; tests that a missing, expired or wrong-team token is refused at nginx and at the service, and that PostgreSQL and Redis refuse a non-TLS connection; the gantt conformance suite; JaCoCo threshold                                         |
+| Tests                    | JUnit; integration tests on the real PostgreSQL, Redis and Keycloak that `run/run.sh` starts (no Testcontainers); tests that a missing, expired or wrong-team token is refused at nginx and at the service, and that PostgreSQL and Redis refuse a non-TLS connection; the gantt conformance suite; JaCoCo threshold           |
 | Web                      | TypeScript strict, ESLint with zero warnings (same rules as the gantt repo), Vitest                                                                                                                                                                                                                                            |
 | Containers               | hadolint, Trivy image and filesystem scans; images run non-root, read-only root filesystem, capabilities dropped                                                                                                                                                                                                               |
 | Supply chain and secrets | Dependabot, dependency review, gitleaks, pinned image digests                                                                                                                                                                                                                                                                  |
 | Runtime                  | OWASP ZAP baseline scan against the composed stack (hardening spec)                                                                                                                                                                                                                                                            |
 
-Secrets come from Podman secrets or an untracked env file; none in the repo. PostgreSQL, Redis and Keycloak's
+Secrets are generated on first run into the git-ignored `run/secrets/dev.env`; none is tracked or printed. PostgreSQL, Redis and Keycloak's
 admin port are reachable only on the internal Podman network.
 
 ## 8. Feature backlog (each runs the full lifecycle in §5)
@@ -284,8 +284,8 @@ On approval I will:
 1. Clone `psimhadri1980/road-map` into `/home/simhadri/Documents/workspaces/roadmap`.
 2. Add this document as `PLAN.md` on a branch and open a pull request (no push to `main`).
 3. Install the `specify` CLI from the official `github/spec-kit` repository, run `specify init`, and run
-   `/speckit.constitution`; the constitution comes to you for review.
-4. Start spec 001 at `/speckit.specify`.
+   `/speckit-constitution`; the constitution comes to you for review.
+4. Start spec 001 at `/speckit-specify`.
 
 From you, before step 7 of the lifecycle can create Project items:
 
@@ -296,7 +296,7 @@ gh auth refresh -s project
 ## 10. Verification
 
 - **Step 0**: `PLAN.md` is in a PR on `road-map`; `.specify/` and the constitution are committed.
-- **Per spec**: `/speckit.analyze` reports no open inconsistencies; issues are visible in Project 1; acceptance
+- **Per spec**: `/speckit-analyze` reports no open inconsistencies; issues are visible in Project 1; acceptance
   tests and every gate in §7 pass in CI.
 - **From the skeleton on**: `run/run.sh podman:stack:deploy` brings the stack up from a clean checkout and
   `run/run.sh stack:test` runs every gate; sign-in → roadmap
