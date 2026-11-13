@@ -120,3 +120,19 @@ What the proofs showed beyond the table:
   one above.
 - CodeQL reports findings as alerts and its job passes; it does not block a merge by itself. The
   blocking gates for security analysis are FindSecBugs, Trivy, gitleaks and dependency review.
+
+## 7. Measurements (T037)
+
+Measured 2026-11-13. **Developer machine**: 8-core Intel Xeon W-2125 @ 4 GHz, 30 GB RAM, Podman 5.7.0,
+Node 24; base images already pulled (a cold image pull adds download time), npm and Maven caches empty
+in the fresh clone. **CI runner**: GitHub-hosted `ubuntu-24.04`, Podman 4.9.3.
+
+| Criterion                                       | Limit  | This machine                               | CI runner                                                       |
+| ----------------------------------------------- | ------ | ------------------------------------------ | --------------------------------------------------------------- |
+| SC-001 fresh clone to roadmap in a browser      | 15 min | 132 s (clone 4 s, deploy 125 s, smoke 2 s) | `smoke` job 2m41s (checkout, deploy, smoke, images pulled cold) |
+| SC-002 stopped to all healthy, everything built | 2 min  | 58 to 68 s (3 runs: 68, 58, 58)            | not measured separately                                         |
+| SC-003 page open to task names visible          | 2 s    | 345 to 413 ms (5 runs, median 356 ms)      | not measured                                                    |
+| SC-007 push to last gate result                 | 15 min | not applicable                             | about 3 min (slowest job `static` 2m46s)                        |
+
+SC-003 is time from navigation start to the first task name in the grid, in headless Chrome through
+nginx. SC-002 includes the Keycloak start, the slowest component. All four are within their limits.
