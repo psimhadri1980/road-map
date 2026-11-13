@@ -4,10 +4,11 @@
 // (`podman healthcheck run` every 5 s), because some Podman setups never run health checks.
 import { spawn } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { request } from 'node:http';
+import { request } from 'node:https';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { c, capture, captureAsync, elapsed, exec, log, RunError, sleep } from './log.ts';
+import { CERT_DIR } from './certs.ts';
 import { containerName, mainPort, ROOT, STATE_DIR, type Component } from './components.ts';
 import { baseEnv, ENGINE, interpolate, writeComponentEnv } from './env.ts';
 import { toolEnv } from './build.ts';
@@ -36,8 +37,26 @@ export function containers(): Map<string, ContainerInfo> {
 /** The shell health command of a component, as Podman runs it inside the container. */
 function healthCmd(comp: Component): string | undefined {
   if (comp.health?.cmd) return interpolate(comp.health.cmd, baseEnv(), comp.rel);
-  if (comp.health?.http) return `wget -qO- http://127.0.0.1:${mainPort(comp)}${comp.health.http} >/dev/null`;
   return undefined;
+}
+
+/**
+ * `health.http` is probed from here over HTTPS, the certificate verified against the project CA
+ * (FR-013): images carry no TLS-verifying client, and the probe then checks the same path a
+ * connection takes. Anything under HTTP 400 is healthy.
+ */
+function httpsProbe(port: number, path: string): Promise<{ ok: boolean; detail: string }> {
+  return new Promise((resolve) => {
+    let ca: Buffer;
+    try { ca = readFileSync(join(CERT_DIR, 'ca.crt')); } catch { resolve({ ok: false, detail: `${join(CERT_DIR, 'ca.crt')} is missing` }); return; }
+    const req = request({ host: '127.0.0.1', port, path, ca, timeout: 4000 }, (res) => {
+      res.resume();
+      resolve({ ok: (res.statusCode ?? 500) < 400, detail: `HTTP ${res.statusCode}` });
+    });
+    req.on('error', (e) => resolve({ ok: false, detail: e.message }));
+    req.on('timeout', () => { req.destroy(); resolve({ ok: false, detail: 'timed out' }); });
+    req.end();
+  });
 }
 
 /** `podman run` arguments for a component, from runtimes.podman in its component.yaml. */
@@ -124,6 +143,9 @@ export async function podmanStop(comp: Component, remove = false): Promise<boole
 
 /** Runs the health check once: podman `healthcheck run`, or an HTTP probe for local processes. */
 export async function checkHealth(comp: Component, rt: 'local' | 'podman', maxAgeMs = 0): Promise<{ ok: boolean; detail: string }> {
+  const path = comp.health?.http;
+  const port = mainPort(comp);
+  if (path && !comp.health?.cmd) return port ? httpsProbe(port, path) : { ok: false, detail: 'health.http needs a port' };
   if (rt === 'podman') {
     if (!healthCmd(comp)) return { ok: true, detail: 'no health check' };
     // A result Podman (or an earlier run.sh) recorded within maxAgeMs is reused.
@@ -138,27 +160,16 @@ export async function checkHealth(comp: Component, rt: 'local' | 'podman', maxAg
     const r = await captureAsync(ENGINE, ['healthcheck', 'run', containerName(comp.name)]);
     return { ok: r.code === 0, detail: (r.out + r.err).trim().split('\n').pop() ?? '' };
   }
-  const path = comp.health?.http;
-  const port = mainPort(comp);
-  if (!path || !port) return { ok: true, detail: 'no health check' };
-  return new Promise((resolve) => {
-    const req = request({ host: '127.0.0.1', port, path, timeout: 4000 }, (res) => {
-      res.resume();
-      resolve({ ok: (res.statusCode ?? 500) < 400, detail: `HTTP ${res.statusCode}` });
-    });
-    req.on('error', (e) => resolve({ ok: false, detail: e.message }));
-    req.on('timeout', () => { req.destroy(); resolve({ ok: false, detail: 'timed out' }); });
-    req.end();
-  });
+  return { ok: true, detail: 'no health check' };
 }
 
 /**
  * Waits until a started component is healthy: every 5 s `podman healthcheck run` (the workaround
- * for Podman setups that never run checks themselves), every 2 s an HTTP probe for local ones.
+ * for Podman setups that never run checks themselves), every 2 s an HTTPS probe for local ones.
  * Fails fast when the process exits, with its last log lines.
  */
 export async function waitHealthy(comp: Component, rt: 'local' | 'podman'): Promise<void> {
-  const timeout = (comp.health?.timeout ?? 120) * 1000;
+  const timeout = (comp.health?.timeout ?? 0) * 1000;
   const t = Date.now();
   const poll = rt === 'podman' ? PODMAN_POLL_MS : LOCAL_POLL_MS;
   let lastPrint = 0;
@@ -173,7 +184,7 @@ export async function waitHealthy(comp: Component, rt: 'local' | 'podman'): Prom
     const h = await checkHealth(comp, rt);
     if (h.ok) { log.ok(`${comp.name} is healthy on ${rt} (${elapsed(t)})`); return; }
     if (Date.now() - t > timeout)
-      throw new RunError(`${comp.name}: not healthy after ${comp.health?.timeout ?? 120}s on ${rt} (last check: ${h.detail || 'failed'})`, {
+      throw new RunError(`${comp.name}: not healthy after ${comp.health?.timeout ?? 0}s on ${rt} (last check: ${h.detail || 'failed'})`, {
         tail: rt === 'podman' ? podmanLogsTail(comp) : tailFile(localLog(comp.name)),
         ...(rt === 'local' && { logFile: localLog(comp.name) }),
         hint: `run/run.sh ${rt}:${comp.name}:logs shows all of its output; health.timeout in ${comp.rel}/component.yaml sets the limit`,
