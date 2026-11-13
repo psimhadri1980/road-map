@@ -125,7 +125,7 @@ Two choices depart from strict story order, both for constitution reasons:
 ## Phase 7: Polish
 
 - [x] T037 Measure SC-001, SC-002, SC-003 and SC-007 on this machine and on the CI runner; record the numbers and the machine in `quickstart.md`. [SC-001, SC-002, SC-003, SC-007]
-- [ ] T038 Update `PLAN.md` to what was built: Spec Kit command names with hyphens, integration tests on the `run.sh` services instead of Testcontainers, gantt on pnpm, development secrets generated rather than tracked. [Constitution, Governance]
+- [x] T038 Update `PLAN.md` to what was built: Spec Kit command names with hyphens, integration tests on the `run.sh` services instead of Testcontainers, gantt on pnpm, development secrets generated rather than tracked. [Constitution, Governance]
 
 ---
 
