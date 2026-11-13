@@ -12,6 +12,6 @@ test.each([
   vi.stubGlobal('fetch', vi.fn(fetchImpl));
   render(<App />);
   expect((await screen.findByRole('alert')).textContent).toBe(
-    'The roadmap could not be loaded. Try again in a moment.',
+    'The roadmap could not be loaded.',
   );
 });
