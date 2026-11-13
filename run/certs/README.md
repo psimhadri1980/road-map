@@ -19,9 +19,9 @@ webhooks and Git sources behind your CA work. Without it nothing changes. The fi
 
 ## Gateway HTTPS (server certificate)
 
-`gateway.crt` and `gateway.key` (PEM) make the gateway serve HTTPS on `D4_TLS_PORT` (host.conf,
-default 5443) next to plain HTTP on `D4_PORT` (5173). They are the gateway's own identity,
-usually issued by your organization CA, and are mounted read-only at `/run/d4-certs`; the key is
+`gateway.crt` and `gateway.key` (PEM) make the gateway serve HTTPS on `RM_TLS_PORT` (host.conf,
+default 5443) next to plain HTTP on `RM_PORT` (5173). They are the gateway's own identity,
+usually issued by your organization CA, and are mounted read-only at `/run/rm-certs`; the key is
 never copied into image builds. The key must be readable by the container user
 (`chmod 644 run/certs/gateway.key` for rootless Podman). Without both files the gateway stays plain HTTP.
 `GATEWAY_TLS_CERT` and `GATEWAY_TLS_KEY` in `local.env` override the paths. Run `run/run.sh gateway:deploy` after changing them.

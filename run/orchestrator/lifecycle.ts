@@ -9,7 +9,7 @@ import { component, containerName, dependencies, isProcess, mainPort, order, ROO
 import { baseEnv, ENGINE, writeComponentEnv } from './env.ts';
 import { compile, ensureDeps, ensureImage, imageExists, imageHash, imageRef, prefetchHashes, sourcesOf } from './build.ts';
 import {
-  checkHealth, containers, describeRuntime, legacyContainers, localInfo, localLog, localPid, localStart, localStop, podmanStart, podmanStop, waitHealthy, whereRunning,
+  checkHealth, containers, describeRuntime, localInfo, localLog, localPid, localStart, localStop, podmanStart, podmanStop, waitHealthy, whereRunning,
 } from './runtime.ts';
 
 interface Target { comp: Component; rt: Runtime }
@@ -67,7 +67,7 @@ export async function build(targets: Target[]): Promise<Map<string, string>> {
   return images;
 }
 
-/** Makes sure the gateway and every dependency of the targets run (started, not rebuilt). */
+/** Makes sure nginx and every dependency of the targets run (started, not rebuilt). */
 function withDependencies(targets: Target[]): { targets: Target[]; added: string[] } {
   const named = new Set(targets.map((x) => x.comp.name));
   const cons = containers();
@@ -79,7 +79,7 @@ function withDependencies(targets: Target[]): { targets: Target[]; added: string
   for (const { comp, rt } of targets) {
     if (!isProcess(comp)) continue;
     for (const d of dependencies(comp)) need.set(d.name, d);
-    if (comp.name !== 'gateway' && comp.category !== 'infra') need.set('gateway', component('gateway'));
+    if (comp.name !== 'nginx' && comp.category !== 'infra') need.set('nginx', component('nginx'));
     const via = comp.runtimes.podman?.via;
     if (via) (rt === 'podman' ? servers : need).set(via, component(via));
   }
@@ -98,7 +98,7 @@ function withDependencies(targets: Target[]): { targets: Target[]; added: string
 const hookState = (name: string) => join(STATE_DIR, 'hooks', `${name}.json`);
 
 /**
- * postStart hooks (migrations and seed after postgres, the graph schema after neo4j): run when the
+ * postStart hooks (for example the migration after postgres): run when the
  * component was (re)started or the hook's image changed since they last ran.
  */
 async function runHooks(comp: Component, restarted: boolean): Promise<void> {
@@ -127,29 +127,6 @@ async function switchFrom(comp: Component, rt: Runtime): Promise<void> {
   }
 }
 
-/** Removes the containers of the old compose setup (volumes kept), which hold the same ports. */
-async function removeLegacy(): Promise<void> {
-  const old = legacyContainers();
-  if (!old.length) { removeOldNetwork(); return; }
-  log.phase(`Removing ${old.length} containers from the old compose setup (their volumes and data are kept)`);
-  // Podman can report a failed network clean-up after removing them; what counts is what is left.
-  const r = await exec(ENGINE, ['rm', '-f', '-t', '10', ...old], { logName: 'legacy.log', label: 'removing old containers', okCodes: [0, 125] });
-  const left = legacyContainers();
-  if (left.length) throw new RunError(`could not remove old containers: ${left.join(', ')}`, { tail: r.tail, hint: `remove them yourself: ${ENGINE} rm -f ${left.join(' ')}` });
-  if (r.code) log.warn(`podman reported: ${r.tail.at(-1) ?? 'an error'} (the containers are gone)`);
-  log.ok(`removed ${old.length} old containers`);
-  removeOldNetwork();
-}
-
-/** The old compose network `d4`: nothing uses networks any more (everything is on the host network). */
-function removeOldNetwork(): void {
-  if (capture(ENGINE, ['network', 'exists', 'd4']).code !== 0) return;
-  const users = capture(ENGINE, ['ps', '-a', '--filter', 'network=d4', '--format', '{{.Names}}']).out.trim();
-  if (users) { log.warn(`the old d4 network is still used by: ${users.replace(/\n/g, ', ')} (tenant graphs: recreate them with run/run.sh ops:exec -- tenant create)`); return; }
-  const r = capture(ENGINE, ['network', 'rm', 'd4']);
-  if (r.code === 0) log.ok('removed the old d4 network'); else log.warn(`could not remove the old d4 network: ${r.err.trim()}`);
-}
-
 /** deploy / start: build (deploy only, or when nothing is built yet), switch runtime, start, wait, hooks. */
 export async function up(targets: Target[], o: { build: boolean }): Promise<void> {
   const t = Date.now();
@@ -160,7 +137,6 @@ export async function up(targets: Target[], o: { build: boolean }): Promise<void
   let images = new Map<string, string>();
   const toBuild = o.build ? [...all, ...targets.filter((x) => !isProcess(x.comp))] : all.filter((x) => needsBuild(x));
   if (toBuild.length) images = await build(dedupe(toBuild));
-  if (all.some((x) => x.rt === 'podman')) await removeLegacy();
   log.phase(`Start: ${all.map((x) => `${x.comp.name} (${x.rt})`).join(' → ')}`);
   let i = 0;
   for (const { comp, rt } of all) {
@@ -179,7 +155,7 @@ export async function up(targets: Target[], o: { build: boolean }): Promise<void
     if (comp.hooks.postStart.length) await runHooks(comp, result !== 'unchanged');
   }
   log.ok(`done in ${elapsed(t)}: ${all.map((x) => x.comp.name).join(', ')}`);
-  for (const { comp, rt } of all) if (comp.route) log.detail(`${comp.name} (${rt}) → ${baseEnv()['D4_PUBLIC_URL']}${comp.route}`);
+  for (const { comp, rt } of all) if (comp.route) log.detail(`${comp.name} (${rt}) → ${baseEnv()['RM_PUBLIC_URL']}${comp.route}`);
 }
 
 const dedupe = (ts: Target[]) => [...new Map(ts.map((x) => [`${x.comp.name}:${x.rt}`, x])).values()];
@@ -193,7 +169,7 @@ function needsBuild({ comp, rt }: Target): boolean {
 }
 
 function latestImage(comp: Component): string | undefined {
-  const r = capture(ENGINE, ['images', '--filter', `reference=localhost/d4-${comp.name}`, '--sort', 'created', '--format', '{{.Repository}}:{{.Tag}}']);
+  const r = capture(ENGINE, ['images', '--filter', `reference=localhost/rm-${comp.name}`, '--sort', 'created', '--format', '{{.Repository}}:{{.Tag}}']);
   return r.out.split('\n').map((s) => s.trim()).filter((s) => s && !s.endsWith(':<none>'))[0];
 }
 
@@ -235,7 +211,7 @@ export async function reset(targets: Target[], rt: Runtime | undefined, wholeSta
   const what = [
     `${targets.length} component(s): ${targets.map((x) => x.comp.name).join(', ')}`,
     vols.length && (!rt || rt === 'podman') ? `volumes (data is deleted): ${vols.join(', ')}` : '',
-    wholeStack ? 'all D4 images and run/.run state' : '',
+    wholeStack ? 'all rm images and run/.run state' : '',
   ].filter(Boolean);
   log.phase('Reset');
   for (const w of what) log.info(w);
@@ -254,9 +230,8 @@ export async function reset(targets: Target[], rt: Runtime | undefined, wholeSta
     }
   }
   if (wholeStack) {
-    await removeLegacy();
-    const imgs = capture(ENGINE, ['images', '--filter', 'reference=localhost/d4-*', '--format', '{{.Repository}}:{{.Tag}}']).out.split('\n').filter((s) => s.trim() && !s.endsWith(':<none>'));
-    if (imgs.length) await exec(ENGINE, ['rmi', '-f', ...imgs], { logName: 'reset.log', label: 'removing D4 images', okCodes: [0, 1, 2] });
+    const imgs = capture(ENGINE, ['images', '--filter', 'reference=localhost/rm-*', '--format', '{{.Repository}}:{{.Tag}}']).out.split('\n').filter((s) => s.trim() && !s.endsWith(':<none>'));
+    if (imgs.length) await exec(ENGINE, ['rmi', '-f', ...imgs], { logName: 'reset.log', label: 'removing rm images', okCodes: [0, 1, 2] });
     for (const d of ['env', 'ctx', 'pids', 'hooks']) rmSync(join(STATE_DIR, d), { recursive: true, force: true });
     log.ok('images and run/.run state removed');
   }
@@ -282,7 +257,7 @@ export async function logs(targets: Target[], rt: Runtime | undefined, args: str
   }
 }
 
-/** Runs a tool once (ops, cli, e2e): `podman run --rm` on the host network, or its local command. */
+/** Runs a tool once: `podman run --rm` on the host network, or its local command. */
 export async function runTool(comp: Component, rt: Runtime, args: string[], o: { logName?: string; label?: string; inherit?: boolean; env?: Record<string, string> } = {}): Promise<void> {
   if (rt === 'local') {
     const { env } = writeComponentEnv(comp, 'local');
@@ -307,7 +282,7 @@ export async function runTool(comp: Component, rt: Runtime, args: string[], o: {
   });
 }
 
-/** Before a tool runs (ops, cli): starts what it depends on that is not running (no build). */
+/** Before a tool runs: starts what it depends on that is not running (no build). */
 export async function ensureDependencies(comp: Component): Promise<void> {
   const missing = dependencies(comp).filter((d) => isProcess(d) && !whereRunning(d).length);
   if (!missing.length) return;
@@ -399,9 +374,7 @@ export async function status(comps: Component[], rt: Runtime | undefined, json: 
   };
   process.stdout.write(c.bold(cols.map((k) => k.toUpperCase().padEnd(width[k]!)).join('  ')) + '\n');
   for (const r of sorted) process.stdout.write(cols.map((k) => colour(k, r[k]!)).join('  ') + '\n');
-  process.stdout.write(c.dim(`\nentry point: ${env['D4_PUBLIC_URL']}  ·  logs: run/.run/logs  ·  `) + (problems ? c.red(`${problems} problem(s)`) : c.green('no problems')) + '\n');
-  const legacy = legacyContainers();
-  if (legacy.length) process.stdout.write(c.yellow(`old compose containers still present: ${legacy.join(', ')} (run/run.sh podman:stack:deploy replaces them)\n`));
+  process.stdout.write(c.dim(`\nentry point: ${env['RM_PUBLIC_URL']}  ·  logs: run/.run/logs  ·  `) + (problems ? c.red(`${problems} problem(s)`) : c.green('no problems')) + '\n');
   return problems ? 1 : 0;
 }
 

@@ -1,4 +1,4 @@
-// The two runtimes. podman: one container per component, `d4-<name>`, on the host network (no
+// The two runtimes. podman: one container per component, `rm-<name>`, on the host network (no
 // networks are created; every component listens on 127.0.0.1:<port>). local: a detached process
 // on local Node with a pid file and a log under run/.run. Health is polled by run.sh itself
 // (`podman healthcheck run` every 5 s), because some Podman setups never run health checks.
@@ -19,23 +19,18 @@ export const localLog = (name: string) => join(STATE_DIR, 'logs', `${name}.local
 
 interface ContainerInfo { name: string; state: string; image: string; hash: string; started: string; health: boolean }
 
-/** Every container run.sh manages (label d4.component), in one call. */
+/** Every container run.sh manages (label rm.component), in one call. */
 export function containers(): Map<string, ContainerInfo> {
-  const r = capture(ENGINE, ['ps', '-a', '--filter', 'label=d4.component', '--format', 'json']);
+  const r = capture(ENGINE, ['ps', '-a', '--filter', 'label=rm.component', '--format', 'json']);
   const out = new Map<string, ContainerInfo>();
   if (r.code !== 0) return out;
   const list = JSON.parse(r.out || '[]') as { Names: string[]; State: string; Image: string; Labels: Record<string, string>; StartedAt: number; Status: string }[];
   for (const x of list) {
-    const name = x.Labels?.['d4.component'];
-    if (!name || x.Labels['d4.tenant']) continue;
-    out.set(name, { name, state: x.State, image: x.Image, hash: x.Labels['d4.hash'] ?? '', started: x.StartedAt ? new Date(x.StartedAt * 1000).toISOString() : '', health: x.Labels['d4.health'] === 'yes' });
+    const name = x.Labels?.['rm.component'];
+    if (!name) continue;
+    out.set(name, { name, state: x.State, image: x.Image, hash: x.Labels['rm.hash'] ?? '', started: x.StartedAt ? new Date(x.StartedAt * 1000).toISOString() : '', health: x.Labels['rm.health'] === 'yes' });
   }
   return out;
-}
-
-/** Containers from the old compose setup (`d4-<service>-1`), which hold the same ports. */
-export function legacyContainers(): string[] {
-  return capture(ENGINE, ['ps', '-a', '--filter', 'label=com.docker.compose.project=d4', '--format', '{{.Names}}']).out.split('\n').map((s) => s.trim()).filter(Boolean);
 }
 
 /** The shell health command of a component, as Podman runs it inside the container. */
@@ -51,7 +46,7 @@ function runArgs(comp: Component, image: string, envFile: string, envHash: strin
   const env = baseEnv();
   const hc = healthCmd(comp);
   const args = ['run', '-d', '--name', containerName(comp.name), '--network', 'host',
-    '--label', `d4.component=${comp.name}`, '--label', `d4.hash=${image.split(':').pop()}`, '--label', `d4.env=${envHash}`, '--label', `d4.health=${hc ? 'yes' : 'no'}`,
+    '--label', `rm.component=${comp.name}`, '--label', `rm.hash=${image.split(':').pop()}`, '--label', `rm.env=${envHash}`, '--label', `rm.health=${hc ? 'yes' : 'no'}`,
     '--env-file', envFile];
   if (spec.readOnly) args.push('--read-only');
   for (const t of spec.tmpfs ?? []) args.push('--tmpfs', t);
@@ -95,7 +90,7 @@ export async function podmanStart(comp: Component, image: string, recreate: bool
   const name = containerName(comp.name);
   const cur = containers().get(comp.name);
   if (cur) {
-    const same = cur.image === image && capture(ENGINE, ['inspect', '-f', '{{index .Config.Labels "d4.env"}}', name]).out.trim() === envHash;
+    const same = cur.image === image && capture(ENGINE, ['inspect', '-f', '{{index .Config.Labels "rm.env"}}', name]).out.trim() === envHash;
     if (same && !recreate) {
       if (cur.state === 'running') { log.info(`${name} is already running this image and settings`); return 'unchanged'; }
       await exec(ENGINE, ['start', name], { logName: `${comp.name}.podman.log`, label: `starting ${name}` });
@@ -107,7 +102,7 @@ export async function podmanStart(comp: Component, image: string, recreate: bool
   for (const p of Object.values(comp.ports)) {
     const owner = portOwner(p);
     if (owner) throw new RunError(`${comp.name}: port ${p} is already in use by '${owner}'`, {
-      hint: `stop whatever listens on ${p} (run/run.sh status shows D4's own components; old compose containers are removed by run/run.sh podman:stack:stop)`,
+      hint: `stop whatever listens on ${p} (run/run.sh status shows this project's components)`,
     });
   }
   await exec(ENGINE, runArgs(comp, image, file, envHash), {

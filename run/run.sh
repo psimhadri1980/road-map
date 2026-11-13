@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# D4's one entry point: run/run.sh [<runtime>:]<component>:<command> [args]. See `run/run.sh help`.
+# road-map's one entry point: run/run.sh [<runtime>:]<component>:<command> [args]. See `run/run.sh help`.
 # Finds Node 24 (.node-version, through nvm when the shell's node differs) and runs the
 # orchestrator in run/orchestrator, which installs its own dependencies on first use.
 set -euo pipefail

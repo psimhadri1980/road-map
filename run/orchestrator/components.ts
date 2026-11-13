@@ -9,6 +9,8 @@ import { RunError } from './log.ts';
 export const ROOT = join(import.meta.dirname, '..', '..');
 export const RUN_DIR = join(ROOT, 'run');
 export const STATE_DIR = join(RUN_DIR, '.run');
+/** The one name prefix: containers `rm-<name>`, images `localhost/rm-<name>:<hash>`; labels are `rm.*`. */
+export const PREFIX = 'rm';
 
 export const CATEGORIES = ['ui', 'service', 'infra', 'tool'] as const;
 export const RUNTIMES = ['local', 'podman'] as const;
@@ -59,7 +61,7 @@ export interface Component {
   sharedEnv: boolean;
   runtimes: { default: Runtime; local?: { command: string; build: 'deps' | 'full' }; podman?: PodmanSpec };
   hooks: { postStart: { component: string; args: string[] }[] };
-  test: { unit: boolean; integration?: { needs: string[] }; e2e: string[] };
+  test: { unit: boolean; integration?: { needs: string[] } };
   /** The folder holding component.yaml, absolute and relative to the repository. */
   dir: string;
   rel: string;
@@ -97,7 +99,7 @@ const layers = (file: string, what: string, v: unknown): EnvLayers => {
   return { common: strMap(file, `${what}.common`, v['common']), local: strMap(file, `${what}.local`, v['local']), podman: strMap(file, `${what}.podman`, v['podman']) };
 };
 
-/** Parses and checks one component.yaml (the contract, version d4/v1). */
+/** Parses and checks one component.yaml (the contract, version road-map/v1). */
 function parseComponent(file: string): Component {
   const rel = relative(ROOT, file);
   let doc: unknown;
@@ -108,7 +110,7 @@ function parseComponent(file: string): Component {
   }
   if (!isObj(doc)) fail(rel, 'expected a map');
   for (const k of Object.keys(doc)) if (!KEYS.has(k)) fail(rel, `unknown key '${k}'`);
-  if (doc['apiVersion'] !== 'd4/v1' || doc['kind'] !== 'Component') fail(rel, 'expected apiVersion: d4/v1 and kind: Component');
+  if (doc['apiVersion'] !== 'road-map/v1' || doc['kind'] !== 'Component') fail(rel, 'expected apiVersion: road-map/v1 and kind: Component');
   const name = doc['name'];
   if (typeof name !== 'string' || !/^[a-z][a-z0-9-]*$/.test(name)) fail(rel, 'name must be lower-case letters, digits and dashes');
   const category = doc['category'] as Category;
@@ -129,7 +131,7 @@ function parseComponent(file: string): Component {
   }
   const raw = doc['ports'] ?? {};
   if (!isObj(raw)) fail(rel, 'ports must map names to port numbers');
-  // A port may come from host.conf (the gateway: `${D4_PORT}`).
+  // A port may come from host.conf (the gateway: `${RM_PORT}`).
   const ports = Object.fromEntries(Object.entries(raw).map(([k, v]) => {
     const n = typeof v === 'string' ? Number(v.replace(/^\$\{(\w+)(?::-(\d+))?\}$/, (_m, key: string, d?: string) => hostSetting(key) ?? d ?? '')) : v;
     if (!Number.isInteger(n)) fail(rel, `ports.${k} must be a port number or \${HOST_CONF_KEY}`);
@@ -176,7 +178,6 @@ function parseComponent(file: string): Component {
     test: {
       unit: test['unit'] !== false && !!doc['source'],
       ...(isObj(integration) && { integration: { needs: list(integration['needs'], 'test.integration.needs') } }),
-      e2e: list(test['e2e'], 'test.e2e'),
     },
     dir: dirname(file),
     rel: relative(ROOT, dirname(file)),
@@ -227,7 +228,7 @@ export function component(name: string): Component {
 export const isProcess = (comp: Component) => comp.category !== 'tool';
 
 /**
- * Resolves `api`, `service`, `observability` (a group), `stack` or a comma list to components.
+ * Resolves `api`, `service`, a group, `stack` or a comma list to components.
  * `stack` is every non-optional, non-tool component; categories and groups include optional ones.
  */
 export function select(selector: string): Component[] {
@@ -283,6 +284,6 @@ export function runtimeFor(comp: Component, requested: Runtime | undefined): Run
 }
 
 /** The container name of a component. */
-export const containerName = (name: string) => `d4-${name}`;
+export const containerName = (name: string) => `${PREFIX}-${name}`;
 /** The first port: what health checks and the gateway use. */
 export const mainPort = (comp: Component) => comp.health?.port ?? Object.values(comp.ports)[0];

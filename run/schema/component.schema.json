@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://d4.local/schema/component.schema.json",
-  "title": "D4 component (d4/v1)",
+  "$id": "https://road-map.local/schema/component.schema.json",
+  "title": "road-map component (road-map/v1)",
   "description": "One component.yaml per component (apps/*, packages/*, infra/*), read by run/run.sh. run/orchestrator/components.ts enforces the same rules.",
   "type": "object",
   "additionalProperties": false,
@@ -11,21 +11,21 @@
     "envLayers": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Values for every runtime (common) and per runtime (local, podman). ${VAR}, ${VAR:-default} and ${VAR:?message} interpolate from run/env, host.conf and derived values (D4_PUBLIC_URL, PORT_<NAME>, ...).",
+      "description": "Values for every runtime (common) and per runtime (local, podman). ${VAR}, ${VAR:-default} and ${VAR:?message} interpolate from run/env, host.conf and derived values (RM_PUBLIC_URL, PORT_<NAME>, ...).",
       "properties": { "common": { "$ref": "#/$defs/envMap" }, "local": { "$ref": "#/$defs/envMap" }, "podman": { "$ref": "#/$defs/envMap" } }
     },
     "names": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } }
   },
   "properties": {
-    "apiVersion": { "const": "d4/v1" },
+    "apiVersion": { "const": "road-map/v1" },
     "kind": { "const": "Component" },
-    "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Unique; the container is d4-<name>." },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Unique; the container is rm-<name>." },
     "category": { "enum": ["ui", "service", "infra", "tool"], "description": "Selectable as a group: run.sh <runtime>:<category>:<command>. tool: run once (exec, test), no long-running process." },
     "description": { "type": "string" },
-    "group": { "type": "string", "description": "An extra selector (observability)." },
+    "group": { "type": "string", "description": "An extra selector." },
     "optional": { "type": "boolean", "description": "Left out of `stack`; started only when named (or by category/group)." },
     "dependsOn": { "$ref": "#/$defs/names", "description": "Started before this one; their `provides` flow into this one's settings." },
-    "source": { "type": "string", "description": "The workspace package built with turbo (@d4/api)." },
+    "source": { "type": "string", "description": "The workspace package built with turbo (@road-map/web)." },
     "ports": {
       "type": "object",
       "description": "Ports on 127.0.0.1 (host network), the same in every runtime. The first one (or health.port) is the component's address. A value may be ${KEY} from host.conf.",
@@ -103,8 +103,7 @@
       "additionalProperties": false,
       "properties": {
         "unit": { "type": "boolean" },
-        "integration": { "type": "object", "additionalProperties": false, "properties": { "needs": { "$ref": "#/$defs/names" } } },
-        "e2e": { "type": "array", "items": { "type": "string" }, "description": "The browser specs covering this component (apps/e2e/tests/...)." }
+        "integration": { "type": "object", "additionalProperties": false, "properties": { "needs": { "$ref": "#/$defs/names" } } }
       }
     }
   }

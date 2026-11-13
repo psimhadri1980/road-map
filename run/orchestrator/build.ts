@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, lstatSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { c, capture, elapsed, exec, log, opts, RunError } from './log.ts';
-import { component, loadComponents, ROOT, RUN_DIR, STATE_DIR, type Component } from './components.ts';
+import { component, loadComponents, PREFIX, ROOT, RUN_DIR, STATE_DIR, type Component } from './components.ts';
 import { baseEnv, ENGINE, interpolate } from './env.ts';
 
 const PNPM_VERSION = /"pnpm@([^"]+)"/.exec(readFileSync(join(ROOT, 'package.json'), 'utf8'))?.[1] ?? '9.12.0';
@@ -21,7 +21,7 @@ export function toolEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
     COREPACK_NPM_REGISTRY: process.env['COREPACK_NPM_REGISTRY'] || env['NPM_REGISTRY'],
     NPM_CONFIG_UPDATE_NOTIFIER: 'false',
     TURBO_TELEMETRY_DISABLED: '1',
-    ...(env['D4_CA_HOST'] && !process.env['NODE_EXTRA_CA_CERTS'] && { NODE_EXTRA_CA_CERTS: env['D4_CA_HOST'] }),
+    ...(env['RM_CA_HOST'] && !process.env['NODE_EXTRA_CA_CERTS'] && { NODE_EXTRA_CA_CERTS: env['RM_CA_HOST'] }),
     ...extra,
   };
 }
@@ -137,13 +137,13 @@ function buildArgs(comp: Component): Record<string, string> {
   const env = baseEnv();
   const args: Record<string, string> = {
     NODE_IMAGE: env['NODE_IMAGE'] ?? '', NODE_SLIM_IMAGE: env['NODE_SLIM_IMAGE'] ?? '', NGINX_IMAGE: env['NGINX_IMAGE'] ?? '',
-    PLAYWRIGHT_IMAGE: env['PLAYWRIGHT_IMAGE'] ?? '', NPM_REGISTRY: env['NPM_REGISTRY'] ?? '', NODE_EXTRA_CA_CERTS: env['D4_CA_BUILD'] ?? '',
+    NPM_REGISTRY: env['NPM_REGISTRY'] ?? '', NODE_EXTRA_CA_CERTS: env['RM_CA_BUILD'] ?? '',
   };
   for (const [k, v] of Object.entries(comp.runtimes.podman?.build?.args ?? {})) args[k] = interpolate(v, env, `${comp.rel}/component.yaml`);
   return args;
 }
 
-/** A hash of everything an image is made from: tag `localhost/d4-<name>:<hash>`. */
+/** A hash of everything an image is made from: tag `localhost/rm-<name>:<hash>`. */
 export function imageHash(comp: Component): string {
   const build = comp.runtimes.podman?.build;
   if (!build) throw new RunError(`${comp.name} has no image to build`);
@@ -159,7 +159,7 @@ export function imageHash(comp: Component): string {
   return h.digest('hex').slice(0, 12);
 }
 
-export const imageRef = (comp: Component, hash: string) => `localhost/d4-${comp.name}:${hash}`;
+export const imageRef = (comp: Component, hash: string) => `localhost/${PREFIX}-${comp.name}:${hash}`;
 export const imageExists = (ref: string) => capture(ENGINE, ['image', 'exists', ref]).code === 0;
 
 /**
@@ -180,7 +180,7 @@ async function stage(comp: Component, ctx: string): Promise<void> {
     log.detail(`packaging ${comp.source} with its production dependencies (pnpm deploy)`);
     rmSync(app, { recursive: true, force: true });
     await exec('pnpm', ['--filter', comp.source!, 'deploy', '--prod', '--prefer-offline', app], {
-      cwd: ROOT, env: toolEnv(), logName: `${comp.name}.package.log`, label: `packaging ${comp.name}`, quiet: !process.env['D4_DEBUG'],
+      cwd: ROOT, env: toolEnv(), logName: `${comp.name}.package.log`, label: `packaging ${comp.name}`, quiet: !process.env['RM_DEBUG'],
     });
     for (const extra of ['src', 'test', 'Containerfile', 'component.yaml', 'tsconfig.json', 'tsconfig.build.json', 'vitest.config.ts'])
       rmSync(join(app, extra), { recursive: true, force: true });
@@ -203,7 +203,7 @@ async function stage(comp: Component, ctx: string): Promise<void> {
 /**
  * A fingerprint of a packaged node_modules: third-party packages live under versioned paths
  * (`.pnpm/<name>@<version>/`), so their path and size suffice; the workspace's own packages
- * (`@d4+…`) and everything else are hashed by content. pnpm's state file (timestamps) is skipped.
+ * (`@rm+…`) and everything else are hashed by content. pnpm's state file (timestamps) is skipped.
  */
 function depsKey(dir: string): string {
   const h = createHash('sha1');
@@ -216,7 +216,7 @@ function depsKey(dir: string): string {
       h.update(rel + '\0');
       if (e.isSymbolicLink()) h.update('-> ' + readlinkSync(p));
       else if (e.isDirectory()) walk(p);
-      else if (e.isFile()) h.update(rel.startsWith('.pnpm/') && !rel.includes('@d4+') ? String(lstatSync(p).size) : readFileSync(p));
+      else if (e.isFile()) h.update(rel.startsWith('.pnpm/') && !rel.includes('@rm+') ? String(lstatSync(p).size) : readFileSync(p));
     }
   };
   walk(dir);
@@ -263,7 +263,7 @@ async function buildImage(comp: Component, i: number, n: number): Promise<string
   const containerfile = join(ctx, 'component', comp.runtimes.podman!.build!.containerfile ?? 'Containerfile');
   if (!existsSync(containerfile)) throw new RunError(`${comp.name}: no ${relative(ROOT, join(comp.dir, comp.runtimes.podman!.build!.containerfile ?? 'Containerfile'))}`);
   const args = Object.entries(buildArgs(comp)).flatMap(([k, v]) => ['--build-arg', `${k}=${v}`]);
-  await exec(ENGINE, ['build', '-f', containerfile, '-t', ref, '--label', `d4.component=${comp.name}`, '--label', `d4.hash=${hash}`, ...args, ctx], {
+  await exec(ENGINE, ['build', '-f', containerfile, '-t', ref, '--label', `rm.component=${comp.name}`, '--label', `rm.hash=${hash}`, ...args, ctx], {
     env: toolEnv(), logName: `${comp.name}.image.log`, label: `building the ${comp.name} image`,
     hint: `the Containerfile is ${relative(ROOT, join(comp.dir, comp.runtimes.podman!.build!.containerfile ?? 'Containerfile'))}`,
     onLine: (l) => { if (/^STEP \d+\/\d+/.test(l)) log.detail(l.slice(0, 140)); },
@@ -276,7 +276,7 @@ async function buildImage(comp: Component, i: number, n: number): Promise<string
 
 /** Removes older tags of a component's image that no container uses. */
 function pruneImages(comp: Component, keep: string): void {
-  const r = capture(ENGINE, ['images', '--filter', `reference=localhost/d4-${comp.name}`, '--format', '{{.Repository}}:{{.Tag}}']);
+  const r = capture(ENGINE, ['images', '--filter', `reference=localhost/rm-${comp.name}`, '--format', '{{.Repository}}:{{.Tag}}']);
   const used = new Set(capture(ENGINE, ['ps', '-a', '--format', '{{.Image}}']).out.split('\n').map((s) => s.trim()));
   for (const ref of r.out.split('\n').map((s) => s.trim()).filter(Boolean)) {
     if (ref === keep || used.has(ref) || ref.endsWith(':<none>')) continue;

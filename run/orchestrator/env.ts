@@ -4,12 +4,12 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
-import { capture, log, RunError } from './log.ts';
+import { log, RunError } from './log.ts';
 import { component, dependencies, loadComponents, mainPort, ROOT, RUN_DIR, STATE_DIR, type Component, type Runtime } from './components.ts';
 
-export const ENGINE = process.env['D4_CONTAINER_ENGINE'] || 'podman';
-/** `D4_PROFILE=prod`: run/env/prod.env on top, no development secrets. */
-const PROFILE = process.env['D4_PROFILE'] || 'dev';
+export const ENGINE = process.env['RM_CONTAINER_ENGINE'] || 'podman';
+/** `RM_PROFILE=prod`: run/env/prod.env on top, no development secrets. */
+const PROFILE = process.env['RM_PROFILE'] || 'dev';
 
 /** Flat KEY=value lines (comments and blank lines skipped), as bash, Podman and Node read them. */
 function readEnvFile(file: string): Record<string, string> {
@@ -60,60 +60,42 @@ function stageCerts(env: Record<string, string>): void {
  */
 export function baseEnv(): Record<string, string> {
   if (base) return base;
-  const files = ['env/common.env', 'env/images.env', ...(PROFILE === 'prod' ? ['env/prod.env'] : ['env/dev-secrets.env']), '../host.conf', 'env/local.env'];
+  const files = ['env/common.env', 'env/images.env', ...(PROFILE === 'prod' ? ['env/prod.env'] : ['secrets/dev.env']), '../host.conf', 'env/local.env'];
   const env: Record<string, string> = {};
   for (const f of files) Object.assign(env, readEnvFile(join(RUN_DIR, f)));
   for (const k of Object.keys(env)) if (process.env[k] !== undefined) env[k] = process.env[k]!;
   stageCerts(env);
-  const scheme = env['D4_SCHEME'] || 'http';
-  const port = env['D4_PORT'] || '5173';
+  const scheme = env['RM_SCHEME'] || 'http';
+  const port = env['RM_PORT'] || '5173';
   const deflt = (scheme === 'http' && port === '80') || (scheme === 'https' && port === '443');
-  const url = `${scheme}://${env['D4_HOST'] || 'localhost'}${deflt ? '' : ':' + port}`;
+  const url = `${scheme}://${env['RM_HOST'] || 'localhost'}${deflt ? '' : ':' + port}`;
   const ca = existsSync(join(RUN_DIR, 'certs/org-ca.crt')) && statSync(join(RUN_DIR, 'certs/org-ca.crt')).size > 0;
   const tls = existsSync(join(RUN_DIR, 'certs/gateway.crt')) && existsSync(join(RUN_DIR, 'certs/gateway.key'));
   const derived: Record<string, string> = {
-    D4_ROOT: ROOT,
-    D4_PUBLIC_URL: url,
-    D4_PUBLIC_API_URL: `${url}/api`,
-    OIDC_ISSUER: `${url}/auth/realms/d4`,
-    D4_PORT: port,
+    RM_ROOT: ROOT,
+    RM_PUBLIC_URL: url,
+    RM_PUBLIC_API_URL: `${url}/api`,
+    OIDC_ISSUER: `${url}/auth/realms/roadmap`,
+    RM_PORT: port,
     // Organization CA: the path inside image builds, inside containers and on the host.
-    D4_CA_BUILD: ca ? '/etc/org-certs/org-ca.crt' : '',
-    D4_CA_RUN: ca ? '/run/d4-certs/org-ca.crt' : '',
-    D4_CA_HOST: ca ? join(RUN_DIR, 'certs/org-ca.crt') : '',
-    GATEWAY_TLS_CERT: tls ? '/run/d4-certs/gateway.crt' : '',
-    GATEWAY_TLS_KEY: tls ? '/run/d4-certs/gateway.key' : '',
+    RM_CA_BUILD: ca ? '/etc/org-certs/org-ca.crt' : '',
+    RM_CA_RUN: ca ? '/run/rm-certs/org-ca.crt' : '',
+    RM_CA_HOST: ca ? join(RUN_DIR, 'certs/org-ca.crt') : '',
+    GATEWAY_TLS_CERT: tls ? '/run/rm-certs/gateway.crt' : '',
+    GATEWAY_TLS_KEY: tls ? '/run/rm-certs/gateway.key' : '',
     NPM_REGISTRY: env['NPM_REGISTRY'] || 'https://registry.npmjs.org',
   };
-  // PORT_<NAME> (first port) and PORT_<NAME>_<KEY> for every component, and the web modules a
-  // local process may serve (the gateway's GATEWAY_MODULES).
-  const modules: string[] = [];
+  // PORT_<NAME> (first port) and PORT_<NAME>_<KEY> for every component.
   for (const comp of loadComponents().values()) {
     const id = comp.name.toUpperCase().replace(/-/g, '_');
     const main = mainPort(comp);
     if (main) derived[`PORT_${id}`] = String(main);
     for (const [k, p] of Object.entries(comp.ports)) derived[`PORT_${id}_${k.toUpperCase()}`] = String(p);
-    if (comp.runtimes.podman?.via === 'ui-modules' && main) modules.push(`${comp.name.replace(/^web-/, '')}=${main}`);
   }
-  derived['D4_LOCAL_MODULES'] = modules.join(' ');
   for (const [k, v] of Object.entries(derived)) if (env[k] === undefined || env[k] === '' || k.startsWith('PORT_')) env[k] = v;
   for (const k of Object.keys(env)) if (process.env[k] !== undefined) env[k] = process.env[k]!;
   base = env;
   return env;
-}
-
-/** `neo4j=127.0.0.1:7687,d4-neo4j-t_acme=127.0.0.1:7701`: how every process reaches each tenant graph. */
-function neo4jHosts(): string {
-  const parts = [`neo4j=127.0.0.1:${component('neo4j').ports['bolt'] ?? 7687}`];
-  const r = capture(ENGINE, ['ps', '-a', '--filter', 'label=d4.tenant', '--format', '{{.Names}} {{index .Labels "d4.bolt-port"}} {{.Ports}}']);
-  for (const line of r.out.split('\n')) {
-    const [name, label, ...rest] = line.trim().split(/\s+/);
-    if (!name) continue;
-    // Tenant graphs from before the host network published a port instead of listening on one.
-    const port = label && /^\d+$/.test(label) ? label : /:(\d+)->7687\/tcp/.exec(rest.join(' '))?.[1];
-    if (port) parts.push(`${name}=127.0.0.1:${port}`);
-  }
-  return parts.join(',');
 }
 
 /** The merged settings of one component on one runtime, as a map (interpolated). */
@@ -123,18 +105,17 @@ function componentEnv(comp: Component, rt: Runtime): Record<string, string> {
   const layer = (l: { common?: Record<string, string>; local?: Record<string, string>; podman?: Record<string, string> }) => ({ ...l.common, ...l[rt] });
   const out: Record<string, string> = comp.sharedEnv ? { ...readEnvFile(join(RUN_DIR, 'env/common.env')) } : {};
   if (comp.sharedEnv) {
-    for (const k of ['D4_PUBLIC_URL', 'D4_PUBLIC_API_URL', 'OIDC_ISSUER', 'D4_PORT', 'NPM_REGISTRY']) out[k] = pool[k]!;
+    for (const k of ['RM_PUBLIC_URL', 'RM_PUBLIC_API_URL', 'OIDC_ISSUER', 'RM_PORT', 'NPM_REGISTRY']) out[k] = pool[k]!;
     // Images set NODE_EXTRA_CA_CERTS themselves (to the CA baked in at build time).
-    if (pool['D4_CA_HOST'] && rt === 'local') out['NODE_EXTRA_CA_CERTS'] = pool['D4_CA_HOST']!;
+    if (pool['RM_CA_HOST'] && rt === 'local') out['NODE_EXTRA_CA_CERTS'] = pool['RM_CA_HOST']!;
   }
   // What every dependency provides (addresses, secrets directories), then the component's own env.
   const deps = dependencies(comp);
   for (const dep of deps) for (const [k, v] of Object.entries(layer(dep.provides))) out[k] = interpolate(v, pool, `${dep.rel}/component.yaml provides`);
-  if (deps.some((d) => d.name === 'neo4j')) out['NEO4J_HOSTS'] = neo4jHosts();
   Object.assign(pool, out);
   for (const [k, v] of Object.entries(layer(comp.env))) { out[k] = interpolate(v, pool, where); pool[k] = out[k]!; }
   if (comp.sharedEnv) {
-    const files = [...(PROFILE === 'prod' ? ['env/prod.env'] : ['env/dev-secrets.env']), 'env/local.env'];
+    const files = [...(PROFILE === 'prod' ? ['env/prod.env'] : ['secrets/dev.env']), 'env/local.env'];
     for (const f of files) Object.assign(out, readEnvFile(join(RUN_DIR, f)));
   }
   for (const k of Object.keys(out)) if (process.env[k] !== undefined && !k.startsWith('PORT_')) out[k] = process.env[k]!;

@@ -1,15 +1,15 @@
-// test: unit (default), integration, static, e2e or smoke for one component or the stack. By
+// test: unit (default), integration, static or smoke for one component or the stack. By
 // default only the packages that changed since --base (default HEAD, so uncommitted work) and
 // those depending on them, within the component's own packages; --all runs every one of them.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import { c, capture, elapsed, exec, log, RunError } from './log.ts';
 import { component, ROOT, type Component, type Runtime } from './components.ts';
 import { baseEnv, ENGINE } from './env.ts';
 import { ensureDeps, sourcesOf, toolEnv } from './build.ts';
 import { checkHealth, whereRunning } from './runtime.ts';
-import { plan, runTool, up } from './lifecycle.ts';
-import { gatewayRequest, token } from './extras.ts';
+import { plan, up } from './lifecycle.ts';
+import { gatewayRequest } from './extras.ts';
 
 interface Pkg { name: string; dir: string; deps: string[] }
 
@@ -66,20 +66,17 @@ function selectPackages(scope: Set<string> | undefined, all: boolean, base: stri
   return { pkgs: hit, why: changed.size ? `changed since ${base}: ${[...changed].sort().join(', ')}` : `nothing changed since ${base}` };
 }
 
-const SERVICES = ['postgres', 'neo4j', 'redis', 's3'];
+const SERVICES = ['postgres', 'redis'];
 
-/** D4_TEST_* for integration suites: the dev services on the host network. */
+/** RM_TEST_* for integration suites: the dev services on the host network. */
 function serviceEnv(): Record<string, string> {
   const env = baseEnv();
   return {
-    D4_TEST_POSTGRES_URL: `postgres://${env['POSTGRES_USER']}:${env['POSTGRES_PASSWORD']}@127.0.0.1:${env['PORT_POSTGRES']}/postgres`,
-    D4_TEST_NEO4J_URL: `bolt://127.0.0.1:${env['PORT_NEO4J_BOLT'] ?? env['PORT_NEO4J']}`,
-    D4_TEST_NEO4J_PASSWORD: env['NEO4J_PASSWORD'] ?? '',
-    D4_TEST_REDIS_URL: `redis://127.0.0.1:${env['PORT_REDIS']}`,
-    D4_TEST_S3_ENDPOINT: `http://127.0.0.1:${env['PORT_S3']}`,
+    RM_TEST_POSTGRES_URL: `postgres://${env['POSTGRES_USER']}:${env['POSTGRES_PASSWORD']}@127.0.0.1:${env['PORT_POSTGRES']}/postgres`,
+    RM_TEST_REDIS_URL: `redis://127.0.0.1:${env['PORT_REDIS']}`,
   };
 }
-const noServices = { D4_TEST_POSTGRES_URL: '', D4_TEST_NEO4J_URL: '', D4_TEST_REDIS_URL: '', D4_TEST_S3_ENDPOINT: '' };
+const noServices = { RM_TEST_POSTGRES_URL: '', RM_TEST_REDIS_URL: '' };
 
 /** turbo on local Node, or in the pinned Node image with the repository mounted (podman). */
 async function turbo(rt: Runtime, args: string[], env: Record<string, string>, label: string): Promise<void> {
@@ -96,7 +93,7 @@ async function turbo(rt: Runtime, args: string[], env: Record<string, string>, l
 }
 
 export async function test(comp: Component | 'stack', rtArg: Runtime | undefined, args: string[]): Promise<void> {
-  const suite = ['unit', 'integration', 'static', 'e2e', 'smoke'].find((s) => args.includes(s)) ?? 'unit';
+  const suite = ['unit', 'integration', 'static', 'smoke'].find((s) => args.includes(s)) ?? 'unit';
   const all = args.includes('--all');
   const base = args.includes('--base') ? args[args.indexOf('--base') + 1] ?? 'HEAD' : 'HEAD';
   const rest = args.includes('--') ? args.slice(args.indexOf('--') + 1) : [];
@@ -104,12 +101,11 @@ export async function test(comp: Component | 'stack', rtArg: Runtime | undefined
   const name = comp === 'stack' ? 'stack' : comp.name;
   const t = Date.now();
 
-  if (suite === 'e2e') return e2e(comp, rest);
   if (suite === 'smoke') return smoke();
 
   const ws = workspace();
   const roots = comp === 'stack' ? undefined : sourcesOf(comp);
-  if (roots && !roots.length) throw new RunError(`${name} has no packages to ${suite}-test`, { hint: comp !== 'stack' && comp.test.e2e.length ? `try run/run.sh ${name}:test e2e` : undefined });
+  if (roots && !roots.length) throw new RunError(`${name} has no packages to ${suite}-test`);
   const scope = roots ? closure(ws, roots) : undefined;
   const { pkgs, why } = selectPackages(scope, all, base);
   log.phase(`Test ${suite} for ${name} on ${rt}`);
@@ -119,7 +115,6 @@ export async function test(comp: Component | 'stack', rtArg: Runtime | undefined
   const filters = pkgs.map((p) => `--filter=${p}`);
   if (suite === 'static') {
     await turbo(rt, ['run', 'typecheck', 'lint', '--concurrency=2', ...filters, ...rest], noServices, 'typecheck and lint');
-    if (comp === 'stack') await exec('pnpm', ['knip'], { cwd: ROOT, env: toolEnv(), logName: 'test.log', label: 'knip', inherit: true });
   } else if (suite === 'integration') {
     const needs = comp === 'stack' ? SERVICES : (comp.test.integration?.needs ?? SERVICES);
     const missing = needs.map((n) => component(n)).filter((n) => !whereRunning(n).length);
@@ -138,35 +133,10 @@ export async function test(comp: Component | 'stack', rtArg: Runtime | undefined
   log.ok(`${suite} tests passed for ${pkgs.length} package(s) (${elapsed(t)})`);
 }
 
-/** e2e: the browser specs mapped to the component (or all) through the gateway, in the Playwright image. */
-async function e2e(comp: Component | 'stack', rest: string[]): Promise<void> {
-  const env = baseEnv();
-  const runner = component('e2e');
-  const specs = comp === 'stack' || comp.name === 'e2e' ? [] : comp.test.e2e;
-  if (comp !== 'stack' && comp.name !== 'e2e' && !specs.length)
-    throw new RunError(`${comp.name} maps no browser specs (test.e2e in ${comp.rel}/component.yaml)`, { hint: 'run/run.sh e2e:test e2e runs them all' });
-  log.phase(`Browser tests${specs.length ? `: ${specs.join(' ')}` : ': all specs'} through ${env['D4_PUBLIC_URL']}`);
-  const gw = await checkHealth(component('gateway'), 'podman');
-  if (!gw.ok) throw new RunError(`the gateway is not healthy (${gw.detail})`, { hint: 'run/run.sh podman:stack:deploy starts the stack' });
-  const files = specs.map((s) => s.replace(/^tests\//, ''));
-  const extra = rest.some((a) => a.startsWith('--retries')) ? rest : ['--retries=0', ...rest];
-  log.detail(`results: ${relative(process.cwd(), join(runner.dir, 'results'))}`);
-  await runTool(runner, 'podman', [...files, ...extra], {
-    label: 'browser tests',
-    env: { E2E_BASE_URL: env['D4_PUBLIC_URL']!, E2E_HOOK_PORT: '3199', E2E_HOOK_URL: 'http://127.0.0.1:3199/d4-hook' },
-  });
-  log.ok('browser tests passed');
-}
-
-/** smoke: gateway and API health, a sign-in and /v1/me through the gateway. */
+/** smoke: the front door answers over its public address. */
 async function smoke(): Promise<void> {
-  log.phase(`Smoke test through ${baseEnv()['D4_PUBLIC_URL']}`);
-  for (const path of ['/healthz', '/api/healthz', '/api/readyz']) {
-    const r = await gatewayRequest('GET', path);
-    if (r.status !== 200) throw new RunError(`GET ${path}: HTTP ${r.status}`, { tail: r.body.split('\n').slice(0, 20) });
-    log.ok(`GET ${path}: ${r.status} ${c.dim(r.body.slice(0, 80))}`);
-  }
-  const me = await gatewayRequest('GET', '/api/v1/me', undefined, await token('dev-admin'));
-  if (me.status !== 200) throw new RunError(`GET /api/v1/me: HTTP ${me.status}`, { tail: me.body.split('\n').slice(0, 20) });
-  log.ok(`GET /api/v1/me: ${me.status} ${c.dim(me.body.slice(0, 80))}`);
+  log.phase(`Smoke test through ${baseEnv()['RM_PUBLIC_URL']}`);
+  const r = await gatewayRequest('GET', '/');
+  if (r.status !== 200) throw new RunError(`GET /: HTTP ${r.status}`, { tail: r.body.split('\n').slice(0, 20) });
+  log.ok(`GET /: ${r.status} ${c.dim(r.body.slice(0, 80))}`);
 }

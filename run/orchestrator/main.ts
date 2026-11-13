@@ -1,10 +1,10 @@
 // run/run.sh <runtime>:<component>:<command> [args]: the one entry point for building, running
-// and testing D4. See `run/run.sh help` and docs/DEVELOPER_GUIDE.md.
+// and testing road-map. See `run/run.sh help`.
 import { join } from 'node:path';
 import { c, initLogs, log, opts, reportError, RunError } from './log.ts';
-import { CATEGORIES, component, isProcess, loadComponents, mainPort, RUNTIMES, runtimeFor, select, STATE_DIR, type Runtime } from './components.ts';
-import { build, ensureDependencies, execIn, logs, plan, reset, runTool, shell, status, stop, up } from './lifecycle.ts';
-import { doctor, keycloakExec, opsExec, publish, token } from './extras.ts';
+import { CATEGORIES, component, isProcess, loadComponents, mainPort, RUNTIMES, select, STATE_DIR, type Runtime } from './components.ts';
+import { build, ensureDependencies, execIn, logs, plan, reset, shell, status, stop, up } from './lifecycle.ts';
+import { doctor } from './extras.ts';
 import { test } from './test.ts';
 
 const COMMANDS = ['build', 'deploy', 'start', 'stop', 'reset', 'status', 'logs', 'test', 'exec', 'shell'] as const;
@@ -14,9 +14,9 @@ const USAGE = `${c.bold('usage:')} run/run.sh [<runtime>:]<component>:<command> 
        run/run.sh ls | status | doctor | help [component]
 
 ${c.bold('runtime')}    local (local Node 24) | podman (containers on the host network). Optional: each
-           component has a default; infra and the gateway always run on podman.
-${c.bold('component')}  a name (api, web-plan, postgres), a category (${CATEGORIES.join(', ')}), a group
-           (observability), stack (everything but tools and optional parts) or a list (api,worker)
+           component has a default; infra and nginx always run on podman.
+${c.bold('component')}  a name (api, nginx, postgres), a category (${CATEGORIES.join(', ')}), a group,
+           stack (everything but tools and optional parts) or a list (api,nginx)
 ${c.bold('command')}    build    compile (turbo, cached) and, for podman, package the image if inputs changed
            deploy   build, stop it on the other runtime, start it here, wait until healthy
            start    start without building (builds only what was never built)
@@ -24,15 +24,13 @@ ${c.bold('command')}    build    compile (turbo, cached) and, for podman, packag
            reset    stop, then delete its container and volumes (podman) or its dist/ (local); --yes
            status   where each component runs, state, health, route, build (--json)
            logs     follow its output (-n N, --no-follow)
-           test     [unit|integration|static|e2e|smoke] [--all] [--base ref] [-- extra args]
+           test     [unit|integration|static|smoke] [--all] [--base ref] [-- extra args]
                     changed packages only, within the component, unless --all
-           exec     -- <command>: in the running component, or run a tool once (cli, ops)
+           exec     -- <command>: in the running component, or run a tool once
            shell    a shell in its container, or with its local settings
 
-${c.bold('examples')}   run/run.sh podman:stack:deploy        run/run.sh local:api:deploy
-           run/run.sh status                      run/run.sh api:test
-           run/run.sh local:web-plan:test e2e     run/run.sh podman:cli:exec -- import samples/ubs-banking.yaml
-           run/run.sh keycloak:exec -- token      run/run.sh ops:exec -- tenant create t_acme "Acme"`;
+${c.bold('examples')}   run/run.sh podman:stack:deploy        run/run.sh api:test
+           run/run.sh status                      run/run.sh stack:test static`;
 
 function ls(): void {
   const comps = [...loadComponents().values()].sort((a, b) => CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category) || a.name.localeCompare(b.name));
@@ -51,7 +49,6 @@ function help(name?: string): void {
   if (x.dependsOn.length) process.stdout.write(`  depends on: ${x.dependsOn.join(', ')}\n`);
   if (Object.keys(x.ports).length) process.stdout.write(`  ports: ${Object.entries(x.ports).map(([k, v]) => `${k} ${v}`).join(', ')} (127.0.0.1)\n`);
   if (x.route) process.stdout.write(`  route: ${x.route}\n`);
-  if (x.test.e2e.length) process.stdout.write(`  browser specs: ${x.test.e2e.join(' ')}\n`);
   const cmds = isProcess(x) ? COMMANDS : ['build', 'test', 'exec'];
   process.stdout.write(`  commands: ${cmds.join(', ')}\n`);
 }
@@ -106,11 +103,6 @@ async function main(argv: string[]): Promise<number> {
     case 'exec': {
       const comp = onlyOne(comps, sel, 'exec');
       if (!isProcess(comp)) await ensureDependencies(comp);
-      if (comp.name === 'keycloak' && (await keycloakExec(after))) return 0;
-      if (comp.name === 'ops' && (await opsExec(rt ?? 'podman', after))) return 0;
-      if (comp.runtimes.podman?.via === 'ui-modules' && after[0] === 'publish') { await publish(comp, after); return 0; }
-      // The CLI signs in as dev-admin unless D4_TOKEN is set.
-      if (comp.name === 'cli') { await runTool(comp, runtimeFor(comp, rt), after, { env: { D4_TOKEN: process.env['D4_TOKEN'] || (await token('dev-admin')) } }); return 0; }
       await execIn(comp, rt, after);
       return 0;
     }
