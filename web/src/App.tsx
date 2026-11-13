@@ -1,7 +1,7 @@
 import { Gantt, type AccessRules } from '@gantt/react';
 import '@gantt/react/src/gantt.css';
 import { useEffect, useState } from 'react';
-import { bearer, signIn } from './auth.ts';
+import { apiFetch, signIn, signOut } from './auth.ts';
 
 /**
  * View-only: the server is the authority (constitution III) and this spec has no editing, so the
@@ -29,7 +29,7 @@ export function App() {
   useEffect(() => {
     signIn().then(
       () =>
-        fetch('/api/roadmaps/sample', { headers: { authorization: `Bearer ${bearer()}` } })
+        apiFetch('/api/roadmaps/sample')
           .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
           .then((data) => setLoaded({ state: 'ready', data }))
           .catch(() => setLoaded({ state: 'error' })),
@@ -41,5 +41,12 @@ export function App() {
     return <p role="alert">Signing in is not possible right now. Try again in a moment.</p>;
   if (loaded.state === 'error') return <p role="alert">The roadmap could not be loaded. Try again in a moment.</p>;
   if (loaded.state === 'loading') return <p>Loading the roadmap…</p>;
-  return <Gantt data={loaded.data} access={VIEW_ONLY} readOnly height={640} />;
+  return (
+    <>
+      <button type="button" onClick={() => void signOut()}>
+        Sign out
+      </button>
+      <Gantt data={loaded.data} access={VIEW_ONLY} readOnly height={640} />
+    </>
+  );
 }

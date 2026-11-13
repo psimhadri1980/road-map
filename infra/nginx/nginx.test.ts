@@ -34,21 +34,14 @@ const secrets = Object.fromEntries(
     .map((l) => l.split('=') as [string, string]),
 );
 
-/** A real access token of the sample user from the development client, through the front door itself. */
-async function token(client = 'road-map-test'): Promise<string> {
-  const body = new URLSearchParams({
-    grant_type: 'password',
-    scope: 'openid', // userinfo, which nginx asks, requires it; the browser's tokens carry it
-    client_id: client,
-    username: 'sample',
-    password: secrets['SAMPLE_USER_PASSWORD']!,
-  }).toString();
-  const r = await new Promise<string>((resolve, reject) => {
+/** POST a form to a Keycloak endpoint of the road-map realm through the front door. */
+const form = (endpoint: string, fields: Record<string, string>) =>
+  new Promise<{ status: number; json: Record<string, string> }>((resolve, reject) => {
     const req = request(
       {
         host: '127.0.0.1',
         port: 8443,
-        path: '/auth/realms/road-map/protocol/openid-connect/token',
+        path: `/auth/realms/road-map/protocol/openid-connect/${endpoint}`,
         method: 'POST',
         ca,
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -56,13 +49,26 @@ async function token(client = 'road-map-test'): Promise<string> {
       (res) => {
         let b = '';
         res.on('data', (d) => (b += d));
-        res.on('end', () => resolve(b));
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, json: b ? JSON.parse(b) : {} }));
       },
     );
-    req.on('error', reject).end(body);
+    req.on('error', reject).end(new URLSearchParams(fields).toString());
   });
-  return (JSON.parse(r) as { access_token: string }).access_token;
+
+/** Sign in as the sample user on the development client: access and refresh token of one new session. */
+async function session(client = 'road-map-test') {
+  const r = await form('token', {
+    grant_type: 'password',
+    scope: 'openid', // userinfo, which nginx asks, requires it; the browser's tokens carry it
+    client_id: client,
+    username: 'sample',
+    password: secrets['SAMPLE_USER_PASSWORD']!,
+  });
+  return { access: r.json['access_token']!, refresh: r.json['refresh_token']! };
 }
+const token = async (client = 'road-map-test') => (await session(client)).access;
+const renew = (refresh: string) =>
+  form('token', { grant_type: 'refresh_token', client_id: 'road-map-test', refresh_token: refresh });
 const bearer = async () => ({ authorization: `Bearer ${await token()}` });
 
 test('healthy, as nginx (101) on a read-only filesystem, loopback only', () => {
@@ -172,4 +178,32 @@ test('a valid token gets the roadmap; the page, /auth/ and the redirect port nee
   assert.equal((await get('/api/roadmaps/sample', { headers: await bearer() })).status, 200);
   assert.equal((await get('/')).status, 200);
   assert.equal((await get('/auth/realms/road-map')).status, 200);
+});
+
+// 002-T005 (FR-006, FR-012), user story 3, against the real Keycloak.
+test('an access token that has expired is replaced through renewal and the request then succeeds', async () => {
+  const { access, refresh } = await session(); // the development client's tokens live 5 s
+  await new Promise((r) => setTimeout(r, 7000));
+  refusedByNginx(await get('/api/roadmaps/sample', { headers: { authorization: `Bearer ${access}` } }));
+  const renewed = await renew(refresh);
+  assert.equal(renewed.status, 200);
+  const r = await get('/api/roadmaps/sample', { headers: { authorization: `Bearer ${renewed.json['access_token']}` } });
+  assert.equal(r.status, 200);
+});
+
+test('a refresh token that was already used is refused, and that ends the session', async () => {
+  const { refresh } = await session();
+  const first = await renew(refresh);
+  assert.equal(first.status, 200);
+  assert.notEqual((await renew(refresh)).status, 200); // reuse: refused (rotation, reuse 0)
+  assert.notEqual((await renew(first.json['refresh_token']!)).status, 200); // the whole session is revoked
+});
+
+test('after sign-out the refresh token fails and the access token is refused at nginx', async () => {
+  const { access, refresh } = await session();
+  assert.equal((await get('/api/roadmaps/sample', { headers: { authorization: `Bearer ${access}` } })).status, 200);
+  const out = await form('logout', { client_id: 'road-map-test', refresh_token: refresh });
+  assert.equal(out.status, 204);
+  assert.notEqual((await renew(refresh)).status, 200);
+  refusedByNginx(await get('/api/roadmaps/sample', { headers: { authorization: `Bearer ${access}` } }));
 });
