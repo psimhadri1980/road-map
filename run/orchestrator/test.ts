@@ -268,6 +268,8 @@ async function mavenSuite(comp: Component, suite: keyof typeof MAVEN_GOALS, t: n
  * roadmap (FR-004, FR-005, FR-024): the sample's task names and links, and an edit attempt that
  * changes nothing. The gantt library draws its add buttons even when read-only (it refuses the
  * edit instead), so "no editing" is checked by trying one.
+ * Since spec 002 the page first sends the browser to the sign-in form: the script below signs in as the
+ * sample user (002-T002, FR-001), then checks that no token reached storage or a cookie (FR-004).
  */
 async function smoke(): Promise<void> {
   const url = `https://127.0.0.1:${component('nginx').ports['https']}`;
@@ -284,17 +286,26 @@ async function smoke(): Promise<void> {
         `${url}/`,
         join(CERT_DIR, 'nginx.crt'),
         `(async () => {
+    const user = document.querySelector('#username');
+    if (user && !window.__signedIn) {
+      window.__signedIn = true;
+      user.value = 'sample';
+      document.querySelector('#password').value = ${JSON.stringify(baseEnv()['SAMPLE_USER_PASSWORD'] ?? '')};
+      document.querySelector('#kc-login').click();
+      return null;
+    }
     const grid = document.querySelector('[role=treegrid]');
     if (!grid || !grid.innerText.includes(${JSON.stringify(names[0])})) return null;
     const rows = () => grid.querySelectorAll('[role=row]').length;
     const before = rows();
     document.querySelector('.gx-add-btn')?.click();
     await new Promise((r) => setTimeout(r, 700));
-    return JSON.stringify({ text: grid.innerText, links: document.querySelectorAll('.gx-link').length, before, after: rows() });
+    const stored = JSON.stringify([{ ...localStorage }, { ...sessionStorage }, document.cookie]);
+    return JSON.stringify({ tokenStored: stored.includes('eyJ'), text: grid.innerText, links: document.querySelectorAll('.gx-link').length, before, after: rows() });
   })()`,
       ),
     ),
-  ) as { text: string; links: number; before: number; after: number };
+  ) as { tokenStored: boolean; text: string; links: number; before: number; after: number };
 
   // The grid shows only the rows in view, so the check is on the first names and every link.
   const visible = names.filter((n) => seen.text.includes(n));
@@ -302,6 +313,7 @@ async function smoke(): Promise<void> {
   if (seen.links !== sample.links.length)
     throw new RunError(`the page draws ${seen.links} links; the sample has ${sample.links.length}`);
   if (seen.after !== seen.before) throw new RunError('an edit attempt changed the roadmap');
+  if (seen.tokenStored) throw new RunError('a token was found in browser storage or a cookie (FR-004)');
   log.ok(
     `the browser shows ${visible.length}+ of ${names.length} task names and ${seen.links} links; an edit attempt changes nothing`,
   );
