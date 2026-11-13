@@ -1,0 +1,3 @@
+[submodule "vendor/gantt"]
+	path = vendor/gantt
+	url = https://github.com/psimhadri1980/gantt.git

@@ -1,8 +1,9 @@
 // run/run.sh <runtime>:<component>:<command> [args]: the one entry point for building, running
 // and testing road-map. See `run/run.sh help`.
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { c, initLogs, log, opts, reportError, RunError } from './log.ts';
-import { CATEGORIES, component, isProcess, loadComponents, mainPort, RUNTIMES, select, STATE_DIR, type Runtime } from './components.ts';
+import { CATEGORIES, component, isProcess, loadComponents, mainPort, ROOT, RUNTIMES, select, STATE_DIR, type Runtime } from './components.ts';
 import { build, ensureDependencies, execIn, logs, plan, reset, shell, status, stop, up } from './lifecycle.ts';
 import { doctor } from './extras.ts';
 import { test } from './test.ts';
@@ -80,6 +81,9 @@ async function main(argv: string[]): Promise<number> {
   initLogs(join(STATE_DIR, 'logs'));
   const first = args.shift();
   if (!first || first === 'help' || first === '-h' || first === '--help') { help(args[0]); return first ? 0 : 2; }
+  // FR-004/FR-026: the gantt library is a pinned submodule; every other command needs it checked out.
+  if (!existsSync(join(ROOT, 'vendor/gantt/package.json')))
+    throw new RunError('vendor/gantt is empty: the gantt submodule is not checked out', { hint: 'git submodule update --init', code: 2 });
   if (first === 'ls') { ls(); return 0; }
   if (first === 'doctor') return doctor();
   if (first === 'status') return status(select('stack').concat([...loadComponents().values()].filter((x) => x.optional || !isProcess(x))), undefined, flags.has('json'));
