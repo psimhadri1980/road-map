@@ -9,8 +9,9 @@ import { baseEnv, ENGINE } from './env.ts';
 import { ensureDeps, sourcesOf, toolEnv } from './build.ts';
 import { checkHealth, whereRunning } from './runtime.ts';
 import { plan, up } from './lifecycle.ts';
-import { gatewayRequest } from './extras.ts';
 import { maven, MAVEN_GOALS } from './maven.ts';
+import { browse } from './browser.ts';
+import { CERT_DIR } from './certs.ts';
 
 interface Pkg { name: string; dir: string; deps: string[] }
 
@@ -151,10 +152,32 @@ async function mavenSuite(comp: Component, suite: keyof typeof MAVEN_GOALS, t: n
   log.ok(`${suite} tests passed for ${name} (${elapsed(t)})`);
 }
 
-/** smoke: the front door answers over its public address. */
+/**
+ * smoke: through the public address, the front door answers and a real browser shows the seeded
+ * roadmap (FR-004, FR-005, FR-024): the sample's task names and links, and an edit attempt that
+ * changes nothing. The gantt library draws its add buttons even when read-only (it refuses the
+ * edit instead), so "no editing" is checked by trying one.
+ */
 async function smoke(): Promise<void> {
-  log.phase(`Smoke test through ${baseEnv()['RM_PUBLIC_URL']}`);
-  const r = await gatewayRequest('GET', '/');
-  if (r.status !== 200) throw new RunError(`GET /: HTTP ${r.status}`, { tail: r.body.split('\n').slice(0, 20) });
-  log.ok(`GET /: ${r.status} ${c.dim(r.body.slice(0, 80))}`);
+  const url = `https://127.0.0.1:${component('nginx').ports['https']}`;
+  log.phase(`Smoke test through ${url}`);
+
+  const sample = JSON.parse(readFileSync(join(ROOT, 'vendor/gantt/packages/mock/src/samples/small.json'), 'utf8')) as { tasks: { name: string }[]; links: unknown[] };
+  const names = sample.tasks.map((t) => t.name);
+  const seen = JSON.parse(String(await browse(`${url}/`, join(CERT_DIR, 'nginx.crt'), `(async () => {
+    const grid = document.querySelector('[role=treegrid]');
+    if (!grid || !grid.innerText.includes(${JSON.stringify(names[0])})) return null;
+    const rows = () => grid.querySelectorAll('[role=row]').length;
+    const before = rows();
+    document.querySelector('.gx-add-btn')?.click();
+    await new Promise((r) => setTimeout(r, 700));
+    return JSON.stringify({ text: grid.innerText, links: document.querySelectorAll('.gx-link').length, before, after: rows() });
+  })()`))) as { text: string; links: number; before: number; after: number };
+
+  // The grid shows only the rows in view, so the check is on the first names and every link.
+  const visible = names.filter((n) => seen.text.includes(n));
+  if (visible.length < 5) throw new RunError(`the page shows ${visible.length} of the sample's task names`);
+  if (seen.links !== sample.links.length) throw new RunError(`the page draws ${seen.links} links; the sample has ${sample.links.length}`);
+  if (seen.after !== seen.before) throw new RunError('an edit attempt changed the roadmap');
+  log.ok(`the browser shows ${visible.length}+ of ${names.length} task names and ${seen.links} links; an edit attempt changes nothing`);
 }

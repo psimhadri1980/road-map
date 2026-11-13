@@ -75,7 +75,7 @@ Two choices depart from strict story order, both for constitution reasons:
 - [X] T018 [US1] Integration tests in `api/src/test/java/…/roadmap/`: the document is served and equals `small.json`; a second read is served from the cache (change the row directly in the database and still get the cached content); with Redis stopped the roadmap is served from the database; with the database stopped and the roadmap cached it is still served; a stored non-conforming document gives 422; database and Redis both down gives 503 with no internal detail. [FR-006, FR-007, FR-008, FR-024]
 - [X] T019 [P] [US1] `web/`: `component.yaml` (`local` runtime with Vite on Node 24; podman `via: nginx`), `package.json`, `index.html`, `vite.config.ts`, `src/main.tsx` that fetches `/api/roadmaps/sample` and renders `<Gantt data access>` with view-only rules; a plain error message when the fetch fails. Vitest test: the error message shows on a failed fetch. [FR-004, FR-005, FR-011a]
 - [X] T020 [US1] nginx serves the web build: the `modules` artifact of `infra/nginx/` includes `web`'s `dist/`; SPA fallback to `index.html`; CSP allows the gantt engine's Web Worker from the own origin. [FR-004, FR-019]
-- [ ] T021 [US1] `run/run.sh stack:test smoke`: headless browser through nginx shows the sample's task names and links, and offers no editing control. [FR-004, FR-005, FR-024]
+- [X] T021 [US1] `run/run.sh stack:test smoke`: headless browser through nginx shows the sample's task names and links, and offers no editing control. [FR-004, FR-005, FR-024]
 
 **Checkpoint**: User Story 1 works on its own; this is the MVP.
 
