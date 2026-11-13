@@ -13,6 +13,7 @@ import {
   renameSync,
   rmSync,
   statSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -70,6 +71,9 @@ export async function ensureDeps(): Promise<void> {
       label: 'pnpm install',
       hint: 'after a package.json change, run `pnpm install` to update pnpm-lock.yaml and commit it',
     });
+    // pnpm leaves the marker alone when nothing needed installing (a branch switch touches the
+    // lockfile), which made every later run reinstall; touching it makes the lockfile older again.
+    utimesSync(marker, new Date(), new Date());
     log.ok(`dependencies installed (${elapsed(t)})`);
   }
   depsReady = true;

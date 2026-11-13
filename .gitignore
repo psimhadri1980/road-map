@@ -10,3 +10,6 @@ run/env/local.env
 node_modules/
 dist/
 api/target/
+
+# turbo's cache and logs: build output, and the logs change on every build, which broke the image hash (T025).
+.turbo/

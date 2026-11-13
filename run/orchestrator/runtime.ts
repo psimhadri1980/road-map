@@ -149,6 +149,17 @@ export function portOwner(port: number): string {
   return /users:\(\("([^"]+)"/.exec(r.out)?.[1] ?? 'unknown process';
 }
 
+/** Stops the command with the port and the component named when something else listens on one of its ports (FR-002). */
+function assertPortsFree(comp: Component): void {
+  for (const p of Object.values(comp.ports)) {
+    const owner = portOwner(p);
+    if (owner)
+      throw new RunError(`${comp.name}: port ${p} is already in use by '${owner}'`, {
+        hint: `stop whatever listens on ${p} (run/run.sh status shows this project's components)`,
+      });
+  }
+}
+
 /**
  * Starts (or recreates) a component's container. Recreated when the image or its settings changed,
  * or when `recreate`; started again when stopped; left alone when already running unchanged.
@@ -171,6 +182,7 @@ export async function podmanStart(
         log.info(`${name} is already running this image and settings`);
         return 'unchanged';
       }
+      assertPortsFree(comp); // a stopped container fails opaquely when another process took its port
       await exec(ENGINE, ['start', name], { logName: `${comp.name}.podman.log`, label: `starting ${name}` });
       return 'started';
     }
@@ -184,13 +196,7 @@ export async function podmanStart(
       label: `removing ${name}`,
     });
   }
-  for (const p of Object.values(comp.ports)) {
-    const owner = portOwner(p);
-    if (owner)
-      throw new RunError(`${comp.name}: port ${p} is already in use by '${owner}'`, {
-        hint: `stop whatever listens on ${p} (run/run.sh status shows this project's components)`,
-      });
-  }
+  assertPortsFree(comp);
   await exec(ENGINE, runArgs(comp, image, file, envHash), {
     logName: `${comp.name}.podman.log`,
     label: `creating ${name}`,
@@ -340,13 +346,7 @@ export async function localStart(comp: Component): Promise<'started' | 'unchange
     log.info(`${comp.name} is already running on local Node (pid ${localPid(comp.name)})`);
     return 'unchanged';
   }
-  for (const p of Object.values(comp.ports)) {
-    const owner = portOwner(p);
-    if (owner)
-      throw new RunError(`${comp.name}: port ${p} is already in use by '${owner}'`, {
-        hint: 'run/run.sh status shows where each component runs',
-      });
-  }
+  assertPortsFree(comp);
   const { env } = writeComponentEnv(comp, 'local');
   const command = interpolate(comp.runtimes.local!.command, { ...baseEnv(), ...env }, comp.rel);
   mkdirSync(join(STATE_DIR, 'pids'), { recursive: true });
