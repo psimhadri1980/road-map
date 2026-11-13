@@ -29,7 +29,7 @@ description: 'Task list for spec 002, sign-in and token enforcement'
 
 ## Phase 4: User Story 3 (P2) - renewal and sign-out
 
-- [ ] T005 [US3] Renewal, retry and sign-out. `web/src/auth.ts` renews before each call and, on a `401`, forces one renewal and retries once before returning to sign-in (FR-018); `App.tsx` gets a sign-out control. Tests: a reused refresh token is refused and ends the session (real Keycloak), after sign-out the old refresh token fails, a signed-out access token is refused by nginx, a roadmap request after the 5-second test token expires succeeds through renewal. Serves FR-006, FR-012, FR-018. Done when: the four scenarios of User Story 3 pass in `stack:test integration` or smoke. Needs T004.
+- [x] T005 [US3] Renewal, retry and sign-out. `web/src/auth.ts` renews before each call and, on a `401`, forces one renewal and retries once before returning to sign-in (FR-018); `App.tsx` gets a sign-out control. Tests: a reused refresh token is refused and ends the session (real Keycloak), after sign-out the old refresh token fails, a signed-out access token is refused by nginx, a roadmap request after the 5-second test token expires succeeds through renewal. Serves FR-006, FR-012, FR-018. Done when: the four scenarios of User Story 3 pass in `stack:test integration` or smoke. Needs T004.
 
 ## Phase 5: Polish
 
