@@ -5,6 +5,8 @@ ARG JRE_IMAGE
 FROM ${MAVEN_IMAGE} AS build
 WORKDIR /build
 COPY component/pom.xml .
+# The JDK module exports Error Prone needs on JDK 25 (T032); without them the compile fails here.
+COPY component/.mvn .mvn
 COPY component/src src
 # The gantt files run/run.sh stages from the pinned submodule (api/component.yaml build.files).
 COPY app/gantt /build/gantt/packages

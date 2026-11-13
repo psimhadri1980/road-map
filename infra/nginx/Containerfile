@@ -2,4 +2,10 @@
 # from a read-only root filesystem. `app/web` is web's dist/, copied in by the orchestrator.
 ARG NGINX_IMAGE
 FROM ${NGINX_IMAGE}
+# The pinned base lags Alpine's fixes: Trivy (T034) found fixed HIGH/CRITICAL CVEs in its OS packages, so the
+# image takes the current ones at build. The tag is unchanged; the image hash is not (it hashes the build).
+USER root
+RUN apk upgrade --no-cache
 COPY app/web /usr/share/nginx/html
+# Back to the base image's own uid 101, so the image cannot silently stay root (T034).
+USER 101
