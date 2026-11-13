@@ -1,0 +1,29 @@
+# nginx (T014): the front door, TLS 1.3, upstreams verified against the project CA
+# (FR-001, FR-013, FR-015, FR-019).
+apiVersion: road-map/v1
+kind: Component
+name: nginx
+category: infra
+description: The front door; serves the web app and proxies /api and /auth over verified TLS
+ports:
+  https: 8443
+  http: 18080
+health:
+  # GET / over HTTPS, verified against the project CA (the default port is the first one, 8443).
+  http: /
+  timeout: 30
+runtimes:
+  default: podman
+  podman:
+    image: ${NGINX_IMAGE}
+    # uid 101 is the image's nginx user; the host user maps to it so the mounted 0600 key is readable.
+    user: "101:101"
+    userns: keep-id:uid=101,gid=101
+    readOnly: true
+    tmpfs: [/tmp]
+    mounts:
+      - { src: infra/nginx/nginx.conf, dst: /etc/nginx/nginx.conf, ro: true }
+      - { src: run/certs/nginx.crt, dst: /tls/server.crt, ro: true }
+      - { src: run/certs/nginx.key, dst: /tls/server.key, ro: true }
+      - { src: run/certs/ca.crt, dst: /tls/ca.crt, ro: true }
+    memory: 128m
