@@ -1,0 +1,188 @@
+
+---- 2026-11-13T14:44:57.726Z $ podman run --rm --userns=keep-id --network none -v /tmp/rm-certs-1PYpLe/run/certs:/certs:z --entrypoint sh docker.io/library/eclipse-temurin:25-jre-alpine -c 'set -eu
+cd /certs
+if [ ! -f ca.crt ]; then
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out ca.key
+  openssl req -x509 -new -key ca.key -sha256 -days 365 -subj "/CN=road-map development CA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" -out ca.crt
+fi
+for name in "$@"; do
+  [ -f "$name.crt" ] && continue
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out "$name.key"
+  openssl req -new -key "$name.key" -subj "/CN=rm-$name" -out "$name.csr"
+  printf '\''subjectAltName=IP:127.0.0.1,DNS:localhost\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n'\'' > "$name.ext"
+  openssl x509 -req -in "$name.csr" -CA ca.crt -CAkey ca.key -CAcreateserial -days 365 -sha256 -extfile "$name.ext" -out "$name.crt"
+  rm -f "$name.csr" "$name.ext"
+done
+chmod 0644 ./*.crt
+chmod 0600 ./*.key
+' certs alpha beta
+Certificate request self-signature ok
+subject=CN=rm-alpha
+Certificate request self-signature ok
+subject=CN=rm-beta
+---- exit 0 after 2.0s
+
+---- 2026-11-13T14:44:59.760Z $ podman run --rm --userns=keep-id --network none -v /tmp/rm-certs-1PYpLe/run/certs:/certs:z --entrypoint sh docker.io/library/eclipse-temurin:25-jre-alpine -c 'set -eu
+cd /certs
+if [ ! -f ca.crt ]; then
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out ca.key
+  openssl req -x509 -new -key ca.key -sha256 -days 365 -subj "/CN=road-map development CA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" -out ca.crt
+fi
+for name in "$@"; do
+  [ -f "$name.crt" ] && continue
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out "$name.key"
+  openssl req -new -key "$name.key" -subj "/CN=rm-$name" -out "$name.csr"
+  printf '\''subjectAltName=IP:127.0.0.1,DNS:localhost\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n'\'' > "$name.ext"
+  openssl x509 -req -in "$name.csr" -CA ca.crt -CAkey ca.key -CAcreateserial -days 365 -sha256 -extfile "$name.ext" -out "$name.crt"
+  rm -f "$name.csr" "$name.ext"
+done
+chmod 0644 ./*.crt
+chmod 0600 ./*.key
+' certs gamma
+Certificate request self-signature ok
+subject=CN=rm-gamma
+---- exit 0 after 0.4s
+
+---- 2026-11-13T14:45:00.125Z $ podman run --rm --userns=keep-id --network none -v /tmp/rm-certs-1PYpLe/run/certs:/certs:z --entrypoint sh docker.io/library/eclipse-temurin:25-jre-alpine -c 'set -eu
+cd /certs
+if [ ! -f ca.crt ]; then
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out ca.key
+  openssl req -x509 -new -key ca.key -sha256 -days 365 -subj "/CN=road-map development CA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" -out ca.crt
+fi
+for name in "$@"; do
+  [ -f "$name.crt" ] && continue
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out "$name.key"
+  openssl req -new -key "$name.key" -subj "/CN=rm-$name" -out "$name.csr"
+  printf '\''subjectAltName=IP:127.0.0.1,DNS:localhost\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n'\'' > "$name.ext"
+  openssl x509 -req -in "$name.csr" -CA ca.crt -CAkey ca.key -CAcreateserial -days 365 -sha256 -extfile "$name.ext" -out "$name.crt"
+  rm -f "$name.csr" "$name.ext"
+done
+chmod 0644 ./*.crt
+chmod 0600 ./*.key
+' certs alpha beta
+Certificate request self-signature ok
+subject=CN=rm-alpha
+Certificate request self-signature ok
+subject=CN=rm-beta
+---- exit 0 after 1.0s
+
+---- 2026-11-13T14:45:01.128Z $ podman run --rm --userns=keep-id --network none -v /tmp/rm-certs-1PYpLe/run/certs:/certs:z --entrypoint sh docker.io/library/eclipse-temurin:25-jre-alpine -c 'set -eu
+cd /certs
+if [ ! -f ca.crt ]; then
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out ca.key
+  openssl req -x509 -new -key ca.key -sha256 -days 365 -subj "/CN=road-map development CA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" -out ca.crt
+fi
+for name in "$@"; do
+  [ -f "$name.crt" ] && continue
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out "$name.key"
+  openssl req -new -key "$name.key" -subj "/CN=rm-$name" -out "$name.csr"
+  printf '\''subjectAltName=IP:127.0.0.1,DNS:localhost\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n'\'' > "$name.ext"
+  openssl x509 -req -in "$name.csr" -CA ca.crt -CAkey ca.key -CAcreateserial -days 365 -sha256 -extfile "$name.ext" -out "$name.crt"
+  rm -f "$name.csr" "$name.ext"
+done
+chmod 0644 ./*.crt
+chmod 0600 ./*.key
+' certs alpha beta
+Certificate request self-signature ok
+subject=CN=rm-alpha
+Certificate request self-signature ok
+subject=CN=rm-beta
+---- exit 0 after 0.4s
+
+---- 2026-11-13T14:45:10.090Z $ podman run --rm --userns=keep-id --network none -v /tmp/rm-certs-PiCDVM/run/certs:/certs:z --entrypoint sh docker.io/library/eclipse-temurin:25-jre-alpine -c 'set -eu
+cd /certs
+if [ ! -f ca.crt ]; then
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out ca.key
+  openssl req -x509 -new -key ca.key -sha256 -days 365 -subj "/CN=road-map development CA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" -out ca.crt
+fi
+for name in "$@"; do
+  [ -f "$name.crt" ] && continue
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out "$name.key"
+  openssl req -new -key "$name.key" -subj "/CN=rm-$name" -out "$name.csr"
+  printf '\''subjectAltName=IP:127.0.0.1,DNS:localhost\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n'\'' > "$name.ext"
+  openssl x509 -req -in "$name.csr" -CA ca.crt -CAkey ca.key -CAcreateserial -days 365 -sha256 -extfile "$name.ext" -out "$name.crt"
+  rm -f "$name.csr" "$name.ext"
+done
+chmod 0644 ./*.crt
+chmod 0600 ./*.key
+' certs alpha beta
+Certificate request self-signature ok
+subject=CN=rm-alpha
+Certificate request self-signature ok
+subject=CN=rm-beta
+---- exit 0 after 0.5s
+
+---- 2026-11-13T14:45:10.641Z $ podman run --rm --userns=keep-id --network none -v /tmp/rm-certs-PiCDVM/run/certs:/certs:z --entrypoint sh docker.io/library/eclipse-temurin:25-jre-alpine -c 'set -eu
+cd /certs
+if [ ! -f ca.crt ]; then
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out ca.key
+  openssl req -x509 -new -key ca.key -sha256 -days 365 -subj "/CN=road-map development CA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" -out ca.crt
+fi
+for name in "$@"; do
+  [ -f "$name.crt" ] && continue
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out "$name.key"
+  openssl req -new -key "$name.key" -subj "/CN=rm-$name" -out "$name.csr"
+  printf '\''subjectAltName=IP:127.0.0.1,DNS:localhost\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n'\'' > "$name.ext"
+  openssl x509 -req -in "$name.csr" -CA ca.crt -CAkey ca.key -CAcreateserial -days 365 -sha256 -extfile "$name.ext" -out "$name.crt"
+  rm -f "$name.csr" "$name.ext"
+done
+chmod 0644 ./*.crt
+chmod 0600 ./*.key
+' certs gamma
+Certificate request self-signature ok
+subject=CN=rm-gamma
+---- exit 0 after 0.4s
+
+---- 2026-11-13T14:45:11.048Z $ podman run --rm --userns=keep-id --network none -v /tmp/rm-certs-PiCDVM/run/certs:/certs:z --entrypoint sh docker.io/library/eclipse-temurin:25-jre-alpine -c 'set -eu
+cd /certs
+if [ ! -f ca.crt ]; then
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out ca.key
+  openssl req -x509 -new -key ca.key -sha256 -days 365 -subj "/CN=road-map development CA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" -out ca.crt
+fi
+for name in "$@"; do
+  [ -f "$name.crt" ] && continue
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out "$name.key"
+  openssl req -new -key "$name.key" -subj "/CN=rm-$name" -out "$name.csr"
+  printf '\''subjectAltName=IP:127.0.0.1,DNS:localhost\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n'\'' > "$name.ext"
+  openssl x509 -req -in "$name.csr" -CA ca.crt -CAkey ca.key -CAcreateserial -days 365 -sha256 -extfile "$name.ext" -out "$name.crt"
+  rm -f "$name.csr" "$name.ext"
+done
+chmod 0644 ./*.crt
+chmod 0600 ./*.key
+' certs alpha beta
+Certificate request self-signature ok
+subject=CN=rm-alpha
+Certificate request self-signature ok
+subject=CN=rm-beta
+---- exit 0 after 0.9s
+
+---- 2026-11-13T14:45:11.937Z $ podman run --rm --userns=keep-id --network none -v /tmp/rm-certs-PiCDVM/run/certs:/certs:z --entrypoint sh docker.io/library/eclipse-temurin:25-jre-alpine -c 'set -eu
+cd /certs
+if [ ! -f ca.crt ]; then
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out ca.key
+  openssl req -x509 -new -key ca.key -sha256 -days 365 -subj "/CN=road-map development CA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" -out ca.crt
+fi
+for name in "$@"; do
+  [ -f "$name.crt" ] && continue
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out "$name.key"
+  openssl req -new -key "$name.key" -subj "/CN=rm-$name" -out "$name.csr"
+  printf '\''subjectAltName=IP:127.0.0.1,DNS:localhost\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n'\'' > "$name.ext"
+  openssl x509 -req -in "$name.csr" -CA ca.crt -CAkey ca.key -CAcreateserial -days 365 -sha256 -extfile "$name.ext" -out "$name.crt"
+  rm -f "$name.csr" "$name.ext"
+done
+chmod 0644 ./*.crt
+chmod 0600 ./*.key
+' certs alpha beta
+Certificate request self-signature ok
+subject=CN=rm-alpha
+Certificate request self-signature ok
+subject=CN=rm-beta
+---- exit 0 after 0.5s
