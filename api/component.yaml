@@ -34,7 +34,7 @@ runtimes:
         MAVEN_IMAGE: ${MAVEN_IMAGE}
         JRE_IMAGE: ${JRE_IMAGE}
     # uid 1000 owns the mounted 0600 key: the host user maps to it (keep-id), as for the other components.
-    user: "1000:1000"
+    user: '1000:1000'
     userns: keep-id:uid=1000,gid=1000
     readOnly: true
     tmpfs: [/tmp]

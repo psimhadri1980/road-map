@@ -16,11 +16,11 @@ runtimes:
   default: podman
   podman:
     build:
-      artifact: modules   # the dist/ of every component served via nginx: web
+      artifact: modules # the dist/ of every component served via nginx: web
       args:
         NGINX_IMAGE: ${NGINX_IMAGE}
     # uid 101 is the image's nginx user; the host user maps to it so the mounted 0600 key is readable.
-    user: "101:101"
+    user: '101:101'
     userns: keep-id:uid=101,gid=101
     readOnly: true
     tmpfs: [/tmp]

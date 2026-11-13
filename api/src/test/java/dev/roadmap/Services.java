@@ -33,7 +33,10 @@ final class Services {
     return value;
   }
 
-  /** Points a test context at PostgreSQL and Redis on these ports; Flyway only when the database is up. */
+  /**
+   * Points a test context at PostgreSQL and Redis on these ports; Flyway only when the database is
+   * up.
+   */
   static void use(DynamicPropertyRegistry registry, int postgres, int redis) {
     String url = jdbcUrl(postgres);
     registry.add("spring.datasource.url", () -> url);
@@ -41,8 +44,10 @@ final class Services {
     registry.add("spring.flyway.enabled", () -> postgres == POSTGRES);
     registry.add("spring.data.redis.port", () -> redis);
     // The TLS files as they are on the host; a MOCK context does not serve, but the bundles load.
-    registry.add("spring.ssl.bundle.pem.server.keystore.certificate", () -> "file:" + CERTS + "/api.crt");
-    registry.add("spring.ssl.bundle.pem.server.keystore.private-key", () -> "file:" + CERTS + "/api.key");
+    registry.add(
+        "spring.ssl.bundle.pem.server.keystore.certificate", () -> "file:" + CERTS + "/api.crt");
+    registry.add(
+        "spring.ssl.bundle.pem.server.keystore.private-key", () -> "file:" + CERTS + "/api.key");
     registry.add("spring.ssl.bundle.pem.ca.truststore.certificate", () -> "file:" + CA);
   }
 
@@ -61,7 +66,9 @@ final class Services {
   static String insert(String document) throws SQLException {
     String slug = "it-" + UUID.randomUUID().toString().substring(0, 8);
     try (Connection c = migrator();
-        PreparedStatement s = c.prepareStatement("INSERT INTO roadmap (slug, name, document) VALUES (?, 'fixture', ?::jsonb)")) {
+        PreparedStatement s =
+            c.prepareStatement(
+                "INSERT INTO roadmap (slug, name, document) VALUES (?, 'fixture', ?::jsonb)")) {
       s.setString(1, slug);
       s.setString(2, document);
       s.executeUpdate();
@@ -72,7 +79,8 @@ final class Services {
   /** Replaces a fixture's document directly in the database. */
   static void update(String slug, String document) throws SQLException {
     try (Connection c = migrator();
-        PreparedStatement s = c.prepareStatement("UPDATE roadmap SET document = ?::jsonb WHERE slug = ?")) {
+        PreparedStatement s =
+            c.prepareStatement("UPDATE roadmap SET document = ?::jsonb WHERE slug = ?")) {
       s.setString(1, document);
       s.setString(2, slug);
       s.executeUpdate();
@@ -89,6 +97,7 @@ final class Services {
   }
 
   private static Connection migrator() throws SQLException {
-    return DriverManager.getConnection(jdbcUrl(POSTGRES), "roadmap_migrator", env("ROADMAP_MIGRATOR_PASSWORD"));
+    return DriverManager.getConnection(
+        jdbcUrl(POSTGRES), "roadmap_migrator", env("ROADMAP_MIGRATOR_PASSWORD"));
   }
 }

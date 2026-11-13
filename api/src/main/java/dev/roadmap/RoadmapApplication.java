@@ -6,8 +6,9 @@ import org.springframework.cache.annotation.EnableCaching;
 
 /**
  * The road-map service (spec 001, T013). Everything it does is configuration of Spring Boot in
- * {@code application.yaml}: TLS for serving, PostgreSQL and Redis over TLS, Flyway migrations and the
- * cache. {@code @EnableCaching} switches on the cache abstraction that the read path (T017) uses.
+ * {@code application.yaml}: TLS for serving, PostgreSQL and Redis over TLS, Flyway migrations and
+ * the cache. {@code @EnableCaching} switches on the cache abstraction that the read path (T017)
+ * uses.
  */
 @SpringBootApplication
 @EnableCaching

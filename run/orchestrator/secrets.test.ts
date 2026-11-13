@@ -15,10 +15,19 @@ const file = secretsFile();
 
 function capture(fn: () => void): { out: string; err?: Error } {
   let out = '';
-  const w = process.stdout.write.bind(process.stdout), e = process.stderr.write.bind(process.stderr);
+  const w = process.stdout.write.bind(process.stdout),
+    e = process.stderr.write.bind(process.stderr);
   process.stdout.write = ((s: string) => ((out += s), true)) as typeof process.stdout.write;
   process.stderr.write = ((s: string) => ((out += s), true)) as typeof process.stderr.write;
-  try { fn(); return { out }; } catch (x) { return { out, err: x as Error }; } finally { process.stdout.write = w; process.stderr.write = e; }
+  try {
+    fn();
+    return { out };
+  } catch (x) {
+    return { out, err: x as Error };
+  } finally {
+    process.stdout.write = w;
+    process.stderr.write = e;
+  }
 }
 
 test('first run creates a 0600 file with every key and prints no value', () => {
@@ -37,7 +46,9 @@ test('a second run changes nothing', () => {
 });
 
 test('a key a newer version needs is added, existing values kept', () => {
-  const kept = readFileSync(file, 'utf8').split('\n').filter((l) => !l.startsWith('REDIS_APP_PASSWORD'));
+  const kept = readFileSync(file, 'utf8')
+    .split('\n')
+    .filter((l) => !l.startsWith('REDIS_APP_PASSWORD'));
   writeFileSync(file, kept.join('\n'));
   capture(ensureSecrets);
   const text = readFileSync(file, 'utf8');

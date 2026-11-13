@@ -1,7 +1,6 @@
 package dev.roadmap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -9,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,7 +28,12 @@ class RedisDownIT {
 
   @Test
   void theRoadmapIsServedFromTheDatabase() throws Exception {
-    var body = mvc.perform(get("/api/roadmaps/sample")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    var body =
+        mvc.perform(get("/api/roadmaps/sample"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
     assertEquals(JSON.readTree(Services.sample()), JSON.readTree(body));
   }
 }

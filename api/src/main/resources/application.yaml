@@ -48,5 +48,5 @@ management:
   endpoints.web.exposure.include: health
   endpoint.health:
     probes.enabled: true
-    show-components: always   # names and UP/DOWN only; the front door does not route actuator (T014)
-    group.readiness.include: db   # Redis is reported but never fails readiness (FR-008)
+    show-components: always # names and UP/DOWN only; the front door does not route actuator (T014)
+    group.readiness.include: db # Redis is reported but never fails readiness (FR-008)

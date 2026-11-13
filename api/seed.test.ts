@@ -7,12 +7,21 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 const root = join(import.meta.dirname, '..');
-const secrets = Object.fromEntries(readFileSync(join(root, 'run/secrets/dev.env'), 'utf8').split('\n').filter((l) => l.includes('=')).map((l) => l.split('=') as [string, string]));
+const secrets = Object.fromEntries(
+  readFileSync(join(root, 'run/secrets/dev.env'), 'utf8')
+    .split('\n')
+    .filter((l) => l.includes('='))
+    .map((l) => l.split('=') as [string, string]),
+);
 
 /** One value from the roadmap database, as the read-only service account. */
 function query(sql: string): string {
   const conn = 'host=127.0.0.1 port=15432 dbname=roadmap user=roadmap_app sslmode=verify-full sslrootcert=/tls/ca.crt';
-  const r = spawnSync('podman', ['exec', '-e', `PGPASSWORD=${secrets['ROADMAP_APP_PASSWORD']}`, 'rm-postgres', 'psql', conn, '-Atc', sql], { encoding: 'utf8' });
+  const r = spawnSync(
+    'podman',
+    ['exec', '-e', `PGPASSWORD=${secrets['ROADMAP_APP_PASSWORD']}`, 'rm-postgres', 'psql', conn, '-Atc', sql],
+    { encoding: 'utf8' },
+  );
   assert.equal(r.status, 0, r.stderr);
   return r.stdout.trim();
 }
@@ -28,7 +37,15 @@ test('one sample row, equal to the gantt sample, named from the document', () =>
 test('a second start does not add a row', () => {
   assert.equal(spawnSync('podman', ['restart', '-t', '10', 'rm-api']).status, 0);
   for (let i = 0; i < 60; i++) {
-    if (spawnSync('curl', ['-sf', '--cacert', join(root, 'run/certs/ca.crt'), 'https://127.0.0.1:18443/actuator/health/readiness']).status === 0) break;
+    if (
+      spawnSync('curl', [
+        '-sf',
+        '--cacert',
+        join(root, 'run/certs/ca.crt'),
+        'https://127.0.0.1:18443/actuator/health/readiness',
+      ]).status === 0
+    )
+      break;
     spawnSync('sleep', ['1']);
   }
   assert.equal(query('select count(*) from roadmap'), '1');

@@ -1,7 +1,6 @@
 package dev.roadmap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -34,7 +33,12 @@ class DatabaseDownIT {
     // The entry the service writes on a miss (ReadPathIT checks the format): the document text.
     String key = "roadmap::cached-while-database-down";
     redis.opsForValue().set(key, Services.sample());
-    var body = mvc.perform(get("/api/roadmaps/cached-while-database-down")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    var body =
+        mvc.perform(get("/api/roadmaps/cached-while-database-down"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
     assertEquals(JSON.readTree(Services.sample()), JSON.readTree(body));
   }
 }

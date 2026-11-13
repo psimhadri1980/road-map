@@ -29,7 +29,7 @@ runtimes:
       args:
         KEYCLOAK_IMAGE: ${KEYCLOAK_IMAGE}
     # Runs as keycloak (uid 1000), never root; the host user maps to it so the mounted key is readable.
-    user: "1000:1000"
+    user: '1000:1000'
     userns: keep-id:uid=1000,gid=1000
     readOnly: true
     # data/ holds the realm import and the process's scratch files; none of it outlives the container.

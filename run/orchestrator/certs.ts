@@ -17,13 +17,24 @@ const file = (name: string) => join(CERT_DIR, name);
 function check<T>(name: string, parse: (pem: string) => T): T {
   const path = file(name);
   const fail = (why: string): never => {
-    throw new RunError(`${path}: ${why}`, { hint: 'delete run/certs/*.crt and *.key (not README.md) and deploy again: new ones are created, stored data is kept', code: 1 });
+    throw new RunError(`${path}: ${why}`, {
+      hint: 'delete run/certs/*.crt and *.key (not README.md) and deploy again: new ones are created, stored data is kept',
+      code: 1,
+    });
   };
   if (!existsSync(path)) return fail('is missing');
   let pem: string;
-  try { pem = readFileSync(path, 'utf8'); } catch { return fail('is not readable'); }
+  try {
+    pem = readFileSync(path, 'utf8');
+  } catch {
+    return fail('is not readable');
+  }
   if (!statSync(path).size) return fail('is empty');
-  try { return parse(pem); } catch { return fail('is malformed'); }
+  try {
+    return parse(pem);
+  } catch {
+    return fail('is malformed');
+  }
 }
 
 const readCert = (name: string) => check(name, (pem) => new X509Certificate(pem));
@@ -33,7 +44,12 @@ const readKey = (name: string) => check(name, (pem) => createPrivateKey(pem));
 function verify(name: string, ca: X509Certificate): X509Certificate {
   const cert = readCert(`${name}.crt`);
   const key = readKey(`${name}.key`);
-  const bad = (why: string): never => { throw new RunError(`${file(`${name}.crt`)}: ${why}`, { hint: 'delete run/certs/*.crt and *.key (not README.md) and deploy again', code: 1 }); };
+  const bad = (why: string): never => {
+    throw new RunError(`${file(`${name}.crt`)}: ${why}`, {
+      hint: 'delete run/certs/*.crt and *.key (not README.md) and deploy again',
+      code: 1,
+    });
+  };
   if (!cert.verify(ca.publicKey)) bad('was not issued by the project certificate authority');
   if (!cert.checkPrivateKey(key)) bad(`does not match ${file(`${name}.key`)}`);
   if (!cert.checkIP('127.0.0.1')) bad('does not name 127.0.0.1');
@@ -67,13 +83,37 @@ chmod 0600 ./*.key
  * A component whose certificate AND key are both absent (a newly added component) gets new ones.
  */
 export async function ensureCerts(names: string[]): Promise<void> {
-  for (const n of names) if (!/^[a-z][a-z0-9-]*$/.test(n)) throw new RunError(`certificate name '${n}' is not a component name`, { code: 2 });
+  for (const n of names)
+    if (!/^[a-z][a-z0-9-]*$/.test(n))
+      throw new RunError(`certificate name '${n}' is not a component name`, { code: 2 });
   const haveCa = existsSync(file('ca.crt')) || existsSync(file('ca.key'));
   const fresh = names.filter((n) => !existsSync(file(`${n}.crt`)) && !existsSync(file(`${n}.key`)));
-  if (haveCa) { check('ca.crt', (pem) => new X509Certificate(pem)); readKey('ca.key'); }
+  if (haveCa) {
+    check('ca.crt', (pem) => new X509Certificate(pem));
+    readKey('ca.key');
+  }
   if (!haveCa || fresh.length) {
     log.info(`creating ${haveCa ? '' : 'the project CA and '}certificates for ${fresh.join(', ') || 'no component'}`);
-    await exec(ENGINE, ['run', '--rm', '--userns=keep-id', '--network', 'none', '-v', `${CERT_DIR}:/certs:z`, '--entrypoint', 'sh', baseEnv()['JRE_IMAGE']!, '-c', SCRIPT, 'certs', ...fresh], { logName: 'certs.log', label: 'creating certificates' });
+    await exec(
+      ENGINE,
+      [
+        'run',
+        '--rm',
+        '--userns=keep-id',
+        '--network',
+        'none',
+        '-v',
+        `${CERT_DIR}:/certs:z`,
+        '--entrypoint',
+        'sh',
+        baseEnv()['JRE_IMAGE']!,
+        '-c',
+        SCRIPT,
+        'certs',
+        ...fresh,
+      ],
+      { logName: 'certs.log', label: 'creating certificates' },
+    );
   }
   const ca = readCert('ca.crt');
   for (const n of names) verify(n, ca);
@@ -85,9 +125,14 @@ export function expiringCerts(names: string[]): string[] {
   for (const n of ['ca', ...names]) {
     if (!existsSync(file(`${n}.crt`))) continue;
     try {
-      const days = Math.floor((new Date(new X509Certificate(readFileSync(file(`${n}.crt`))).validTo).getTime() - Date.now()) / 86_400_000);
-      if (days <= WARN_DAYS) out.push(`${file(`${n}.crt`)} ${days < 0 ? `expired ${-days} day(s) ago` : `expires in ${days} day(s)`}`);
-    } catch { /* an unreadable certificate is reported by deploy, with its name */ }
+      const days = Math.floor(
+        (new Date(new X509Certificate(readFileSync(file(`${n}.crt`))).validTo).getTime() - Date.now()) / 86_400_000,
+      );
+      if (days <= WARN_DAYS)
+        out.push(`${file(`${n}.crt`)} ${days < 0 ? `expired ${-days} day(s) ago` : `expires in ${days} day(s)`}`);
+    } catch {
+      /* an unreadable certificate is reported by deploy, with its name */
+    }
   }
   return out;
 }

@@ -1,0 +1,11 @@
+# Not ours to format: the pinned gantt library, generated and downloaded files, the lockfile,
+# and Spec Kit's own templates and agent settings.
+vendor/
+node_modules/
+dist/
+run/.run/
+.turbo/
+api/target/
+pnpm-lock.yaml
+.specify/
+.claude/

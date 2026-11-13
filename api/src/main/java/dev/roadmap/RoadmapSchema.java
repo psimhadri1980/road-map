@@ -11,11 +11,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * Checks a roadmap document against the gantt {@code gantt-roadmap/1} JSON Schema (FR-006). Used by the
- * seed migration (T016) before the sample is stored and by the read path (T017) before a roadmap is
- * served, so the one rule has one implementation. The schema is the library's own file, packaged
- * unmodified. Rules JSON Schema cannot express (unique ids, acyclic links) are not checked here;
- * the library's own {@code validate()} does that in the browser.
+ * Checks a roadmap document against the gantt {@code gantt-roadmap/1} JSON Schema (FR-006). Used by
+ * the seed migration (T016) before the sample is stored and by the read path (T017) before a
+ * roadmap is served, so the one rule has one implementation. The schema is the library's own file,
+ * packaged unmodified. Rules JSON Schema cannot express (unique ids, acyclic links) are not checked
+ * here; the library's own {@code validate()} does that in the browser.
  */
 public final class RoadmapSchema {
 
@@ -29,9 +29,11 @@ public final class RoadmapSchema {
   }
 
   private static Schema load() {
-    try (InputStream in = RoadmapSchema.class.getResourceAsStream("/gantt/gantt-roadmap-1.schema.json")) {
+    try (InputStream in =
+        RoadmapSchema.class.getResourceAsStream("/gantt/gantt-roadmap-1.schema.json")) {
       if (in == null) {
-        throw new IllegalStateException("gantt/gantt-roadmap-1.schema.json is not on the classpath");
+        throw new IllegalStateException(
+            "gantt/gantt-roadmap-1.schema.json is not on the classpath");
       }
       return SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12)
           .getSchema(new String(in.readAllBytes(), StandardCharsets.UTF_8));

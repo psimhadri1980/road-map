@@ -17,7 +17,7 @@
 - Q: Which runtimes does the roadmap service support through the entry point? → A: Container only; the web application also keeps D4's local runtime.
 - Q: Where do the pull-request gates run? → A: GitHub Actions hosted runners.
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - See a roadmap end to end (Priority: P1)
 
@@ -143,7 +143,7 @@ violation, known-vulnerable dependency, committed secret, failing test) and conf
 - Reset is requested: it asks for confirmation before deleting stored data.
 - A certificate has expired: the affected connection fails and the status command names the certificate.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -240,7 +240,7 @@ Proposals, versions and baselines; live events; more than one roadmap.
 - **Certificate authority and certificates**: The project's own authority and one certificate
   per component, used to encrypt and verify connections. Local to each machine.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

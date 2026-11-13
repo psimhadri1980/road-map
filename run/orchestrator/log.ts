@@ -7,7 +7,15 @@ import { join } from 'node:path';
 
 const tty = process.stderr.isTTY && !process.env['NO_COLOR'];
 const paint = (code: string) => (s: string) => (tty ? `\x1b[${code}m${s}\x1b[0m` : s);
-export const c = { bold: paint('1'), dim: paint('2'), red: paint('31'), green: paint('32'), yellow: paint('33'), blue: paint('34'), cyan: paint('36') };
+export const c = {
+  bold: paint('1'),
+  dim: paint('2'),
+  red: paint('31'),
+  green: paint('32'),
+  yellow: paint('33'),
+  blue: paint('34'),
+  cyan: paint('36'),
+};
 
 export const opts = { verbose: false, yes: false };
 let logDir = '';
@@ -34,7 +42,10 @@ export const log = {
     write(`${c.dim(stamp())} ${c.cyan(`[${i}/${n}]`)} ${c.bold(comp.padEnd(14))} ${what}`),
   info: (msg: string) => write(`${c.dim(stamp())}     ${msg}`),
   detail: (msg: string) => write(`${c.dim(stamp())}       ${c.dim(msg)}`),
-  cmd: (cmd: string) => write(`${c.dim(stamp())}       ${c.dim('$ ' + (opts.verbose || cmd.length <= 240 ? cmd : cmd.slice(0, 240) + ' …'))}`),
+  cmd: (cmd: string) =>
+    write(
+      `${c.dim(stamp())}       ${c.dim('$ ' + (opts.verbose || cmd.length <= 240 ? cmd : cmd.slice(0, 240) + ' …'))}`,
+    ),
   ok: (msg: string) => write(`${c.dim(stamp())}     ${c.green('✓')} ${msg}`),
   warn: (msg: string) => write(`${c.dim(stamp())}     ${c.yellow('!')} ${c.yellow(msg)}`),
   error: (msg: string) => write(`${c.dim(stamp())}     ${c.red('✗')} ${c.red(msg)}`),
@@ -116,7 +127,11 @@ export function exec(cmd: string, args: string[], o: ExecOptions = {}): Promise<
   const file = o.logName ? join(logDir, o.logName) : sessionLog;
   const stream: WriteStream | undefined = file ? createWriteStream(file, { flags: 'a' }) : undefined;
   stream?.write(`\n---- ${new Date().toISOString()} $ ${line}\n`);
-  const spawnOpts: SpawnOptions = { cwd: o.cwd, env: o.env ?? process.env, stdio: o.inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'] };
+  const spawnOpts: SpawnOptions = {
+    cwd: o.cwd,
+    env: o.env ?? process.env,
+    stdio: o.inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+  };
   const started = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, spawnOpts);
@@ -143,13 +158,19 @@ export function exec(cmd: string, args: string[], o: ExecOptions = {}): Promise<
     };
     child.stdout?.on('data', onData);
     child.stderr?.on('data', onData);
-    const beat = o.label && !opts.verbose && !o.inherit
-      ? setInterval(() => log.detail(`… ${o.label} (${elapsed(started)})${last ? ': ' + last.slice(0, 110) : ''}`), 10_000)
-      : undefined;
+    const beat =
+      o.label && !opts.verbose && !o.inherit
+        ? setInterval(
+            () => log.detail(`… ${o.label} (${elapsed(started)})${last ? ': ' + last.slice(0, 110) : ''}`),
+            10_000,
+          )
+        : undefined;
     child.on('error', (e) => {
       if (beat) clearInterval(beat);
       stream?.end();
-      reject(new RunError(`could not run '${cmd}': ${e.message}`, { hint: o.hint ?? `is '${cmd}' installed and on PATH?` }));
+      reject(
+        new RunError(`could not run '${cmd}': ${e.message}`, { hint: o.hint ?? `is '${cmd}' installed and on PATH?` }),
+      );
     });
     child.on('close', (code, signal) => {
       if (beat) clearInterval(beat);
@@ -158,14 +179,29 @@ export function exec(cmd: string, args: string[], o: ExecOptions = {}): Promise<
       stream?.write(`---- exit ${exit}${signal ? ` (${signal})` : ''} after ${elapsed(started)}\n`);
       stream?.end();
       if ((o.okCodes ?? [0]).includes(exit)) return resolve({ code: exit, out, tail });
-      reject(new RunError(`${o.label ?? 'command'} failed (exit ${exit}${signal ? `, ${signal}` : ''}): ${line}`, { tail, logFile: file, hint: o.hint }));
+      reject(
+        new RunError(`${o.label ?? 'command'} failed (exit ${exit}${signal ? `, ${signal}` : ''}): ${line}`, {
+          tail,
+          logFile: file,
+          hint: o.hint,
+        }),
+      );
     });
   });
 }
 
 /** A quick command whose output is needed (podman inspect, git): never logged as a step. */
-export function capture(cmd: string, args: string[], o: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): { code: number; out: string; err: string } {
-  const r = spawnSync(cmd, args, { cwd: o.cwd, env: o.env ?? process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+export function capture(
+  cmd: string,
+  args: string[],
+  o: { cwd?: string; env?: NodeJS.ProcessEnv } = {},
+): { code: number; out: string; err: string } {
+  const r = spawnSync(cmd, args, {
+    cwd: o.cwd,
+    env: o.env ?? process.env,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
   if (r.error) return { code: 127, out: '', err: r.error.message };
   return { code: r.status ?? 1, out: r.stdout ?? '', err: r.stderr ?? '' };
 }

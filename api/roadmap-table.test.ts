@@ -7,23 +7,41 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-const secrets = Object.fromEntries(readFileSync(join(import.meta.dirname, '..', 'run/secrets/dev.env'), 'utf8').split('\n').filter((l) => l.includes('=')).map((l) => l.split('=') as [string, string]));
-const PASSWORD: Record<string, string> = { roadmap_migrator: secrets['ROADMAP_MIGRATOR_PASSWORD']!, roadmap_app: secrets['ROADMAP_APP_PASSWORD']! };
+const secrets = Object.fromEntries(
+  readFileSync(join(import.meta.dirname, '..', 'run/secrets/dev.env'), 'utf8')
+    .split('\n')
+    .filter((l) => l.includes('='))
+    .map((l) => l.split('=') as [string, string]),
+);
+const PASSWORD: Record<string, string> = {
+  roadmap_migrator: secrets['ROADMAP_MIGRATOR_PASSWORD']!,
+  roadmap_app: secrets['ROADMAP_APP_PASSWORD']!,
+};
 
 /** psql in the postgres container as `user` over verified TLS; the password goes by environment. */
 function psql(user: string, sql: string) {
   const conn = `host=127.0.0.1 port=15432 dbname=roadmap user=${user} sslmode=verify-full sslrootcert=/tls/ca.crt`;
-  const r = spawnSync('podman', ['exec', '-e', `PGPASSWORD=${PASSWORD[user]}`, 'rm-postgres', 'psql', conn, '-v', 'ON_ERROR_STOP=1', '-Atc', sql], { encoding: 'utf8' });
+  const r = spawnSync(
+    'podman',
+    ['exec', '-e', `PGPASSWORD=${PASSWORD[user]}`, 'rm-postgres', 'psql', conn, '-v', 'ON_ERROR_STOP=1', '-Atc', sql],
+    { encoding: 'utf8' },
+  );
   return { ok: r.status === 0, out: r.stdout.trim(), err: r.stderr.trim() };
 }
 
 const GOOD = `'{"contract":"gantt-roadmap/1"}'`;
 /** Each insert runs in its own rolled-back transaction, so the table is never changed. */
 const insert = (slug: string, name: string, doc: string) =>
-  psql('roadmap_migrator', `begin; insert into roadmap (slug, name, document) values (${slug}, ${name}, ${doc}); rollback`);
+  psql(
+    'roadmap_migrator',
+    `begin; insert into roadmap (slug, name, document) values (${slug}, ${name}, ${doc}); rollback`,
+  );
 
 test('a valid row is accepted and gets an id and a creation time', () => {
-  const r = psql('roadmap_migrator', `begin; insert into roadmap (slug, name, document) values ('ok-1', 'x', ${GOOD}) returning id is not null and created_at is not null; rollback`);
+  const r = psql(
+    'roadmap_migrator',
+    `begin; insert into roadmap (slug, name, document) values ('ok-1', 'x', ${GOOD}) returning id is not null and created_at is not null; rollback`,
+  );
   assert.ok(r.ok, r.err);
   assert.match(r.out, /^t$/m);
 });
@@ -49,14 +67,22 @@ test('each constraint refuses a violating row', () => {
 });
 
 test('the slug is unique', () => {
-  const r = psql('roadmap_migrator', `begin; insert into roadmap (slug, name, document) values ('dup', 'n', ${GOOD}), ('dup', 'n', ${GOOD}); rollback`);
+  const r = psql(
+    'roadmap_migrator',
+    `begin; insert into roadmap (slug, name, document) values ('dup', 'n', ${GOOD}), ('dup', 'n', ${GOOD}); rollback`,
+  );
   assert.equal(r.ok, false);
   assert.match(r.err, /roadmap_slug_key/);
 });
 
 test('the service account reads but cannot write', () => {
   assert.ok(psql('roadmap_app', 'select count(*) from roadmap').ok);
-  for (const sql of [`insert into roadmap (slug, name, document) values ('w', 'n', ${GOOD})`, "update roadmap set name = 'x'", 'delete from roadmap', 'truncate roadmap']) {
+  for (const sql of [
+    `insert into roadmap (slug, name, document) values ('w', 'n', ${GOOD})`,
+    "update roadmap set name = 'x'",
+    'delete from roadmap',
+    'truncate roadmap',
+  ]) {
     const r = psql('roadmap_app', sql);
     assert.equal(r.ok, false, sql);
     assert.match(r.err, /permission denied/, sql);

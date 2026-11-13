@@ -9,7 +9,7 @@ body:
     attributes:
       label: Spec and task id
       description: The spec folder and the task, as in tasks.md.
-      placeholder: "001-walking-skeleton / T016"
+      placeholder: '001-walking-skeleton / T016'
     validations: { required: true }
   - type: textarea
     id: summary

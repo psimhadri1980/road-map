@@ -50,14 +50,18 @@ public class ApiErrors {
   @ExceptionHandler(NonConforming.class)
   ResponseEntity<Body> nonConforming(NonConforming e) {
     LOG.warn("{}", e.getMessage());
-    return reply(HttpStatus.UNPROCESSABLE_CONTENT, "The stored roadmap is not in the expected format.", "nonConforming");
+    return reply(
+        HttpStatus.UNPROCESSABLE_CONTENT,
+        "The stored roadmap is not in the expected format.",
+        "nonConforming");
   }
 
   /** The database could not answer; the cache already had its chance (FR-008). */
   @ExceptionHandler(DataAccessException.class)
   ResponseEntity<Body> unavailable(DataAccessException e) {
     LOG.error("database unavailable", e);
-    return reply(HttpStatus.SERVICE_UNAVAILABLE, "The roadmap is temporarily unavailable.", "unavailable");
+    return reply(
+        HttpStatus.SERVICE_UNAVAILABLE, "The roadmap is temporarily unavailable.", "unavailable");
   }
 
   private static ResponseEntity<Body> reply(HttpStatus status, String message, String code) {

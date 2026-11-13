@@ -21,8 +21,7 @@ public class RoadmapService {
   /** The roadmap document as JSON text. */
   @Cacheable("roadmap")
   public String document(String slug) {
-    String document =
-        repository.findDocument(slug).orElseThrow(() -> new ApiErrors.NotFound(slug));
+    String document = repository.findDocument(slug).orElseThrow(() -> new ApiErrors.NotFound(slug));
     if (!RoadmapSchema.validate(document).isEmpty()) {
       throw new ApiErrors.NonConforming(slug);
     }

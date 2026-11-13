@@ -13,19 +13,26 @@ const ca = readFileSync(join(import.meta.dirname, '..', '..', 'run/certs/ca.crt'
 
 /** GET https://127.0.0.1:8443<path>, verified against the project CA unless `opts` says otherwise. */
 const get = (path: string, opts: RequestOptions = {}) =>
-  new Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }>((resolve, reject) => {
-    const req = request({ host: '127.0.0.1', port: 8443, path, ca, timeout: 5000, ...opts }, (res) => {
-      let body = '';
-      res.on('data', (d) => (body += d));
-      res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body }));
-    });
-    req.on('error', reject).on('timeout', () => req.destroy(new Error('timed out'))).end();
-  });
+  new Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }>(
+    (resolve, reject) => {
+      const req = request({ host: '127.0.0.1', port: 8443, path, ca, timeout: 5000, ...opts }, (res) => {
+        let body = '';
+        res.on('data', (d) => (body += d));
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body }));
+      });
+      req
+        .on('error', reject)
+        .on('timeout', () => req.destroy(new Error('timed out')))
+        .end();
+    },
+  );
 
 test('healthy, as nginx (101) on a read-only filesystem, loopback only', () => {
   assert.equal(spawnSync('podman', ['exec', 'rm-nginx', 'id', '-u'], { encoding: 'utf8' }).stdout.trim(), '101');
   assert.notEqual(spawnSync('podman', ['exec', 'rm-nginx', 'touch', '/etc/nginx/probe']).status, 0);
-  const ss = spawnSync('ss', ['-ltn'], { encoding: 'utf8' }).stdout.split('\n').filter((l) => /:(8443|18080)\s/.test(l));
+  const ss = spawnSync('ss', ['-ltn'], { encoding: 'utf8' })
+    .stdout.split('\n')
+    .filter((l) => /:(8443|18080)\s/.test(l));
   assert.equal(ss.length, 2);
   for (const l of ss) assert.match(l, /127\.0\.0\.1\]?:/, l);
 });
@@ -39,7 +46,11 @@ test('FR-019 headers are on every response, errors included', async () => {
   for (const path of ['/', '/api/actuator/health']) {
     const h = (await get(path)).headers;
     assert.equal(h['strict-transport-security'], 'max-age=31536000', path);
-    assert.match(String(h['content-security-policy']), /default-src 'self'; worker-src 'self'; frame-ancestors 'none'/, path);
+    assert.match(
+      String(h['content-security-policy']),
+      /default-src 'self'; worker-src 'self'; frame-ancestors 'none'/,
+      path,
+    );
     assert.equal(h['x-content-type-options'], 'nosniff', path);
     assert.equal(h['referrer-policy'], 'no-referrer', path);
   }

@@ -12,7 +12,11 @@ test('a missing submodule is reported with git submodule update --init', () => {
   copyFileSync(join(import.meta.dirname, '..', '..', 'package.json'), join(root, 'package.json'));
   symlinkSync(join(import.meta.dirname, '..', '..', 'node_modules'), join(root, 'node_modules'));
   for (const args of [['ls'], ['status'], ['doctor']]) {
-    const r = spawnSync('node', ['--disable-warning=ExperimentalWarning', join(root, 'run/orchestrator/main.ts'), ...args], { encoding: 'utf8', cwd: root });
+    const r = spawnSync(
+      'node',
+      ['--disable-warning=ExperimentalWarning', join(root, 'run/orchestrator/main.ts'), ...args],
+      { encoding: 'utf8', cwd: root },
+    );
     assert.notEqual(r.status, 0, args.join(' '));
     assert.match(r.stderr + r.stdout, /git submodule update --init/, args.join(' '));
   }
