@@ -1,0 +1,30 @@
+# Minimal gate (T005, spec 001): every pull request runs the repository's one entry point, the
+# same commands a developer runs (FR-011). User Story 4 adds the other gates to this file.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      # R9: the runner's Podman version decides what the orchestrator can rely on; keep it in the log.
+      - run: podman --version
+      # shortcut: no components exist yet, so `stack:test static` has nothing to select. Until
+      # T006 adds the first one this job runs `doctor` and the orchestrator's own tests; then it
+      # becomes `run/run.sh stack:test static`.
+      - run: run/run.sh doctor
+      - run: node --test run/orchestrator/*.test.ts
