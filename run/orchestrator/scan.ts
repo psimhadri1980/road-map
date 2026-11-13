@@ -77,7 +77,7 @@ export async function scan(): Promise<void> {
   for (const repo of ['/repo', '/repo/vendor/gantt'])
     await scanner(
       image('GITLEAKS_IMAGE'),
-      ['git', '--no-banner', '--redact', '--exit-code', '1', repo],
+      ['git', '--no-banner', '--redact', '--verbose', '--exit-code', '1', repo],
       `gitleaks on the history of ${repo}`,
       { hint: 'a finding is a leaked secret: rotate it first, then remove it; false positives go in .gitleaks.toml' },
     );
