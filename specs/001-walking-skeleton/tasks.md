@@ -87,8 +87,8 @@ Two choices depart from strict story order, both for constitution reasons:
 **Independent Test**: Run each command on the stack and on one component; CI calls only `run/run.sh`.
 
 - [x] T022 [US2] `format` command in `run/orchestrator/`: Spotless for `api/`, Prettier for TypeScript, JSON, YAML and Markdown; `--check` fails listing every file that would change; `test static` runs the check form. Tests for both forms. [FR-010, FR-021]
-- [X] T023 [US2] Write the list of D4 command forms that apply to road-map in `run/README.md`, and a test in `run/orchestrator/` that runs each one (help, ls, status, doctor, and build/deploy/start/stop/reset/status/logs/test/exec/shell on `stack` and on one component). [FR-009, SC-008]
-- [ ] T024 [US2] Run alongside D4: a test that deploys road-map while D4's components are up and checks no container name or port is shared. [FR-027]
+- [x] T023 [US2] Write the list of D4 command forms that apply to road-map in `run/README.md`, and a test in `run/orchestrator/` that runs each one (help, ls, status, doctor, and build/deploy/start/stop/reset/status/logs/test/exec/shell on `stack` and on one component). [FR-009, SC-008]
+- [X] T024 [US2] Run alongside D4: a test that deploys road-map while D4's components are up and checks no container name or port is shared. [FR-027]
 - [ ] T025 [US2] Edge cases: a port already in use stops deploy naming port and component; a component that is not healthy in its time limit fails deploy, names it and points to its logs; `reset` asks for confirmation without `--yes`; `doctor` names each missing prerequisite with how to install it; deploying twice changes nothing (same images, certificates and secrets, no container restarted). Tests for each. [FR-002, FR-009]
 
 ---
