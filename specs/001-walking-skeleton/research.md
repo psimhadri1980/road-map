@@ -100,8 +100,13 @@ certs layout) and record the commit in `run/README.md`. Then:
 
 **Kept as D4 has it**: host networking with every port on 127.0.0.1 (clarification Q2); the
 `component.yaml` contract; `build.artifact: none` (component folder + Containerfile) for the
-service, `via` for the web app served by nginx; health waits; input-hash image tags; dev secrets
-in `run/env/dev-secrets.env` with `local.env` overrides.
+service, `via` for the web app served by nginx; health waits; input-hash image tags; `local.env`
+overrides.
+
+**Changed from D4 for security**: D4 tracks `run/env/dev-secrets.env` with its development
+passwords in git. road-map does not (FR-017): on first deploy the orchestrator generates random
+passwords into `run/secrets/dev.env` (git-ignored, mode 0600) and reads them from there.
+`run/env/` holds no secret, so the gitleaks gate needs no allow-list.
 
 **Turned down**: a compose file (PLAN said none; D4 has none); Testcontainers for integration
 tests. D4 already starts the real services on Podman for `test integration` and passes their
@@ -193,6 +198,7 @@ needs exported TypeScript to carry documentation, and ESLint has no built-in rul
 ## R9. Continuous integration
 
 **Decision**: GitHub Actions, `ubuntu-24.04` hosted runners (clarification Q4), which include
-Podman. One workflow with jobs: `static`, `unit`, `integration` (starts the services), `smoke`
+Podman. **Risk**: Ubuntu 24.04 ships Podman 4.9, not 5; the first CI task records the version
+in use, and either the orchestrator works on it or the workflow installs Podman 5. One workflow with jobs: `static`, `unit`, `integration` (starts the services), `smoke`
 (full stack deploy), plus the CodeQL and dependency-review workflows. Every job checks out with
 submodules and calls `run/run.sh`. Branch protection on `main` requires all of them.
