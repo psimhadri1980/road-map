@@ -99,7 +99,7 @@ Two choices depart from strict story order, both for constitution reasons:
 
 **Independent Test**: `run/run.sh stack:test integration -- -Dgroups=transport` and `run/run.sh stack:status`.
 
-- [ ] T026 [US3] Transport tests in `api/src/test/java/…/transport/`: a plain-text connection to PostgreSQL and to Redis is refused; a certificate from another CA is rejected by the service, nginx and Keycloak; a certificate with the wrong host name is rejected. [FR-013, FR-014, SC-004]
+- [x] T026 [US3] Transport tests in `api/src/test/java/…/transport/`: a plain-text connection to PostgreSQL and to Redis is refused; a certificate from another CA is rejected by the service, nginx and Keycloak; a certificate with the wrong host name is rejected. [FR-013, FR-014, SC-004]
 - [ ] T027 [US3] Exposure test in `run/orchestrator/`: every listening port of every component is bound to 127.0.0.1 only. [FR-015, SC-005]
 - [ ] T028 [P] [US3] Hardening and header tests: each container runs as non-root with a read-only root filesystem and dropped capabilities; nginx responses carry the four FR-019 headers; the 21st request within one second from one client is refused. [FR-018, FR-019]
 - [ ] T029 [P] [US3] Certificate expiry: `status` warns when a certificate expires within 30 days and names it; a test with a short-lived certificate. [FR-017a]
