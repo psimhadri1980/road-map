@@ -12,7 +12,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -63,7 +62,11 @@ class SecurityConfig {
                   json.writeValue(response.getOutputStream(), ApiErrors.UNAUTHENTICATED);
                 }))
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .csrf(AbstractHttpConfigurer::disable)
+        // Bearer-only API: the token is in a header the page adds itself, never a cookie the
+        // browser attaches
+        // on its own, so a cross-site request carries no credential and CSRF has nothing to forge
+        // (FR-008).
+        .csrf(c -> c.ignoringRequestMatchers("/api/**"))
         .build();
   }
 
