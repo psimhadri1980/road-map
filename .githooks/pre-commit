@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Formats what is about to be committed, so formatting is never a manual step (FR-020, T031).
+# CI runs the same formatters in check mode (`test static`), so a commit made with --no-verify still fails there.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+[[ -n "$staged" ]] || exit 0
+
+# Formatting rewrites whole files; with unstaged edits in the same file it would stage them too.
+partial="$(git diff --name-only -- $staged)"
+if [[ -n "$partial" ]]; then
+  echo "pre-commit: these files have unstaged changes as well as staged ones; stage or stash them first:" >&2
+  echo "$partial" >&2
+  exit 1
+fi
+
+run/run.sh stack:format >&2
+# Re-stage only what was staged: files the formatter touched that were not part of this commit stay as they are.
+# shortcut: filenames with newlines are not handled; git refuses them in this repo's tooling anyway.
+echo "$staged" | xargs -d '\n' git add --

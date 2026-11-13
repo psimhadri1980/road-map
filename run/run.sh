@@ -22,4 +22,6 @@ if [[ ! -d "$root/node_modules/yaml" ]]; then
   echo "run.sh: first run, installing the workspace dependencies (pnpm install)..." >&2
   (cd "$root" && NPM_CONFIG_UPDATE_NOTIFIER=false npx -y "pnpm@$(sed -nE 's/.*"packageManager": *"pnpm@([^"]+)".*/\1/p' package.json)" install --frozen-lockfile) >&2
 fi
+# Commits are formatted by .githooks/pre-commit; point git at it once per clone (T031).
+[[ "$(git -C "$root" config core.hooksPath 2>/dev/null || true)" == .githooks ]] || git -C "$root" config core.hooksPath .githooks 2>/dev/null || true
 exec node --disable-warning=ExperimentalWarning "$here/orchestrator/main.ts" "$@"
