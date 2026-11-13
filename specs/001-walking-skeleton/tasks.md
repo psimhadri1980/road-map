@@ -103,7 +103,7 @@ Two choices depart from strict story order, both for constitution reasons:
 - [x] T027 [US3] Exposure test in `run/orchestrator/`: every listening port of every component is bound to 127.0.0.1 only. [FR-015, SC-005]
 - [x] T028 [P] [US3] Hardening and header tests: each container runs as non-root with a read-only root filesystem and dropped capabilities; nginx responses carry the four FR-019 headers; the 21st request within one second from one client is refused. [FR-018, FR-019]
 - [x] T029 [P] [US3] Certificate expiry: `status` warns when a certificate expires within 30 days and names it; a test with a short-lived certificate. [FR-017a]
-- [ ] T030 [US3] Log hygiene test: after a full deploy and test run, no generated password or private key appears in `run/.run/logs/` or in container logs. [FR-017b]
+- [x] T030 [US3] Log hygiene test: after a full deploy and test run, no generated password or private key appears in `run/.run/logs/` or in container logs. [FR-017b]
 
 ---
 
