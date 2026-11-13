@@ -20,7 +20,7 @@ description: 'Task list for spec 002, sign-in and token enforcement'
 
 ## Phase 2: User Story 1 (P1) - sign in and see the roadmap
 
-- [ ] T002 [US1] Web sign-in. Add `keycloak-js` 26.2.5 (justification in research R4) and `web/src/auth.ts` (init with `login-required`, S256, no iframe; token held in memory only). `web/src/App.tsx` waits for sign-in, then fetches the roadmap with the bearer token. `run/orchestrator/test.ts` smoke signs in with the sample user from the generated secrets. Update `web/src/App.test.tsx`. Serves FR-001–FR-005. Done when: a fresh browser is redirected to sign-in, wrong credentials show an error and no roadmap, correct ones show the roadmap, a reload shows it again without a prompt, and storage and cookies hold no token (asserted in smoke). Needs T001.
+- [ ] T002 [US1] Web sign-in. Add `keycloak-js` 26.2.5 (justification in research R4) and `web/src/auth.ts` (init with `login-required`, S256, no iframe; token held in memory only). `web/src/App.tsx` waits for sign-in, then fetches the roadmap with the bearer token. `run/orchestrator/test.ts` smoke signs in with the sample user from the generated secrets. When the identity provider cannot be reached, show one plain "cannot sign in" message (edge case) and never request the roadmap. Update `web/src/App.test.tsx`. Serves FR-001–FR-005. Done when: a fresh browser is redirected to sign-in, wrong credentials show an error and no roadmap, correct ones show the roadmap, a reload shows it again without a prompt, and storage and cookies hold no token (asserted in smoke). Needs T001.
 
 ## Phase 3: User Story 2 (P1) - requests without a valid token are refused
 
