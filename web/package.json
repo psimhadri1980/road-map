@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@gantt/react": "workspace:*",
+    "keycloak-js": "26.2.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
