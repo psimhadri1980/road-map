@@ -26,6 +26,10 @@ runtimes:
   podman:
     build:
       artifact: none
+      # The schema and sample are the gantt library's own files, taken from the pinned submodule.
+      files:
+        - { from: vendor/gantt/packages/contract/schema, to: gantt/contract/schema }
+        - { from: vendor/gantt/packages/mock/src/samples, to: gantt/mock/src/samples }
       args:
         MAVEN_IMAGE: ${MAVEN_IMAGE}
         JRE_IMAGE: ${JRE_IMAGE}

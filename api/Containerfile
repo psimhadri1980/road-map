@@ -6,7 +6,9 @@ FROM ${MAVEN_IMAGE} AS build
 WORKDIR /build
 COPY component/pom.xml .
 COPY component/src src
-RUN mvn -B -q -DskipTests package
+# The gantt files run/run.sh stages from the pinned submodule (api/component.yaml build.files).
+COPY app/gantt /build/gantt/packages
+RUN mvn -B -q -DskipTests -Dgantt.dir=/build/gantt package
 
 FROM ${JRE_IMAGE}
 COPY --from=build /build/target/api-*.jar /app/api.jar
