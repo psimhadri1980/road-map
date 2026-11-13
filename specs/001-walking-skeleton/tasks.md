@@ -35,7 +35,7 @@ Two choices depart from strict story order, both for constitution reasons:
 
 **Purpose**: Repository, entry point and CI skeleton
 
-- [ ] T001 Copy `run/` verbatim from D4 commit `3388748` (run.sh, orchestrator/, schema/, env/ layout, certs/README.md) and record the commit in `run/README.md`. No behaviour change in this PR, so the next PR's diff shows every adaptation. [FR-009]
+- [X] T001 Copy `run/` verbatim from D4 commit `3388748` (run.sh, orchestrator/, schema/, env/ layout, certs/README.md) and record the commit in `run/README.md`. No behaviour change in this PR, so the next PR's diff shows every adaptation. [FR-009]
 - [ ] T002 Adapt `run/orchestrator/`: one constant for the name prefix `rm` (containers `rm-<name>`, images `localhost/rm-<name>`, contract `apiVersion: road-map/v1` in `run/schema/component.schema.json`); remove the D4-only parts (tenants, ops, cli, publish, the observability group, knip, Neo4j and S3 wiring). Test: `run/run.sh ls` and `help` list no D4 component. [FR-009, FR-012, FR-027]
 - [ ] T003 Root workspace: `package.json` (`packageManager: pnpm@12.16.1`), `pnpm-workspace.yaml` (`web`, `vendor/gantt/packages/*`; `trustPolicy: no-downgrade`, `minimumReleaseAge: 1440`, `minimatch` override as in gantt), `.node-version` (24), `turbo.json`, `.gitignore` (`run/.run/`, `run/certs/*` except README, `run/secrets/`, `node_modules/`, `api/target/`). [FR-001, Plan R3]
 - [ ] T004 Add the gantt submodule at `vendor/gantt`, pinned to the merge commit of psimhadri1980/gantt#10. Every command checks that `vendor/gantt/package.json` exists and otherwise stops with the `git submodule update --init` instruction. Test for the message. **Blocked until gantt#10 is merged.** [FR-004, FR-026]
