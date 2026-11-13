@@ -46,7 +46,7 @@ class ReadPathIT {
   }
 
   private String body(String path) throws Exception {
-    return mvc.perform(get(path))
+    return mvc.perform(get(path).header("Authorization", Services.bearer()))
         .andExpect(status().isOk())
         .andReturn()
         .getResponse()
@@ -73,13 +73,16 @@ class ReadPathIT {
   @Test
   void aStoredDocumentThatDoesNotMatchTheFormatIsRefusedAndNotCached() throws Exception {
     slug = Services.insert("{\"contract\":\"gantt-roadmap/1\"}");
-    mvc.perform(get("/api/roadmaps/" + slug)).andExpect(status().isUnprocessableContent());
+    mvc.perform(get("/api/roadmaps/" + slug).header("Authorization", Services.bearer()))
+        .andExpect(status().isUnprocessableContent());
     assertEquals(null, redis.opsForValue().get("roadmap::" + slug));
   }
 
   @Test
   void anUnknownRoadmapIsNotFoundAndABadSlugIsInvalid() throws Exception {
-    mvc.perform(get("/api/roadmaps/no-such-roadmap")).andExpect(status().isNotFound());
-    mvc.perform(get("/api/roadmaps/Not_A_Slug")).andExpect(status().isBadRequest());
+    mvc.perform(get("/api/roadmaps/no-such-roadmap").header("Authorization", Services.bearer()))
+        .andExpect(status().isNotFound());
+    mvc.perform(get("/api/roadmaps/Not_A_Slug").header("Authorization", Services.bearer()))
+        .andExpect(status().isBadRequest());
   }
 }
