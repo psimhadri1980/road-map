@@ -44,6 +44,14 @@ spring:
   cache:
     type: redis
 
+  security.oauth2.resourceserver.jwt:
+    # The realm's signing keys, fetched straight from Keycloak (not through nginx) over TLS verified against
+    # the project CA; refetched on an unknown key id, so key rotation needs no restart (FR-010).
+    jwk-set-uri: ${KEYCLOAK_URL}/realms/road-map/protocol/openid-connect/certs
+    # What the token's iss must equal: the address browsers reach Keycloak at, i.e. the front door (research R3).
+    issuer-uri: https://127.0.0.1:8443/auth/realms/road-map
+    audiences: road-map-api
+
 management:
   endpoints.web.exposure.include: health
   endpoint.health:

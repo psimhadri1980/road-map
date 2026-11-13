@@ -12,8 +12,8 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 
 /**
  * The one place exceptions become responses (T017, contracts/openapi.yaml): {@code {error, code}}
- * with 400, 404, 422 or 503. Messages are for people and carry no internal detail; the detail goes
- * to the log.
+ * with 400, 401, 404, 422 or 503. Messages are for people and carry no internal detail; the detail
+ * goes to the log.
  */
 @RestControllerAdvice
 public class ApiErrors {
@@ -22,6 +22,14 @@ public class ApiErrors {
 
   /** The body of every error response. */
   public record Body(String error, String code) {}
+
+  /**
+   * What an unauthenticated caller gets (002-T003, FR-007, FR-011): one message for every reason,
+   * so the response never tells an attacker which check failed. Written by the security filter
+   * chain, which runs before any controller, so it is a constant here rather than an exception
+   * handler.
+   */
+  static final Body UNAUTHENTICATED = new Body("Sign in to continue.", "unauthenticated");
 
   /** No roadmap has this slug. */
   public static final class NotFound extends RuntimeException {

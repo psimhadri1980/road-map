@@ -58,6 +58,12 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-redis</artifactId>
     </dependency>
+    <!-- OAuth 2.0 resource server (002-T003): signature, issuer, audience and expiry of every bearer token.
+         Spring Security does it; nothing is hand-parsed (constitution II). Version managed by Spring Boot. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+    </dependency>
     <!-- Checks a roadmap against the gantt JSON Schema (FR-006); a schema library, not hand-written checks. -->
     <dependency>
       <groupId>com.networknt</groupId>

@@ -29,7 +29,7 @@ class RedisDownIT {
   @Test
   void theRoadmapIsServedFromTheDatabase() throws Exception {
     var body =
-        mvc.perform(get("/api/roadmaps/sample"))
+        mvc.perform(get("/api/roadmaps/sample").header("Authorization", Services.bearer()))
             .andExpect(status().isOk())
             .andReturn()
             .getResponse()

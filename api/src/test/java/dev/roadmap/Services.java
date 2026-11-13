@@ -1,12 +1,25 @@
 package dev.roadmap;
 
+import java.io.ByteArrayInputStream;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.UUID;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 import org.springframework.test.context.DynamicPropertyRegistry;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * What the integration tests (T018) share: the addresses of the running PostgreSQL and Redis, how
@@ -49,6 +62,64 @@ final class Services {
     registry.add(
         "spring.ssl.bundle.pem.server.keystore.private-key", () -> "file:" + CERTS + "/api.key");
     registry.add("spring.ssl.bundle.pem.ca.truststore.certificate", () -> "file:" + CA);
+    registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", () -> keys(KEYCLOAK));
+  }
+
+  /**
+   * The running Keycloak's port; the service's key fetch goes straight to it, not through nginx.
+   */
+  static final int KEYCLOAK = Integer.parseInt(env("PORT_KEYCLOAK_HTTPS"));
+
+  /** Keycloak's signing keys on this port (a closed one makes Keycloak "down" for the service). */
+  static String keys(int keycloak) {
+    return "https://127.0.0.1:" + keycloak + "/auth/realms/road-map/protocol/openid-connect/certs";
+  }
+
+  /**
+   * A real access token for the sample user from {@code client}, obtained from the running Keycloak
+   * with a password grant (development clients only, research R5). {@code road-map-test} adds the
+   * API audience and lives five seconds; {@code road-map-test-other-audience} has no audience.
+   */
+  static String token(String client) throws Exception {
+    KeyStore trust = KeyStore.getInstance(KeyStore.getDefaultType());
+    trust.load(null);
+    try (var in = new ByteArrayInputStream(Files.readAllBytes(Path.of(CA)))) {
+      trust.setCertificateEntry(
+          "ca", CertificateFactory.getInstance("X.509").generateCertificate(in));
+    }
+    TrustManagerFactory tmf =
+        TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+    tmf.init(trust);
+    SSLContext tls = SSLContext.getInstance("TLSv1.3");
+    tls.init(null, tmf.getTrustManagers(), null);
+    String form =
+        "grant_type=password&client_id="
+            + client
+            + "&username=sample&password="
+            + URLEncoder.encode(env("SAMPLE_USER_PASSWORD"), StandardCharsets.UTF_8);
+    HttpResponse<String> response =
+        HttpClient.newBuilder()
+            .sslContext(tls)
+            .build()
+            .send(
+                HttpRequest.newBuilder(
+                        URI.create(
+                            "https://127.0.0.1:"
+                                + KEYCLOAK
+                                + "/auth/realms/road-map/protocol/openid-connect/token"))
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString(form))
+                    .build(),
+                HttpResponse.BodyHandlers.ofString());
+    if (response.statusCode() != 200) {
+      throw new IllegalStateException("Keycloak refused the sample user: " + response.statusCode());
+    }
+    return new ObjectMapper().readTree(response.body()).get("access_token").asString();
+  }
+
+  /** The Authorization header value for a fresh token of the default test client. */
+  static String bearer() throws Exception {
+    return "Bearer " + token("road-map-test");
   }
 
   private static String jdbcUrl(int port) {

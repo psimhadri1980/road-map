@@ -34,7 +34,9 @@ class DatabaseDownIT {
     String key = "roadmap::cached-while-database-down";
     redis.opsForValue().set(key, Services.sample());
     var body =
-        mvc.perform(get("/api/roadmaps/cached-while-database-down"))
+        mvc.perform(
+                get("/api/roadmaps/cached-while-database-down")
+                    .header("Authorization", Services.bearer()))
             .andExpect(status().isOk())
             .andReturn()
             .getResponse()

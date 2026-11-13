@@ -119,7 +119,8 @@ function serviceEnv(): Record<string, string> {
     ...pick(
       'PORT_POSTGRES',
       'PORT_REDIS',
-      'PORT_KEYCLOAK',
+      'PORT_KEYCLOAK_HTTPS',
+      'SAMPLE_USER_PASSWORD',
       'ROADMAP_MIGRATOR_PASSWORD',
       'ROADMAP_APP_PASSWORD',
       'REDIS_APP_PASSWORD',

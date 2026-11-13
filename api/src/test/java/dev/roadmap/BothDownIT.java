@@ -31,7 +31,7 @@ class BothDownIT {
   @Test
   void theAnswerIsAPlainUnavailable() throws Exception {
     var body =
-        mvc.perform(get("/api/roadmaps/sample"))
+        mvc.perform(get("/api/roadmaps/sample").header("Authorization", Services.bearer()))
             .andExpect(status().isServiceUnavailable())
             .andReturn()
             .getResponse()

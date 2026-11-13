@@ -1,11 +1,11 @@
 # The roadmap service (T013): Spring Boot, HTTPS only, PostgreSQL and Redis over verified TLS
-# (FR-001, FR-002, FR-011a, FR-013, FR-018).
+# (FR-001, FR-002, FR-011a, FR-013, FR-018). Since spec 002 it verifies Keycloak's tokens, so it needs Keycloak's keys.
 apiVersion: road-map/v1
 kind: Component
 name: api
 category: service
 description: Spring Boot service that serves roadmaps from PostgreSQL through Redis
-dependsOn: [postgres, redis]
+dependsOn: [postgres, redis, keycloak]
 ports:
   https: 18443
 health:
