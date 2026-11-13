@@ -1,0 +1,5 @@
+# nginx (T020): the published image with the web app's build baked in, so the container serves it
+# from a read-only root filesystem. `app/web` is web's dist/, copied in by the orchestrator.
+ARG NGINX_IMAGE
+FROM ${NGINX_IMAGE}
+COPY app/web /usr/share/nginx/html

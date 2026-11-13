@@ -39,10 +39,24 @@ test('FR-019 headers are on every response, errors included', async () => {
   for (const path of ['/', '/api/actuator/health']) {
     const h = (await get(path)).headers;
     assert.equal(h['strict-transport-security'], 'max-age=31536000', path);
-    assert.match(String(h['content-security-policy']), /default-src 'self'; frame-ancestors 'none'/, path);
+    assert.match(String(h['content-security-policy']), /default-src 'self'; worker-src 'self'; frame-ancestors 'none'/, path);
     assert.equal(h['x-content-type-options'], 'nosniff', path);
     assert.equal(h['referrer-policy'], 'no-referrer', path);
   }
+});
+
+test('serves the web app, its assets and the engine worker, and falls back to it for unknown pages (FR-004)', async () => {
+  const page = await get('/');
+  assert.match(page.body, /<div id="root">/);
+  assert.equal((await get('/some/page')).body, page.body);
+  const assets = [...page.body.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((m) => m[1]!);
+  assert.ok(assets.length >= 2, 'the page names a script and a stylesheet');
+  for (const a of assets) assert.equal((await get(a)).status, 200, a);
+  // The engine runs in a Web Worker, a separate file the CSP must allow from the own origin.
+  const script = await get(assets.find((a) => a.endsWith('.js'))!);
+  const worker = /assets\/(engine\.worker-[^"'`]+\.js)/.exec(script.body)?.[1];
+  assert.ok(worker, 'the bundle references the engine worker');
+  assert.equal((await get(`/assets/${worker}`)).status, 200);
 });
 
 test('the plain port only redirects to HTTPS', async () => {
