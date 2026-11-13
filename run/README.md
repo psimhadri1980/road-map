@@ -3,7 +3,7 @@
 > `orchestrator/components.ts`), contract `road-map/v1`, no tenants, ops, cli, publish, observability,
 > knip, Neo4j or S3 wiring, no old-compose clean-up, no browser (`e2e`) suite yet, no committed
 > secrets (`secrets/dev.env` is generated, FR-017). Still D4-shaped and reworked by later tasks:
-> the Node/turbo test path (Maven, T012), gateway TLS and `host.conf` (T007-T009).
+> the Node/turbo test path, gateway TLS and `host.conf` (T007-T009).
 > To carry a later D4 fix across, diff D4's `run/` from `3388748` to its new commit.
 
 # run/

@@ -10,6 +10,7 @@ import { ensureDeps, sourcesOf, toolEnv } from './build.ts';
 import { checkHealth, whereRunning } from './runtime.ts';
 import { plan, up } from './lifecycle.ts';
 import { gatewayRequest } from './extras.ts';
+import { maven, MAVEN_GOALS } from './maven.ts';
 
 interface Pkg { name: string; dir: string; deps: string[] }
 
@@ -66,17 +67,31 @@ function selectPackages(scope: Set<string> | undefined, all: boolean, base: stri
   return { pkgs: hit, why: changed.size ? `changed since ${base}: ${[...changed].sort().join(', ')}` : `nothing changed since ${base}` };
 }
 
-const SERVICES = ['postgres', 'redis'];
+const SERVICES = ['postgres', 'redis', 'keycloak'];
 
-/** RM_TEST_* for integration suites: the dev services on the host network. */
+/** What integration suites need to reach the dev services (addresses, accounts and the CA); passwords by name only. */
 function serviceEnv(): Record<string, string> {
   const env = baseEnv();
+  const pick = (...keys: string[]) => Object.fromEntries(keys.map((k) => [k, env[k] ?? '']));
   return {
-    RM_TEST_POSTGRES_URL: `postgres://${env['POSTGRES_USER']}:${env['POSTGRES_PASSWORD']}@127.0.0.1:${env['PORT_POSTGRES']}/postgres`,
-    RM_TEST_REDIS_URL: `redis://127.0.0.1:${env['PORT_REDIS']}`,
+    ...pick('PORT_POSTGRES', 'PORT_REDIS', 'PORT_KEYCLOAK', 'ROADMAP_MIGRATOR_PASSWORD', 'ROADMAP_APP_PASSWORD', 'REDIS_APP_PASSWORD', 'KEYCLOAK_DB_PASSWORD'),
+    RM_TEST_CA_FILE: '/repo/run/certs/ca.crt', // path as seen inside the Maven container
   };
 }
-const noServices = { RM_TEST_POSTGRES_URL: '', RM_TEST_REDIS_URL: '' };
+const noServices: Record<string, string> = {};
+
+/** Start (on podman) any needed service that is not running, then require every one to be healthy. */
+async function ensureServices(needs: string[]): Promise<void> {
+  const missing = needs.map((n) => component(n)).filter((n) => !whereRunning(n).length);
+  if (missing.length) {
+    log.info(`integration tests need ${needs.join(', ')}; starting ${missing.map((x) => x.name).join(', ')} on podman`);
+    await up(plan(missing, 'podman', false), { build: false });
+  }
+  for (const n of needs) {
+    const h = await checkHealth(component(n), 'podman');
+    if (!h.ok) throw new RunError(`${n} is not healthy (${h.detail})`, { hint: `run/run.sh ${n}:status` });
+  }
+}
 
 /** turbo on local Node, or in the pinned Node image with the repository mounted (podman). */
 async function turbo(rt: Runtime, args: string[], env: Record<string, string>, label: string): Promise<void> {
@@ -103,6 +118,8 @@ export async function test(comp: Component | 'stack', rtArg: Runtime | undefined
 
   if (suite === 'smoke') return smoke();
 
+  if (comp !== 'stack' && comp.test.maven) return mavenSuite(comp, suite as keyof typeof MAVEN_GOALS, t, name);
+
   const ws = workspace();
   const roots = comp === 'stack' ? undefined : sourcesOf(comp);
   if (roots && !roots.length) throw new RunError(`${name} has no packages to ${suite}-test`);
@@ -116,21 +133,20 @@ export async function test(comp: Component | 'stack', rtArg: Runtime | undefined
   if (suite === 'static') {
     await turbo(rt, ['run', 'typecheck', 'lint', '--concurrency=2', ...filters, ...rest], noServices, 'typecheck and lint');
   } else if (suite === 'integration') {
-    const needs = comp === 'stack' ? SERVICES : (comp.test.integration?.needs ?? SERVICES);
-    const missing = needs.map((n) => component(n)).filter((n) => !whereRunning(n).length);
-    if (missing.length) {
-      log.info(`integration tests need ${needs.join(', ')}; starting ${missing.map((x) => x.name).join(', ')} on podman`);
-      await up(plan(missing, 'podman', false), { build: false });
-    }
-    for (const n of needs) {
-      const h = await checkHealth(component(n), 'podman');
-      if (!h.ok) throw new RunError(`${n} is not healthy (${h.detail})`, { hint: `run/run.sh ${n}:status` });
-    }
+    await ensureServices(comp === 'stack' ? SERVICES : (comp.test.integration?.needs ?? SERVICES));
     await turbo(rt, ['run', 'test', '--concurrency=2', ...filters, ...rest], serviceEnv(), 'integration tests');
   } else {
     await turbo(rt, ['run', 'test', ...filters, ...rest], noServices, 'unit tests');
   }
   log.ok(`${suite} tests passed for ${pkgs.length} package(s) (${elapsed(t)})`);
+}
+
+/** A Java component: Maven decides what to run; integration first makes sure the services are up. */
+async function mavenSuite(comp: Component, suite: keyof typeof MAVEN_GOALS, t: number, name: string): Promise<void> {
+  log.phase(`Test ${suite} for ${name} (Maven)`);
+  if (suite === 'integration') await ensureServices(comp.test.integration?.needs ?? SERVICES);
+  await maven(comp, MAVEN_GOALS[suite], suite === 'integration' ? serviceEnv() : noServices, `mvn ${MAVEN_GOALS[suite].join(' ')}`);
+  log.ok(`${suite} tests passed for ${name} (${elapsed(t)})`);
 }
 
 /** smoke: the front door answers over its public address. */

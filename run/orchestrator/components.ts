@@ -63,7 +63,7 @@ export interface Component {
   sharedEnv: boolean;
   runtimes: { default: Runtime; local?: { command: string; build: 'deps' | 'full' }; podman?: PodmanSpec };
   hooks: { postStart: { component: string; args: string[] }[] };
-  test: { unit: boolean; integration?: { needs: string[] } };
+  test: { unit: boolean; maven: boolean; integration?: { needs: string[] } };
   /** The folder holding component.yaml, absolute and relative to the repository. */
   dir: string;
   rel: string;
@@ -180,7 +180,8 @@ function parseComponent(file: string): Component {
       }),
     },
     test: {
-      unit: test['unit'] !== false && !!doc['source'],
+      unit: test['unit'] !== false && (!!doc['source'] || test['maven'] === true),
+      maven: test['maven'] === true,
       ...(isObj(integration) && { integration: { needs: list(integration['needs'], 'test.integration.needs') } }),
     },
     dir: dirname(file),
