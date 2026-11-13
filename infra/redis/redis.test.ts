@@ -8,13 +8,28 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 const root = join(import.meta.dirname, '..', '..');
-const secrets = Object.fromEntries(readFileSync(join(root, 'run/secrets/dev.env'), 'utf8').split('\n').filter((l) => l.includes('=')).map((l) => l.split('=') as [string, string]));
+const secrets = Object.fromEntries(
+  readFileSync(join(root, 'run/secrets/dev.env'), 'utf8')
+    .split('\n')
+    .filter((l) => l.includes('='))
+    .map((l) => l.split('=') as [string, string]),
+);
 
 /** redis-cli inside the container over TCP; the password goes by environment, never argv. */
-function cli(args: string[], { tls = true, user = 'roadmap_app', password = secrets['REDIS_APP_PASSWORD']!, cacert = '/tls/ca.crt' } = {}) {
+function cli(
+  args: string[],
+  { tls = true, user = 'roadmap_app', password = secrets['REDIS_APP_PASSWORD']!, cacert = '/tls/ca.crt' } = {},
+) {
   const base = ['-h', '127.0.0.1', '-p', '16379', ...(tls ? ['--tls', '--cacert', cacert] : []), '--user', user];
-  const r = spawnSync('podman', ['exec', '-e', `REDISCLI_AUTH=${password}`, 'rm-redis', 'redis-cli', ...base, ...args], { encoding: 'utf8', timeout: 10_000 });
-  return { ok: r.status === 0 && !/^\(error\)|^(NOAUTH|WRONGPASS|NOPERM|ERR)\b|^Error/m.test(r.stdout + r.stderr), out: (r.stdout + r.stderr).trim() };
+  const r = spawnSync(
+    'podman',
+    ['exec', '-e', `REDISCLI_AUTH=${password}`, 'rm-redis', 'redis-cli', ...base, ...args],
+    { encoding: 'utf8', timeout: 10_000 },
+  );
+  return {
+    ok: r.status === 0 && !/^\(error\)|^(NOAUTH|WRONGPASS|NOPERM|ERR)\b|^Error/m.test(r.stdout + r.stderr),
+    out: (r.stdout + r.stderr).trim(),
+  };
 }
 
 test('the container is healthy and runs as redis on a read-only filesystem', () => {

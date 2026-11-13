@@ -2,7 +2,19 @@
 // cache; an image is a thin wrapper around that output, tagged with a hash of its inputs, so an
 // unchanged component is neither repackaged nor rebuilt.
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, lstatSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, relative } from 'node:path';
 import { c, capture, elapsed, exec, log, opts, RunError } from './log.ts';
 import { component, loadComponents, PREFIX, ROOT, RUN_DIR, STATE_DIR, type Component } from './components.ts';
@@ -36,15 +48,26 @@ export async function ensureDeps(): Promise<void> {
   if (have !== PNPM_VERSION) {
     log.info(`installing pnpm ${PNPM_VERSION} into run/.run/tools (once)`);
     mkdirSync(TOOLS, { recursive: true });
-    await exec('npm', ['install', '--silent', '--no-audit', '--no-fund', '--prefix', TOOLS, `pnpm@${PNPM_VERSION}`], { env: toolEnv(), logName: 'install.log', label: 'installing pnpm' });
+    await exec('npm', ['install', '--silent', '--no-audit', '--no-fund', '--prefix', TOOLS, `pnpm@${PNPM_VERSION}`], {
+      env: toolEnv(),
+      logName: 'install.log',
+      label: 'installing pnpm',
+    });
   }
   const marker = join(ROOT, 'node_modules/.modules.yaml');
   const stale = !existsSync(marker) || statSync(join(ROOT, 'pnpm-lock.yaml')).mtimeMs > statSync(marker).mtimeMs;
   if (stale) {
     const t = Date.now();
-    log.info(existsSync(marker) ? 'pnpm-lock.yaml changed: installing dependencies' : 'no node_modules yet: installing dependencies');
+    log.info(
+      existsSync(marker)
+        ? 'pnpm-lock.yaml changed: installing dependencies'
+        : 'no node_modules yet: installing dependencies',
+    );
     await exec('pnpm', ['install', '--frozen-lockfile'], {
-      cwd: ROOT, env: toolEnv(), logName: 'install.log', label: 'pnpm install',
+      cwd: ROOT,
+      env: toolEnv(),
+      logName: 'install.log',
+      label: 'pnpm install',
       hint: 'after a package.json change, run `pnpm install` to update pnpm-lock.yaml and commit it',
     });
     log.ok(`dependencies installed (${elapsed(t)})`);
@@ -55,7 +78,9 @@ export async function ensureDeps(): Promise<void> {
 /** The workspace packages a component compiles: its source, or those of the modules it serves. */
 export function sourcesOf(comp: Component): string[] {
   if (comp.runtimes.podman?.build?.artifact === 'modules')
-    return [...loadComponents().values()].filter((x) => x.runtimes.podman?.via === comp.name && x.source).map((x) => x.source!);
+    return [...loadComponents().values()]
+      .filter((x) => x.runtimes.podman?.via === comp.name && x.source)
+      .map((x) => x.source!);
   return comp.source ? [comp.source] : [];
 }
 
@@ -72,13 +97,21 @@ export async function compile(packages: string[]): Promise<void> {
   let built = 0;
   log.info(`compiling ${pkgs.join(', ')} and their workspace dependencies (turbo, shared cache)`);
   await exec('turbo', ['run', 'build', '--output-logs=new-only', ...pkgs.map((p) => `--filter=${p}...`)], {
-    cwd: ROOT, env: toolEnv(), logName: 'build.log', label: 'turbo build',
+    cwd: ROOT,
+    env: toolEnv(),
+    logName: 'build.log',
+    label: 'turbo build',
     hint: 'the compiler errors are above; fix them and run the command again',
     onLine: (l) => {
       const m = /^(@?[\w/.-]+):build: cache (hit|miss|bypass)/.exec(l);
       if (m) {
-        if (m[2] === 'hit') { hits++; if (opts.verbose) log.detail(`${m[1]} ${c.green('cached')}`); }
-        else { built++; log.detail(`${m[1]} ${c.yellow('building')}`); }
+        if (m[2] === 'hit') {
+          hits++;
+          if (opts.verbose) log.detail(`${m[1]} ${c.green('cached')}`);
+        } else {
+          built++;
+          log.detail(`${m[1]} ${c.yellow('building')}`);
+        }
       } else if (/error|ERR_|ERROR/.test(l) && !/^\s*•/.test(l)) log.error(l.slice(0, 200));
     },
   });
@@ -92,10 +125,18 @@ function turboHashes(packages: string[]): Map<string, string> {
   hashes ??= new Map();
   const missing = packages.filter((p) => !hashes!.has(p));
   if (missing.length) {
-    const r = capture(join(ROOT, 'node_modules/.bin/turbo'), ['run', 'build', '--dry=json', ...missing.map((p) => `--filter=${p}`)], { cwd: ROOT, env: toolEnv() });
-    if (r.code !== 0) throw new RunError(`turbo could not hash ${missing.join(', ')}`, { tail: (r.err || r.out).split('\n').slice(-20) });
+    const r = capture(
+      join(ROOT, 'node_modules/.bin/turbo'),
+      ['run', 'build', '--dry=json', ...missing.map((p) => `--filter=${p}`)],
+      { cwd: ROOT, env: toolEnv() },
+    );
+    if (r.code !== 0)
+      throw new RunError(`turbo could not hash ${missing.join(', ')}`, {
+        tail: (r.err || r.out).split('\n').slice(-20),
+      });
     const json = JSON.parse(r.out.slice(r.out.indexOf('{'))) as { tasks: { taskId: string; hash: string }[] };
-    for (const task of json.tasks) if (task.taskId.endsWith('#build')) hashes.set(task.taskId.slice(0, -'#build'.length), task.hash);
+    for (const task of json.tasks)
+      if (task.taskId.endsWith('#build')) hashes.set(task.taskId.slice(0, -'#build'.length), task.hash);
   }
   return hashes;
 }
@@ -129,17 +170,24 @@ function hashFile(h: ReturnType<typeof createHash>, file: string): void {
 function filesUnder(p: string): string[] {
   if (!existsSync(p)) return [];
   if (statSync(p).isFile()) return [p];
-  return readdirSync(p, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).map((e) => join(e.parentPath, e.name)).sort();
+  return readdirSync(p, { recursive: true, withFileTypes: true })
+    .filter((e) => e.isFile())
+    .map((e) => join(e.parentPath, e.name))
+    .sort();
 }
 
 /** The build args an image gets: the pinned base images, the registry and the organization CA. */
 function buildArgs(comp: Component): Record<string, string> {
   const env = baseEnv();
   const args: Record<string, string> = {
-    NODE_IMAGE: env['NODE_IMAGE'] ?? '', NODE_SLIM_IMAGE: env['NODE_SLIM_IMAGE'] ?? '', NGINX_IMAGE: env['NGINX_IMAGE'] ?? '',
-    NPM_REGISTRY: env['NPM_REGISTRY'] ?? '', NODE_EXTRA_CA_CERTS: env['RM_CA_BUILD'] ?? '',
+    NODE_IMAGE: env['NODE_IMAGE'] ?? '',
+    NODE_SLIM_IMAGE: env['NODE_SLIM_IMAGE'] ?? '',
+    NGINX_IMAGE: env['NGINX_IMAGE'] ?? '',
+    NPM_REGISTRY: env['NPM_REGISTRY'] ?? '',
+    NODE_EXTRA_CA_CERTS: env['RM_CA_BUILD'] ?? '',
   };
-  for (const [k, v] of Object.entries(comp.runtimes.podman?.build?.args ?? {})) args[k] = interpolate(v, env, `${comp.rel}/component.yaml`);
+  for (const [k, v] of Object.entries(comp.runtimes.podman?.build?.args ?? {}))
+    args[k] = interpolate(v, env, `${comp.rel}/component.yaml`);
   return args;
 }
 
@@ -174,18 +222,33 @@ async function stage(comp: Component, ctx: string): Promise<void> {
   for (const f of componentFiles(comp)) cpSync(f, join(ctx, 'component', relative(comp.dir, f)));
   mkdirSync(join(ctx, 'certs'), { recursive: true });
   mkdirSync(join(ctx, 'deps'), { recursive: true });
-  if (existsSync(join(RUN_DIR, 'certs/org-ca.crt'))) cpSync(join(RUN_DIR, 'certs/org-ca.crt'), join(ctx, 'certs/org-ca.crt'));
+  if (existsSync(join(RUN_DIR, 'certs/org-ca.crt')))
+    cpSync(join(RUN_DIR, 'certs/org-ca.crt'), join(ctx, 'certs/org-ca.crt'));
   const app = join(ctx, 'app');
   if (build.artifact === 'node') {
     log.detail(`packaging ${comp.source} with its production dependencies (pnpm deploy)`);
     rmSync(app, { recursive: true, force: true });
     await exec('pnpm', ['--filter', comp.source!, 'deploy', '--prod', '--prefer-offline', app], {
-      cwd: ROOT, env: toolEnv(), logName: `${comp.name}.package.log`, label: `packaging ${comp.name}`, quiet: !process.env['RM_DEBUG'],
+      cwd: ROOT,
+      env: toolEnv(),
+      logName: `${comp.name}.package.log`,
+      label: `packaging ${comp.name}`,
+      quiet: !process.env['RM_DEBUG'],
     });
-    for (const extra of ['src', 'test', 'Containerfile', 'component.yaml', 'tsconfig.json', 'tsconfig.build.json', 'vitest.config.ts'])
+    for (const extra of [
+      'src',
+      'test',
+      'Containerfile',
+      'component.yaml',
+      'tsconfig.json',
+      'tsconfig.build.json',
+      'vitest.config.ts',
+    ])
       rmSync(join(app, extra), { recursive: true, force: true });
-    if (!existsSync(join(app, 'dist'))) throw new RunError(`${comp.name}: the packaged app has no dist/ (did the build of ${comp.source} write one?)`);
-    if (existsSync(join(app, 'node_modules'))) stableDeps(comp, join(app, 'node_modules'), join(ctx, 'deps', 'node_modules'));
+    if (!existsSync(join(app, 'dist')))
+      throw new RunError(`${comp.name}: the packaged app has no dist/ (did the build of ${comp.source} write one?)`);
+    if (existsSync(join(app, 'node_modules')))
+      stableDeps(comp, join(app, 'node_modules'), join(ctx, 'deps', 'node_modules'));
   } else if (build.artifact === 'static') {
     const dist = join(comp.dir, 'dist');
     if (!existsSync(dist)) throw new RunError(`${comp.name}: ${relative(ROOT, dist)} is missing after the build`);
@@ -216,7 +279,8 @@ function depsKey(dir: string): string {
       h.update(rel + '\0');
       if (e.isSymbolicLink()) h.update('-> ' + readlinkSync(p));
       else if (e.isDirectory()) walk(p);
-      else if (e.isFile()) h.update(rel.startsWith('.pnpm/') && !rel.includes('@rm+') ? String(lstatSync(p).size) : readFileSync(p));
+      else if (e.isFile())
+        h.update(rel.startsWith('.pnpm/') && !rel.includes('@rm+') ? String(lstatSync(p).size) : readFileSync(p));
     }
   };
   walk(dir);
@@ -243,7 +307,8 @@ function stableDeps(comp: Component, fresh: string, into: string): void {
     log.detail('dependencies changed: a new dependency layer');
   }
   const r = capture('cp', ['-al', keep, into]);
-  if (r.code !== 0) throw new RunError(`${comp.name}: could not link its dependencies into the build context: ${r.err.trim()}`);
+  if (r.code !== 0)
+    throw new RunError(`${comp.name}: could not link its dependencies into the build context: ${r.err.trim()}`);
 }
 
 /** Builds a component's image unless one with the same input hash exists; returns its reference. */
@@ -261,13 +326,36 @@ async function buildImage(comp: Component, i: number, n: number): Promise<string
   const ctx = join(STATE_DIR, 'ctx', comp.name);
   await stage(comp, ctx);
   const containerfile = join(ctx, 'component', comp.runtimes.podman!.build!.containerfile ?? 'Containerfile');
-  if (!existsSync(containerfile)) throw new RunError(`${comp.name}: no ${relative(ROOT, join(comp.dir, comp.runtimes.podman!.build!.containerfile ?? 'Containerfile'))}`);
+  if (!existsSync(containerfile))
+    throw new RunError(
+      `${comp.name}: no ${relative(ROOT, join(comp.dir, comp.runtimes.podman!.build!.containerfile ?? 'Containerfile'))}`,
+    );
   const args = Object.entries(buildArgs(comp)).flatMap(([k, v]) => ['--build-arg', `${k}=${v}`]);
-  await exec(ENGINE, ['build', '-f', containerfile, '-t', ref, '--label', `rm.component=${comp.name}`, '--label', `rm.hash=${hash}`, ...args, ctx], {
-    env: toolEnv(), logName: `${comp.name}.image.log`, label: `building the ${comp.name} image`,
-    hint: `the Containerfile is ${relative(ROOT, join(comp.dir, comp.runtimes.podman!.build!.containerfile ?? 'Containerfile'))}`,
-    onLine: (l) => { if (/^STEP \d+\/\d+/.test(l)) log.detail(l.slice(0, 140)); },
-  });
+  await exec(
+    ENGINE,
+    [
+      'build',
+      '-f',
+      containerfile,
+      '-t',
+      ref,
+      '--label',
+      `rm.component=${comp.name}`,
+      '--label',
+      `rm.hash=${hash}`,
+      ...args,
+      ctx,
+    ],
+    {
+      env: toolEnv(),
+      logName: `${comp.name}.image.log`,
+      label: `building the ${comp.name} image`,
+      hint: `the Containerfile is ${relative(ROOT, join(comp.dir, comp.runtimes.podman!.build!.containerfile ?? 'Containerfile'))}`,
+      onLine: (l) => {
+        if (/^STEP \d+\/\d+/.test(l)) log.detail(l.slice(0, 140));
+      },
+    },
+  );
   rmSync(ctx, { recursive: true, force: true });
   pruneImages(comp, ref);
   log.ok(`${comp.name}: built ${ref} (${elapsed(t)})`);
@@ -276,9 +364,22 @@ async function buildImage(comp: Component, i: number, n: number): Promise<string
 
 /** Removes older tags of a component's image that no container uses. */
 function pruneImages(comp: Component, keep: string): void {
-  const r = capture(ENGINE, ['images', '--filter', `reference=localhost/rm-${comp.name}`, '--format', '{{.Repository}}:{{.Tag}}']);
-  const used = new Set(capture(ENGINE, ['ps', '-a', '--format', '{{.Image}}']).out.split('\n').map((s) => s.trim()));
-  for (const ref of r.out.split('\n').map((s) => s.trim()).filter(Boolean)) {
+  const r = capture(ENGINE, [
+    'images',
+    '--filter',
+    `reference=localhost/rm-${comp.name}`,
+    '--format',
+    '{{.Repository}}:{{.Tag}}',
+  ]);
+  const used = new Set(
+    capture(ENGINE, ['ps', '-a', '--format', '{{.Image}}'])
+      .out.split('\n')
+      .map((s) => s.trim()),
+  );
+  for (const ref of r.out
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     if (ref === keep || used.has(ref) || ref.endsWith(':<none>')) continue;
     if (capture(ENGINE, ['rmi', ref]).code === 0) log.detail(`removed old image ${ref}`);
   }
@@ -295,7 +396,11 @@ export async function ensureImage(comp: Component, i: number, n: number): Promis
     log.step(i, n, comp.name, `image ${c.dim(ref)} ${c.green('present')}`);
   } else {
     log.step(i, n, comp.name, `image ${c.dim(ref)} ${c.yellow('pulling')}`);
-    await exec(ENGINE, ['pull', ref], { logName: `${comp.name}.image.log`, label: `pulling ${ref}`, hint: 'check the registry, proxy and NPM_REGISTRY/ORG_CA_FILE settings' });
+    await exec(ENGINE, ['pull', ref], {
+      logName: `${comp.name}.image.log`,
+      label: `pulling ${ref}`,
+      hint: 'check the registry, proxy and NPM_REGISTRY/ORG_CA_FILE settings',
+    });
   }
   return ref;
 }

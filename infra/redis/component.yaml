@@ -14,7 +14,7 @@ health:
 provides:
   common:
     REDIS_HOST: 127.0.0.1
-    REDIS_PORT: "16379"
+    REDIS_PORT: '16379'
 env:
   common:
     REDIS_APP_PASSWORD: ${REDIS_APP_PASSWORD}
@@ -23,7 +23,7 @@ runtimes:
   podman:
     image: ${REDIS_IMAGE}
     # Runs as redis (uid 999), never root; the host user maps to it, so the mounted key is readable.
-    user: "999:999"
+    user: '999:999'
     userns: keep-id:uid=999,gid=999
     readOnly: true
     tmpfs: [/tmp]

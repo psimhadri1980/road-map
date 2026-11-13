@@ -40,17 +40,17 @@ gantt library unmodified; read-only roadmap
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design._
 
-| Principle | Check | Result |
-| --- | --- | --- |
-| I Necessary Code Only | Every component maps to an FR; D4 parts road-map does not use are removed (R4); no types generated until a feature reads inside the document (R7) | Pass |
-| II Framework Before Code | Cache via `@Cacheable` + `LoggingCacheErrorHandler`; seeding via Flyway; TLS via Spring SSL bundles, PostgreSQL/Redis/nginx/Keycloak settings; validation via a schema library. Hand-written Java: one controller, one service, one repository method, one migration, the error mapping | Pass |
-| III Server Is the Authority | Gantt consumed as pinned submodule (R3); the server validates the document before serving. No user identity exists yet (spec 002) | Pass |
-| IV Secure Every Hop | TLS with verification on every connection (R5); database and cache refuse plain text; least-privileged credentials; non-root read-only containers. **Departure**: no token check yet, the roadmap is readable by anyone on 127.0.0.1 — accepted in spec clarification Q1, closed by spec 002 | Pass with recorded departure |
-| V Gates Are Executable | Every gate in R8 runs through `run/run.sh` and blocks merge; GitHub-native CodeQL and dependency review are the stated exception | Pass |
-| VI Comments Carry Reasons | Checkstyle Javadoc rules and ESLint jsdoc rule enforce documentation; spec/task ids in comments | Pass |
-| VII One Task, One PR | `tasks.md` sized per PR | Pass |
+| Principle                   | Check                                                                                                                                                                                                                                                                                        | Result                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| I Necessary Code Only       | Every component maps to an FR; D4 parts road-map does not use are removed (R4); no types generated until a feature reads inside the document (R7)                                                                                                                                            | Pass                         |
+| II Framework Before Code    | Cache via `@Cacheable` + `LoggingCacheErrorHandler`; seeding via Flyway; TLS via Spring SSL bundles, PostgreSQL/Redis/nginx/Keycloak settings; validation via a schema library. Hand-written Java: one controller, one service, one repository method, one migration, the error mapping      | Pass                         |
+| III Server Is the Authority | Gantt consumed as pinned submodule (R3); the server validates the document before serving. No user identity exists yet (spec 002)                                                                                                                                                            | Pass                         |
+| IV Secure Every Hop         | TLS with verification on every connection (R5); database and cache refuse plain text; least-privileged credentials; non-root read-only containers. **Departure**: no token check yet, the roadmap is readable by anyone on 127.0.0.1 — accepted in spec clarification Q1, closed by spec 002 | Pass with recorded departure |
+| V Gates Are Executable      | Every gate in R8 runs through `run/run.sh` and blocks merge; GitHub-native CodeQL and dependency review are the stated exception                                                                                                                                                             | Pass                         |
+| VI Comments Carry Reasons   | Checkstyle Javadoc rules and ESLint jsdoc rule enforce documentation; spec/task ids in comments                                                                                                                                                                                              | Pass                         |
+| VII One Task, One PR        | `tasks.md` sized per PR                                                                                                                                                                                                                                                                      | Pass                         |
 
 **Post-design re-check**: unchanged. The design adds no component, layer or dependency beyond
 those listed; `eslint-plugin-jsdoc` is justified in R8.
@@ -127,7 +127,7 @@ is one of each. No `apps/` or `packages/` folders: they would hold one item each
 
 ## Complexity Tracking
 
-| Departure | Why needed | Simpler alternative rejected because |
-| --- | --- | --- |
-| Roadmap readable without sign-in (Principle IV) | Spec 001 proves the path end to end before sign-in exists | Merging sign-in into 001 doubles the first feature; owner chose this in clarification Q1, limited to 127.0.0.1 and sample data |
+| Departure                                                            | Why needed                                                       | Simpler alternative rejected because                                                                                                    |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Roadmap readable without sign-in (Principle IV)                      | Spec 001 proves the path end to end before sign-in exists        | Merging sign-in into 001 doubles the first feature; owner chose this in clarification Q1, limited to 127.0.0.1 and sample data          |
 | Cache errors logged and bypassed (Principle I forbids catch-and-log) | FR-008 requires the roadmap to stay available when Redis is down | Failing the request would make the cache a single point of failure; the bypass is the framework's handler, logged and visible in health |

@@ -46,7 +46,11 @@ class ReadPathIT {
   }
 
   private String body(String path) throws Exception {
-    return mvc.perform(get(path)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    return mvc.perform(get(path))
+        .andExpect(status().isOk())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
   }
 
   @Test
@@ -61,7 +65,8 @@ class ReadPathIT {
     // The service wrote the document under roadmap::<slug>.
     assertNotNull(redis.opsForValue().get("roadmap::" + slug));
     // Change the row directly: only the cache can still answer with the old content.
-    Services.update(slug, Services.sample().replace("\"Platform migration\"", "\"Changed in the database\""));
+    Services.update(
+        slug, Services.sample().replace("\"Platform migration\"", "\"Changed in the database\""));
     assertEquals(first, JSON.readTree(body("/api/roadmaps/" + slug)));
   }
 

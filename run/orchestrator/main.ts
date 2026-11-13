@@ -3,14 +3,38 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { c, initLogs, log, opts, reportError, RunError } from './log.ts';
-import { CATEGORIES, component, isProcess, loadComponents, mainPort, ROOT, RUNTIMES, select, STATE_DIR, type Runtime } from './components.ts';
+import {
+  CATEGORIES,
+  component,
+  isProcess,
+  loadComponents,
+  mainPort,
+  ROOT,
+  RUNTIMES,
+  select,
+  STATE_DIR,
+  type Runtime,
+} from './components.ts';
 import { build, ensureDependencies, execIn, logs, plan, reset, shell, status, stop, up } from './lifecycle.ts';
 import { doctor } from './extras.ts';
 import { ensureSecrets } from './secrets.ts';
 import { ensureCerts, expiringCerts } from './certs.ts';
 import { test } from './test.ts';
+import { format } from './format.ts';
 
-const COMMANDS = ['build', 'deploy', 'start', 'stop', 'reset', 'status', 'logs', 'test', 'exec', 'shell'] as const;
+const COMMANDS = [
+  'build',
+  'deploy',
+  'start',
+  'stop',
+  'reset',
+  'status',
+  'logs',
+  'test',
+  'format',
+  'exec',
+  'shell',
+] as const;
 type Command = (typeof COMMANDS)[number];
 
 const USAGE = `${c.bold('usage:')} run/run.sh [<runtime>:]<component>:<command> [args] [--verbose] [--yes]
@@ -27,6 +51,7 @@ ${c.bold('command')}    build    compile (turbo, cached) and, for podman, packag
            reset    stop, then delete its container and volumes (podman) or its dist/ (local); --yes
            status   where each component runs, state, health, route, build (--json)
            logs     follow its output (-n N, --no-follow)
+           format   rewrite files to the house format (Spotless for Java, Prettier for the rest); --check only lists them
            test     [unit|integration|static|smoke] [--all] [--base ref] [-- extra args]
                     changed packages only, within the component, unless --all
            exec     -- <command>: in the running component, or run a tool once
@@ -36,23 +61,59 @@ ${c.bold('examples')}   run/run.sh podman:stack:deploy        run/run.sh api:tes
            run/run.sh status                      run/run.sh stack:test static`;
 
 function ls(): void {
-  const comps = [...loadComponents().values()].sort((a, b) => CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category) || a.name.localeCompare(b.name));
-  const rows = comps.map((x) => [x.name, x.category + (x.group ? `/${x.group}` : ''), RUNTIMES.filter((r) => x.runtimes[r]).map((r) => (r === x.runtimes.default ? `${r}*` : r)).join(' '), mainPort(x) ? String(mainPort(x)) : '-', x.optional ? 'optional' : '', x.description]);
-  const w = [0, 1, 2, 3, 4].map((i) => Math.max(...rows.map((r) => r[i]!.length), ['COMPONENT', 'CATEGORY', 'RUNTIMES', 'PORT', ''][i]!.length));
-  process.stdout.write(c.bold(['COMPONENT', 'CATEGORY', 'RUNTIMES', 'PORT', ''].map((h, i) => h.padEnd(w[i]!)).join('  ') + '  DESCRIPTION') + '\n');
-  for (const r of rows) process.stdout.write(r.slice(0, 5).map((v, i) => v.padEnd(w[i]!)).join('  ') + '  ' + c.dim(r[5]!) + '\n');
+  const comps = [...loadComponents().values()].sort(
+    (a, b) => CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category) || a.name.localeCompare(b.name),
+  );
+  const rows = comps.map((x) => [
+    x.name,
+    x.category + (x.group ? `/${x.group}` : ''),
+    RUNTIMES.filter((r) => x.runtimes[r])
+      .map((r) => (r === x.runtimes.default ? `${r}*` : r))
+      .join(' '),
+    mainPort(x) ? String(mainPort(x)) : '-',
+    x.optional ? 'optional' : '',
+    x.description,
+  ]);
+  const w = [0, 1, 2, 3, 4].map((i) =>
+    Math.max(...rows.map((r) => r[i]!.length), ['COMPONENT', 'CATEGORY', 'RUNTIMES', 'PORT', ''][i]!.length),
+  );
+  process.stdout.write(
+    c.bold(
+      ['COMPONENT', 'CATEGORY', 'RUNTIMES', 'PORT', ''].map((h, i) => h.padEnd(w[i]!)).join('  ') + '  DESCRIPTION',
+    ) + '\n',
+  );
+  for (const r of rows)
+    process.stdout.write(
+      r
+        .slice(0, 5)
+        .map((v, i) => v.padEnd(w[i]!))
+        .join('  ') +
+        '  ' +
+        c.dim(r[5]!) +
+        '\n',
+    );
   process.stdout.write(c.dim('\n* default runtime\n'));
 }
 
 function help(name?: string): void {
-  if (!name) { process.stdout.write(USAGE + '\n'); return; }
+  if (!name) {
+    process.stdout.write(USAGE + '\n');
+    return;
+  }
   const x = component(name);
   process.stdout.write(`${c.bold(x.name)} (${x.category}) ${c.dim(x.rel + '/component.yaml')}\n  ${x.description}\n`);
-  process.stdout.write(`  runtimes: ${RUNTIMES.filter((r) => x.runtimes[r]).join(', ')} (default ${x.runtimes.default})\n`);
+  process.stdout.write(
+    `  runtimes: ${RUNTIMES.filter((r) => x.runtimes[r]).join(', ')} (default ${x.runtimes.default})\n`,
+  );
   if (x.dependsOn.length) process.stdout.write(`  depends on: ${x.dependsOn.join(', ')}\n`);
-  if (Object.keys(x.ports).length) process.stdout.write(`  ports: ${Object.entries(x.ports).map(([k, v]) => `${k} ${v}`).join(', ')} (127.0.0.1)\n`);
+  if (Object.keys(x.ports).length)
+    process.stdout.write(
+      `  ports: ${Object.entries(x.ports)
+        .map(([k, v]) => `${k} ${v}`)
+        .join(', ')} (127.0.0.1)\n`,
+    );
   if (x.route) process.stdout.write(`  route: ${x.route}\n`);
-  const cmds = isProcess(x) ? COMMANDS : ['build', 'test', 'exec'];
+  const cmds = isProcess(x) ? COMMANDS : ['build', 'test', 'format', 'exec'];
   process.stdout.write(`  commands: ${cmds.join(', ')}\n`);
 }
 
@@ -61,10 +122,16 @@ function parseTarget(spec: string): { rt: Runtime | undefined; sel: string; cmd:
   const parts = spec.split(':');
   let rt: Runtime | undefined;
   if ((RUNTIMES as readonly string[]).includes(parts[0]!)) rt = parts.shift() as Runtime;
-  else if (['loc', 'con'].includes(parts[0]!)) throw new RunError(`'${parts[0]}' is now '${parts[0] === 'loc' ? 'local' : 'podman'}'`, { code: 2 });
-  if (parts.length !== 2 || !parts[0] || !parts[1]) throw new RunError(`expected [<runtime>:]<component>:<command>, got '${spec}'`, { hint: 'run/run.sh help', code: 2 });
+  else if (['loc', 'con'].includes(parts[0]!))
+    throw new RunError(`'${parts[0]}' is now '${parts[0] === 'loc' ? 'local' : 'podman'}'`, { code: 2 });
+  if (parts.length !== 2 || !parts[0] || !parts[1])
+    throw new RunError(`expected [<runtime>:]<component>:<command>, got '${spec}'`, {
+      hint: 'run/run.sh help',
+      code: 2,
+    });
   const cmd = parts[1] as Command;
-  if (!COMMANDS.includes(cmd)) throw new RunError(`unknown command '${parts[1]}' (commands: ${COMMANDS.join(', ')})`, { code: 2 });
+  if (!COMMANDS.includes(cmd))
+    throw new RunError(`unknown command '${parts[1]}' (commands: ${COMMANDS.join(', ')})`, { code: 2 });
   return { rt, sel: parts[0], cmd };
 }
 
@@ -73,8 +140,15 @@ async function main(argv: string[]): Promise<number> {
   const args: string[] = [];
   let passthrough = false;
   for (const a of argv) {
-    if (passthrough) { args.push(a); continue; }
-    if (a === '--') { passthrough = true; args.push(a); continue; }
+    if (passthrough) {
+      args.push(a);
+      continue;
+    }
+    if (a === '--') {
+      passthrough = true;
+      args.push(a);
+      continue;
+    }
     if (a === '--verbose' || a === '-v') opts.verbose = true;
     else if (a === '--yes' || a === '-y') opts.yes = true;
     else if (a === '--json') flags.add('json');
@@ -82,15 +156,28 @@ async function main(argv: string[]): Promise<number> {
   }
   initLogs(join(STATE_DIR, 'logs'));
   const first = args.shift();
-  if (!first || first === 'help' || first === '-h' || first === '--help') { help(args[0]); return first ? 0 : 2; }
+  if (!first || first === 'help' || first === '-h' || first === '--help') {
+    help(args[0]);
+    return first ? 0 : 2;
+  }
   // FR-004/FR-026: the gantt library is a pinned submodule; every other command needs it checked out.
   if (!existsSync(join(ROOT, 'vendor/gantt/package.json')))
-    throw new RunError('vendor/gantt is empty: the gantt submodule is not checked out', { hint: 'git submodule update --init', code: 2 });
-  if (first === 'ls') { ls(); return 0; }
+    throw new RunError('vendor/gantt is empty: the gantt submodule is not checked out', {
+      hint: 'git submodule update --init',
+      code: 2,
+    });
+  if (first === 'ls') {
+    ls();
+    return 0;
+  }
   if (first === 'doctor') return doctor();
   if (first === 'status') {
     for (const w of expiringCerts([...loadComponents().keys()])) log.warn(w);
-    return status(select('stack').concat([...loadComponents().values()].filter((x) => x.optional || !isProcess(x))), undefined, flags.has('json'));
+    return status(
+      select('stack').concat([...loadComponents().values()].filter((x) => x.optional || !isProcess(x))),
+      undefined,
+      flags.has('json'),
+    );
   }
 
   const { rt, sel, cmd } = parseTarget(first);
@@ -105,17 +192,40 @@ async function main(argv: string[]): Promise<number> {
   }
 
   switch (cmd) {
-    case 'build': await build(plan(comps, rt, single)); return 0;
-    case 'deploy': await up(plan(comps, rt, single), { build: true }); return 0;
-    case 'start': await up(plan(comps.filter(isProcess), rt, single), { build: false }); return 0;
-    case 'stop': await stop(plan(comps, undefined, false), rt); return 0;
-    case 'reset': await reset(plan(comps, undefined, false), rt, sel === 'stack'); return 0;
+    case 'build':
+      await build(plan(comps, rt, single));
+      return 0;
+    case 'deploy':
+      await up(plan(comps, rt, single), { build: true });
+      return 0;
+    case 'start':
+      await up(plan(comps.filter(isProcess), rt, single), { build: false });
+      return 0;
+    case 'stop':
+      await stop(plan(comps, undefined, false), rt);
+      return 0;
+    case 'reset':
+      await reset(plan(comps, undefined, false), rt, sel === 'stack');
+      return 0;
     case 'status':
       for (const w of expiringCerts(comps.map((x) => x.name))) log.warn(w);
-      return status(sel === 'stack' ? comps.concat([...loadComponents().values()].filter((x) => x.optional)) : comps, rt, flags.has('json'));
-    case 'logs': await logs(plan(comps, rt, single), rt, rest); return 0;
-    case 'test': await test(sel === 'stack' ? 'stack' : single ? comps[0]! : failMany(sel, 'test'), rt, args); return 0;
-    case 'shell': await shell(onlyOne(comps, sel, 'shell'), rt); return 0;
+      return status(
+        sel === 'stack' ? comps.concat([...loadComponents().values()].filter((x) => x.optional)) : comps,
+        rt,
+        flags.has('json'),
+      );
+    case 'logs':
+      await logs(plan(comps, rt, single), rt, rest);
+      return 0;
+    case 'test':
+      await test(sel === 'stack' ? 'stack' : single ? comps[0]! : failMany(sel, 'test'), rt, args);
+      return 0;
+    case 'format':
+      await format(sel === 'stack' ? 'stack' : single ? comps[0]! : failMany(sel, 'format'), rest.includes('--check'));
+      return 0;
+    case 'shell':
+      await shell(onlyOne(comps, sel, 'shell'), rt);
+      return 0;
     case 'exec': {
       const comp = onlyOne(comps, sel, 'exec');
       if (!isProcess(comp)) await ensureDependencies(comp);
@@ -127,15 +237,23 @@ async function main(argv: string[]): Promise<number> {
 }
 
 function onlyOne<T>(comps: T[], sel: string, cmd: string): T {
-  if (comps.length !== 1) throw new RunError(`${cmd} takes one component; '${sel}' selects ${comps.length}`, { code: 2 });
+  if (comps.length !== 1)
+    throw new RunError(`${cmd} takes one component; '${sel}' selects ${comps.length}`, { code: 2 });
   return comps[0]!;
 }
 function failMany(sel: string, cmd: string): never {
-  throw new RunError(`${cmd} takes one component or stack; '${sel}' selects several`, { hint: 'run them one at a time, or use stack', code: 2 });
+  throw new RunError(`${cmd} takes one component or stack; '${sel}' selects several`, {
+    hint: 'run them one at a time, or use stack',
+    code: 2,
+  });
 }
 
 const started = Date.now();
 main(process.argv.slice(2)).then(
-  (code) => { if (code === 0 && Date.now() - started > 3000) log.raw(c.dim(`finished in ${((Date.now() - started) / 1000).toFixed(1)}s`)); process.exit(code); },
+  (code) => {
+    if (code === 0 && Date.now() - started > 3000)
+      log.raw(c.dim(`finished in ${((Date.now() - started) / 1000).toFixed(1)}s`));
+    process.exit(code);
+  },
   (e) => process.exit(reportError(e)),
 );

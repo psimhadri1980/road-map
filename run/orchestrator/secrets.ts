@@ -29,7 +29,10 @@ const newPassword = () => randomBytes(32).toString('hex');
 export function ensureSecrets(): void {
   const file = secretsFile();
   const fail = (why: string): never => {
-    throw new RunError(`${file}: ${why}`, { hint: 'delete the file and run `run/run.sh podman:stack:reset` to create new passwords', code: 1 });
+    throw new RunError(`${file}: ${why}`, {
+      hint: 'delete the file and run `run/run.sh podman:stack:reset` to create new passwords',
+      code: 1,
+    });
   };
   if (!existsSync(file)) {
     writeFileSync(file, SECRET_KEYS.map((k) => `${k}=${newPassword()}\n`).join(''), { mode: 0o600 });
@@ -42,7 +45,8 @@ export function ensureSecrets(): void {
   text.split(/\r?\n/).forEach((line, i) => {
     if (/^\s*(#|$)/.test(line)) return;
     const m = /^([A-Z][A-Z0-9_]*)=(\S+)$/.exec(line);
-    if (!m) fail(`line ${i + 1} is not KEY=value`); // the line itself is not quoted: it may be a secret
+    if (!m)
+      fail(`line ${i + 1} is not KEY=value`); // the line itself is not quoted: it may be a secret
     else have.add(m[1]!);
   });
   const missing = SECRET_KEYS.filter((k) => !have.has(k));

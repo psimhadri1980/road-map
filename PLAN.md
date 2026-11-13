@@ -22,15 +22,15 @@ containers behind nginx.
 
 Decisions already taken with you:
 
-| Topic | Decision |
-| --- | --- |
-| Persistence | Moves out of the gantt library; the Java service becomes the real backend the library talks to |
-| Process | The complete Spec Kit lifecycle; no separate Design phase |
-| Spec source of truth | Markdown under `specs/` in the repo, reviewed by PR; GitHub Project holds linked issues |
-| Authorisation | The OAuth 2.0 token Keycloak issues is checked at nginx and at the service; the service connects to PostgreSQL with its own credential |
-| Transport | TLS on every hop, including container to container |
-| Comments | Heavy, as requested (made machine-checkable, see §7) |
-| Audience | Multiple teams, with access control between them |
+| Topic                | Decision                                                                                                                               |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Persistence          | Moves out of the gantt library; the Java service becomes the real backend the library talks to                                         |
+| Process              | The complete Spec Kit lifecycle; no separate Design phase                                                                              |
+| Spec source of truth | Markdown under `specs/` in the repo, reviewed by PR; GitHub Project holds linked issues                                                |
+| Authorisation        | The OAuth 2.0 token Keycloak issues is checked at nginx and at the service; the service connects to PostgreSQL with its own credential |
+| Transport            | TLS on every hop, including container to container                                                                                     |
+| Comments             | Heavy, as requested (made machine-checkable, see §7)                                                                                   |
+| Audience             | Multiple teams, with access control between them                                                                                       |
 
 ## 2. What the research found
 
@@ -40,7 +40,7 @@ Decisions already taken with you:
   no build step, Node 24, Vite 8. No tags, no releases, no LICENSE, every package `private`.
 - Document format `gantt-roadmap/1` with a **JSON Schema** (`packages/contract/schema/gantt-roadmap-1.schema.json`)
   — usable directly from Java for validation.
-- Two host modes. *Controlled*: host passes `data`, stores what `onDataChanged` reports. *Managed*: host passes a
+- Two host modes. _Controlled_: host passes `data`, stores what `onDataChanged` reports. _Managed_: host passes a
   `GanttBackend`; `httpBackend(baseUrl, userId)` speaks a defined HTTP + server-sent-events API.
 - That API (`packages/server/README.md`): `GET /config`, `GET /roadmap`, `GET /versions/:v`, `POST /versions/:v/restore`,
   `POST /baselines`, `GET /events` (SSE), `POST /proposals`, `GET|POST /proposals/:id/...` (changes, refresh,
@@ -123,24 +123,24 @@ README and `main.ts` so far):
 **User authorisation.** The user signs in at Keycloak (authorisation code flow with PKCE) and the web app
 receives a short-lived access token, held in memory only and sent as `Authorization: Bearer` on every call.
 
-| Container | Role |
-| --- | --- |
-| **Keycloak** | Issues and signs the token. Realm roles and groups (= teams) are claims in it. Refresh-token rotation on. |
-| **nginx** | Rejects any `/api/` request without a valid token before it reaches the service, using `auth_request` to a validation endpoint. Unauthenticated traffic never touches the backend. |
+| Container       | Role                                                                                                                                                                                                                                                                                   |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Keycloak**    | Issues and signs the token. Realm roles and groups (= teams) are claims in it. Refresh-token rotation on.                                                                                                                                                                              |
+| **nginx**       | Rejects any `/api/` request without a valid token before it reaches the service, using `auth_request` to a validation endpoint. Unauthenticated traffic never touches the backend.                                                                                                     |
 | **Spring Boot** | OAuth 2.0 resource server: verifies signature, issuer, audience and expiry on every request, then enforces team membership and the gantt access rules per call. The `x-gantt-user` header is ignored; the user is the token's subject. All user authorisation decisions are made here. |
-| **PostgreSQL** | Never sees the user's token. Accepts only the service's own least-privileged role (and Keycloak's, on its separate database), authenticated with SCRAM over TLS. |
-| **Redis** | Never sees the user's token (it has no OAuth support). Accepts only the service's ACL credential over TLS. Cached values are unfiltered and keyed per roadmap; the service authorises before every cache read and filters per user after it. |
+| **PostgreSQL**  | Never sees the user's token. Accepts only the service's own least-privileged role (and Keycloak's, on its separate database), authenticated with SCRAM over TLS.                                                                                                                       |
+| **Redis**       | Never sees the user's token (it has no OAuth support). Accepts only the service's ACL credential over TLS. Cached values are unfiltered and keyed per roadmap; the service authorises before every cache read and filters per user after it.                                           |
 
 **Transport.** Every connection is TLS with the server certificate verified against a private certificate
 authority — nothing travels in clear text, including on the internal Podman network:
 
-| Connection | Protection |
-| --- | --- |
-| browser → nginx | TLS 1.3, HSTS |
-| nginx → Spring Boot, nginx → Keycloak | HTTPS upstreams, upstream certificate verified |
+| Connection                                      | Protection                                                    |
+| ----------------------------------------------- | ------------------------------------------------------------- |
+| browser → nginx                                 | TLS 1.3, HSTS                                                 |
+| nginx → Spring Boot, nginx → Keycloak           | HTTPS upstreams, upstream certificate verified                |
 | Spring Boot → PostgreSQL, Keycloak → PostgreSQL | `sslmode=verify-full`; PostgreSQL refuses non-TLS connections |
-| Spring Boot → Redis | TLS port only; the plain port is disabled |
-| Spring Boot → Keycloak (signing keys) | HTTPS, certificate verified |
+| Spring Boot → Redis                             | TLS port only; the plain port is disabled                     |
+| Spring Boot → Keycloak (signing keys)           | HTTPS, certificate verified                                   |
 
 A script creates the private authority and one certificate per container; keys are mounted as Podman secrets and
 never committed. Certificate rotation is documented in the runbook (spec 009). Mutual TLS (client certificates on
@@ -159,16 +159,16 @@ Run once:
 
 Then for every feature in §8, in this order:
 
-| Step | Command | Produces |
-| --- | --- | --- |
-| 1 | `/speckit.specify` | `specs/NNN-name/spec.md`: user stories and acceptance criteria, no technology |
-| 2 | `/speckit.clarify` | Open questions answered by you and written back into the spec |
-| 3 | `/speckit.plan` | `plan.md`, `research.md` (decisions and pinned versions), `data-model.md`, `contracts/` (OpenAPI), `quickstart.md` — the design artefacts |
-| 4 | `/speckit.checklist` | Requirement-quality checklists for the spec |
-| 5 | `/speckit.tasks` | `tasks.md`: ordered, dependency-marked tasks |
-| 6 | `/speckit.analyze` | Consistency check across spec, plan and tasks; fixed before any code |
-| 7 | `/speckit.taskstoissues` | GitHub issues, added to [Project 1](https://github.com/users/psimhadri1980/projects/1), each linking to its spec |
-| 8 | `/speckit.implement` | Code, one task per PR; done when acceptance tests and CI are green and it runs in Podman |
+| Step | Command                  | Produces                                                                                                                                  |
+| ---- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `/speckit.specify`       | `specs/NNN-name/spec.md`: user stories and acceptance criteria, no technology                                                             |
+| 2    | `/speckit.clarify`       | Open questions answered by you and written back into the spec                                                                             |
+| 3    | `/speckit.plan`          | `plan.md`, `research.md` (decisions and pinned versions), `data-model.md`, `contracts/` (OpenAPI), `quickstart.md` — the design artefacts |
+| 4    | `/speckit.checklist`     | Requirement-quality checklists for the spec                                                                                               |
+| 5    | `/speckit.tasks`         | `tasks.md`: ordered, dependency-marked tasks                                                                                              |
+| 6    | `/speckit.analyze`       | Consistency check across spec, plan and tasks; fixed before any code                                                                      |
+| 7    | `/speckit.taskstoissues` | GitHub issues, added to [Project 1](https://github.com/users/psimhadri1980/projects/1), each linking to its spec                          |
+| 8    | `/speckit.implement`     | Code, one task per PR; done when acceptance tests and CI are green and it runs in Podman                                                  |
 
 You are asked for input at two points only: the constitution (once), and step 2 of each feature, where Spec Kit
 puts its questions to you.
@@ -187,14 +187,14 @@ puts its questions to you.
 concurrency detection, refresh and the access-rule evaluator therefore exist twice: TypeScript in the browser,
 Java on the server. The risk cannot be removed on this path; it is contained by making drift fail a build:
 
-| Defence | What it catches |
-| --- | --- |
-| Conformance suite (item 2) run in road-map CI against the Java service | Any difference visible over HTTP |
-| Shared test vectors (item 5) run by both code bases | Differences in rule evaluation and lifecycle decisions, case by case |
-| Java request/response types **generated** from the library's JSON Schema and the OpenAPI contract, never hand-written | Field and format drift |
-| gantt pinned by commit; a bump is a PR that must pass the suite and vectors from the new commit | A library change that the Java side has not followed |
+| Defence                                                                                                                            | What it catches                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Conformance suite (item 2) run in road-map CI against the Java service                                                             | Any difference visible over HTTP                                                                                 |
+| Shared test vectors (item 5) run by both code bases                                                                                | Differences in rule evaluation and lifecycle decisions, case by case                                             |
+| Java request/response types **generated** from the library's JSON Schema and the OpenAPI contract, never hand-written              | Field and format drift                                                                                           |
+| gantt pinned by commit; a bump is a PR that must pass the suite and vectors from the new commit                                    | A library change that the Java side has not followed                                                             |
 | The server is the authority: the browser's evaluation only hides controls and explains refusals; every decision is re-made in Java | A browser/server disagreement becoming a security hole — the worst case is a button that the server then refuses |
-| Small specs (004–007), each closed only when its slice of the suite passes | A large, unverified port |
+| Small specs (004–007), each closed only when its slice of the suite passes                                                         | A large, unverified port                                                                                         |
 
 The browser-side scheduling engine is **not** ported; the server stores and validates, it does not reschedule.
 
@@ -226,17 +226,17 @@ These go into the constitution verbatim, so `/speckit.plan`, `/speckit.analyze` 
 
 **What counts as AI slop here, and is refused in review:**
 
-| Refused | Instead |
-|---|---|
-| Code no acceptance criterion asks for; unused parameters, options, flags | Delete it |
-| Wrappers and helpers that only forward a call; hand-written mappers and DTOs | Call the thing directly; generate types from the schema |
-| Re-implementing what Spring, PostgreSQL, Redis or nginx already does | Configure it |
-| Catch-and-log, swallowed exceptions, fallbacks that hide a failure | Fail loudly, handle once at the boundary |
-| Comments that restate the code ("increment the counter") | Comments say **why**, name the spec/task id, and state constraints and trade-offs. Heavy commenting means more of *that*, not more words |
-| Tests that assert mocks were called, or exist to raise coverage | Tests that assert behaviour from an acceptance criterion, on real PostgreSQL/Redis/Keycloak |
-| Copy-pasted blocks; a second way of doing something the repo already does one way | One way, reused |
-| Dead code, commented-out code, `TODO` without an issue number | Remove, or link the issue |
-| Large PRs mixing several tasks | One task, one PR, small enough to read in full |
+| Refused                                                                           | Instead                                                                                                                                  |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Code no acceptance criterion asks for; unused parameters, options, flags          | Delete it                                                                                                                                |
+| Wrappers and helpers that only forward a call; hand-written mappers and DTOs      | Call the thing directly; generate types from the schema                                                                                  |
+| Re-implementing what Spring, PostgreSQL, Redis or nginx already does              | Configure it                                                                                                                             |
+| Catch-and-log, swallowed exceptions, fallbacks that hide a failure                | Fail loudly, handle once at the boundary                                                                                                 |
+| Comments that restate the code ("increment the counter")                          | Comments say **why**, name the spec/task id, and state constraints and trade-offs. Heavy commenting means more of _that_, not more words |
+| Tests that assert mocks were called, or exist to raise coverage                   | Tests that assert behaviour from an acceptance criterion, on real PostgreSQL/Redis/Keycloak                                              |
+| Copy-pasted blocks; a second way of doing something the repo already does one way | One way, reused                                                                                                                          |
+| Dead code, commented-out code, `TODO` without an issue number                     | Remove, or link the issue                                                                                                                |
+| Large PRs mixing several tasks                                                    | One task, one PR, small enough to read in full                                                                                           |
 
 **How this is enforced, not just hoped for:** Checkstyle and Error Prone flag unused and dead code; ArchUnit
 holds the layering; the PR template asks for the acceptance criterion each change serves and the lines deleted;
@@ -245,34 +245,34 @@ before merge.
 
 ## 7. Quality gates (all enforced in CI; a red gate blocks merge)
 
-| Area | Tools |
-| --- | --- |
-| Formatting | Automatic **and** gated. `run/run.sh stack:format` rewrites files: Spotless (google-java-format) for Java, Prettier for TypeScript, JSON, YAML and Markdown. A git pre-commit hook runs it on staged files, so formatting is never a manual step. CI runs the check-only form inside `test static` and fails on any difference |
-| Java lint and structure | Checkstyle, Error Prone, ArchUnit layering check (§6a) |
-| Java static analysis | SpotBugs with FindSecBugs, CodeQL |
-| Comments | Checkstyle Javadoc rules: every class and public method documented; comments cite the spec/task id they implement (the convention the gantt repo already uses) |
-| Tests | JUnit; integration tests on real PostgreSQL, Redis and Keycloak via Testcontainers; tests that a missing, expired or wrong-team token is refused at nginx and at the service, and that PostgreSQL and Redis refuse a non-TLS connection; the gantt conformance suite; JaCoCo threshold |
-| Web | TypeScript strict, ESLint with zero warnings (same rules as the gantt repo), Vitest |
-| Containers | hadolint, Trivy image and filesystem scans; images run non-root, read-only root filesystem, capabilities dropped |
-| Supply chain and secrets | Dependabot, dependency review, gitleaks, pinned image digests |
-| Runtime | OWASP ZAP baseline scan against the composed stack (hardening spec) |
+| Area                     | Tools                                                                                                                                                                                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Formatting               | Automatic **and** gated. `run/run.sh stack:format` rewrites files: Spotless (google-java-format) for Java, Prettier for TypeScript, JSON, YAML and Markdown. A git pre-commit hook runs it on staged files, so formatting is never a manual step. CI runs the check-only form inside `test static` and fails on any difference |
+| Java lint and structure  | Checkstyle, Error Prone, ArchUnit layering check (§6a)                                                                                                                                                                                                                                                                         |
+| Java static analysis     | SpotBugs with FindSecBugs, CodeQL                                                                                                                                                                                                                                                                                              |
+| Comments                 | Checkstyle Javadoc rules: every class and public method documented; comments cite the spec/task id they implement (the convention the gantt repo already uses)                                                                                                                                                                 |
+| Tests                    | JUnit; integration tests on real PostgreSQL, Redis and Keycloak via Testcontainers; tests that a missing, expired or wrong-team token is refused at nginx and at the service, and that PostgreSQL and Redis refuse a non-TLS connection; the gantt conformance suite; JaCoCo threshold                                         |
+| Web                      | TypeScript strict, ESLint with zero warnings (same rules as the gantt repo), Vitest                                                                                                                                                                                                                                            |
+| Containers               | hadolint, Trivy image and filesystem scans; images run non-root, read-only root filesystem, capabilities dropped                                                                                                                                                                                                               |
+| Supply chain and secrets | Dependabot, dependency review, gitleaks, pinned image digests                                                                                                                                                                                                                                                                  |
+| Runtime                  | OWASP ZAP baseline scan against the composed stack (hardening spec)                                                                                                                                                                                                                                                            |
 
 Secrets come from Podman secrets or an untracked env file; none in the repo. PostgreSQL, Redis and Keycloak's
 admin port are reachable only on the internal Podman network.
 
 ## 8. Feature backlog (each runs the full lifecycle in §5)
 
-| Spec | Scope |
-| --- | --- |
-| 001 walking skeleton | `run/` copied from D4 and adapted (§3a); all five containers up with `run/run.sh podman:stack:deploy`, TLS on every connection (§4); every CI gate live; one seeded roadmap read from PostgreSQL through Redis and rendered by the gantt component |
-| 002 sign-in and token enforcement | Keycloak realm; PKCE sign-in; the token checked at nginx and at the service, as in §4 |
-| 003 teams and roadmap access | Keycloak groups as teams; roadmap list; per-roadmap access rules |
-| 004 Proposals: create and edit | `POST /proposals`, changes, documents |
-| 005 Proposal lifecycle | Submit, review, approve, return, reject, discard; separation of duties |
-| 006 versions and baselines | Version history, restore, baselines |
-| 007 concurrency and refresh | Concurrent-change detection, picks, refresh and undo |
-| 008 live events | Server-sent events through nginx |
-| 009 hardening | ZAP scan, load test with the library's 10,000-task sample, backup/restore, runbook |
+| Spec                              | Scope                                                                                                                                                                                                                                              |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 001 walking skeleton              | `run/` copied from D4 and adapted (§3a); all five containers up with `run/run.sh podman:stack:deploy`, TLS on every connection (§4); every CI gate live; one seeded roadmap read from PostgreSQL through Redis and rendered by the gantt component |
+| 002 sign-in and token enforcement | Keycloak realm; PKCE sign-in; the token checked at nginx and at the service, as in §4                                                                                                                                                              |
+| 003 teams and roadmap access      | Keycloak groups as teams; roadmap list; per-roadmap access rules                                                                                                                                                                                   |
+| 004 Proposals: create and edit    | `POST /proposals`, changes, documents                                                                                                                                                                                                              |
+| 005 Proposal lifecycle            | Submit, review, approve, return, reject, discard; separation of duties                                                                                                                                                                             |
+| 006 versions and baselines        | Version history, restore, baselines                                                                                                                                                                                                                |
+| 007 concurrency and refresh       | Concurrent-change detection, picks, refresh and undo                                                                                                                                                                                               |
+| 008 live events                   | Server-sent events through nginx                                                                                                                                                                                                                   |
+| 009 hardening                     | ZAP scan, load test with the library's 10,000-task sample, backup/restore, runbook                                                                                                                                                                 |
 
 **Not in v1**: microservices, Kubernetes, Quadlet/systemd units, server-side scheduling, a second UI framework,
 email notifications, multi-region. Each can become a later spec.

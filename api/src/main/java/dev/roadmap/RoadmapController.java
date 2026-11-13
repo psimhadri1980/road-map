@@ -7,7 +7,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-/** HTTP for roadmaps (T017): nothing but the request and the response; the rules are in the service. */
+/**
+ * HTTP for roadmaps (T017): nothing but the request and the response; the rules are in the service.
+ */
 @RestController
 @Validated
 public class RoadmapController {

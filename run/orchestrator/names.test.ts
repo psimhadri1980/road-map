@@ -4,7 +4,10 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 
-const run = (...args: string[]) => spawnSync('node', ['--disable-warning=ExperimentalWarning', `${import.meta.dirname}/main.ts`, ...args], { encoding: 'utf8' });
+const run = (...args: string[]) =>
+  spawnSync('node', ['--disable-warning=ExperimentalWarning', `${import.meta.dirname}/main.ts`, ...args], {
+    encoding: 'utf8',
+  });
 
 for (const args of [['ls'], ['help']]) {
   test(`run.sh ${args.join(' ')} names no D4 component`, () => {

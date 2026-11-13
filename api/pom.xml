@@ -119,6 +119,23 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
       </plugin>
+      <!-- Formatting is automatic and gated (T022, FR-021): `run/run.sh api:format` rewrites,
+           `verify` (so `test static`) fails and names every file that differs. -->
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <java>
+            <googleJavaFormat><version>2.0.0</version></googleJavaFormat>
+          </java>
+        </configuration>
+        <executions>
+          <execution>
+            <goals><goal>check</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>

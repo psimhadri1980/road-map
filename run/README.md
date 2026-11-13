@@ -23,15 +23,15 @@ run/run.sh ls | status | doctor | help [component]
 
 ## What is here
 
-| Path | |
-|---|---|
-| `run.sh` | Finds Node 24 (nvm when needed), installs the workspace on first use, runs the orchestrator |
-| `orchestrator/` | TypeScript run directly by Node: contract parsing and selection (`components.ts`), settings (`env.ts`), compile and images (`build.ts`), containers, processes and health (`runtime.ts`), the commands (`lifecycle.ts`), tests (`test.ts`), the front-door request and `doctor` (`extras.ts`), logging (`log.ts`) |
-| `schema/component.schema.json` | The `component.yaml` contract (road-map/v1); editors validate against it |
-| `env/` | Shared settings: `common.env`, `images.env` (pinned images), `prod.env`; your git-ignored `local.env` wins |
-| `certs/` | The organization CA and gateway TLS files (git-ignored; see its README) |
-| `secrets/` | Generated passwords, `dev.env` (git-ignored) |
-| `.run/` | State (git-ignored): `logs/`, merged `env/<runtime>/<component>.env`, `pids/`, `deps/`, `tools/` (the pinned pnpm) |
+| Path                           |                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run.sh`                       | Finds Node 24 (nvm when needed), installs the workspace on first use, runs the orchestrator                                                                                                                                                                                                                       |
+| `orchestrator/`                | TypeScript run directly by Node: contract parsing and selection (`components.ts`), settings (`env.ts`), compile and images (`build.ts`), containers, processes and health (`runtime.ts`), the commands (`lifecycle.ts`), tests (`test.ts`), the front-door request and `doctor` (`extras.ts`), logging (`log.ts`) |
+| `schema/component.schema.json` | The `component.yaml` contract (road-map/v1); editors validate against it                                                                                                                                                                                                                                          |
+| `env/`                         | Shared settings: `common.env`, `images.env` (pinned images), `prod.env`; your git-ignored `local.env` wins                                                                                                                                                                                                        |
+| `certs/`                       | The organization CA and gateway TLS files (git-ignored; see its README)                                                                                                                                                                                                                                           |
+| `secrets/`                     | Generated passwords, `dev.env` (git-ignored)                                                                                                                                                                                                                                                                      |
+| `.run/`                        | State (git-ignored): `logs/`, merged `env/<runtime>/<component>.env`, `pids/`, `deps/`, `tools/` (the pinned pnpm)                                                                                                                                                                                                |
 
 Component-specific settings do not belong here: they live in each component's `component.yaml`. The browser-facing origin lives in `/host.conf`.
 

@@ -9,9 +9,9 @@ import org.flywaydb.core.api.migration.Context;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * T016 (FR-003, FR-006): stores the gantt library's small sample as the one roadmap, slug
- * {@code sample}. Flyway runs it once, so a second start adds nothing. A Java migration rather than
- * SQL because the document must pass the gantt schema before it is stored; a non-conforming sample
+ * T016 (FR-003, FR-006): stores the gantt library's small sample as the one roadmap, slug {@code
+ * sample}. Flyway runs it once, so a second start adds nothing. A Java migration rather than SQL
+ * because the document must pass the gantt schema before it is stored; a non-conforming sample
  * fails the migration and the service does not start.
  */
 public class V2__seed_sample_roadmap extends BaseJavaMigration {
@@ -27,13 +27,15 @@ public class V2__seed_sample_roadmap extends BaseJavaMigration {
     }
     var problems = RoadmapSchema.validate(document);
     if (!problems.isEmpty()) {
-      throw new IllegalStateException("the sample roadmap does not match gantt-roadmap/1: " + problems);
+      throw new IllegalStateException(
+          "the sample roadmap does not match gantt-roadmap/1: " + problems);
     }
     String name = new ObjectMapper().readTree(document).path("roadmap").path("name").asString();
     try (PreparedStatement insert =
         context
             .getConnection()
-            .prepareStatement("INSERT INTO roadmap (slug, name, document) VALUES ('sample', ?, ?::jsonb)")) {
+            .prepareStatement(
+                "INSERT INTO roadmap (slug, name, document) VALUES ('sample', ?, ?::jsonb)")) {
       insert.setString(1, name);
       insert.setString(2, document);
       insert.executeUpdate();

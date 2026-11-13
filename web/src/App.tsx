@@ -12,7 +12,8 @@ const VIEW_ONLY: AccessRules = {
   rules: [{ effect: 'allow', permissions: ['view', 'view.fields', 'view.baselines', 'view.resources'] }],
 };
 
-type Loaded = { state: 'loading' } | { state: 'error' } | { state: 'ready'; data: React.ComponentProps<typeof Gantt>['data'] };
+type Loaded =
+  { state: 'loading' } | { state: 'error' } | { state: 'ready'; data: React.ComponentProps<typeof Gantt>['data'] };
 
 /** Fetches the sample roadmap from the service (FR-004) and shows it, or one plain message (FR-011a). */
 export function App() {

@@ -21,12 +21,20 @@ const { ensureCerts, expiringCerts, CERT_DIR } = await import(join(root, 'run/or
 const p = (f: string) => join(CERT_DIR, f);
 const cert = (f: string) => new X509Certificate(readFileSync(p(f)));
 const rejects = async (why: RegExp, file: string) =>
-  assert.rejects(ensureCerts(['alpha', 'beta']), (e: Error) => { assert.ok(e.message.includes(p(file)), e.message); assert.match(e.message, why); return true; });
-const wipe = () => ['ca.crt', 'ca.key', 'ca.srl', 'alpha.crt', 'alpha.key', 'beta.crt', 'beta.key', 'gamma.crt', 'gamma.key'].forEach((f) => rmSync(p(f), { force: true }));
+  assert.rejects(ensureCerts(['alpha', 'beta']), (e: Error) => {
+    assert.ok(e.message.includes(p(file)), e.message);
+    assert.match(e.message, why);
+    return true;
+  });
+const wipe = () =>
+  ['ca.crt', 'ca.key', 'ca.srl', 'alpha.crt', 'alpha.key', 'beta.crt', 'beta.key', 'gamma.crt', 'gamma.key'].forEach(
+    (f) => rmSync(p(f), { force: true }),
+  );
 
 test('first deploy creates a CA and a one-year certificate per component', async () => {
   await ensureCerts(['alpha', 'beta']);
-  const ca = cert('ca.crt'), a = cert('alpha.crt');
+  const ca = cert('ca.crt'),
+    a = cert('alpha.crt');
   assert.ok(a.verify(ca.publicKey));
   assert.ok(a.checkIP('127.0.0.1') && a.checkHost('localhost'));
   const days = (new Date(a.validTo).getTime() - new Date(a.validFrom).getTime()) / 86_400_000;
@@ -45,7 +53,8 @@ test('a component added later gets a certificate from the same CA', async () => 
   await ensureCerts(['alpha', 'beta', 'gamma']);
   assert.ok(cert('gamma.crt').verify(cert('ca.crt').publicKey));
   assert.ok(readFileSync(p('ca.crt')).equals(caBefore));
-  rmSync(p('gamma.crt')); rmSync(p('gamma.key'));
+  rmSync(p('gamma.crt'));
+  rmSync(p('gamma.key'));
 });
 
 test('a missing key, an empty file and a malformed file stop deploy naming the file', async () => {
@@ -66,7 +75,9 @@ test('a certificate from another authority is rejected', async () => {
   await ensureCerts(['alpha', 'beta']);
   const other = mkdtempSync(join(tmpdir(), 'rm-other-'));
   const sh = (cmd: string) => execFileSync('sh', ['-c', cmd], { cwd: other, stdio: 'pipe' });
-  sh('openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout k.pem -out c.pem -subj /CN=other -days 30 -addext "subjectAltName=IP:127.0.0.1"');
+  sh(
+    'openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout k.pem -out c.pem -subj /CN=other -days 30 -addext "subjectAltName=IP:127.0.0.1"',
+  );
   writeFileSync(p('alpha.crt'), readFileSync(join(other, 'c.pem')));
   writeFileSync(p('alpha.key'), readFileSync(join(other, 'k.pem')), { mode: 0o600 });
   await rejects(/not issued by the project/, 'alpha.crt');
@@ -81,7 +92,9 @@ test('deleting the files and deploying again creates new ones', async () => {
 test('status warns only for certificates that expire within 30 days', () => {
   assert.deepEqual(expiringCerts(['alpha', 'beta']), []);
   const sh = (cmd: string) => execFileSync('sh', ['-c', cmd], { cwd: CERT_DIR, stdio: 'pipe' });
-  sh('openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout /dev/null -out soon.crt -subj /CN=s -days 10');
+  sh(
+    'openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout /dev/null -out soon.crt -subj /CN=s -days 10',
+  );
   const warn = expiringCerts(['soon']);
   assert.equal(warn.length, 1);
   assert.match(warn[0]!, /soon\.crt expires in \d+ day/);

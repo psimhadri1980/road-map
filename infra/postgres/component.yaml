@@ -13,7 +13,7 @@ health:
 provides:
   common:
     POSTGRES_HOST: 127.0.0.1
-    POSTGRES_PORT: "15432"
+    POSTGRES_PORT: '15432'
 env:
   common:
     # The superuser exists only to initialise the container; nothing connects as it over the network.
@@ -29,7 +29,7 @@ runtimes:
     image: ${POSTGRES_IMAGE}
     # Runs as postgres (uid 70), never as root. The host user maps to uid 70, so the mounted key
     # (host-owned, mode 0600) is owned by postgres as PostgreSQL insists, and no copy is needed.
-    user: "70:70"
+    user: '70:70'
     userns: keep-id:uid=70,gid=70
     readOnly: true
     tmpfs: [/tmp, /var/run/postgresql]

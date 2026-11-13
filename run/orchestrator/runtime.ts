@@ -18,18 +18,39 @@ const LOCAL_POLL_MS = 2_000;
 const pidFile = (name: string) => join(STATE_DIR, 'pids', `${name}.json`);
 export const localLog = (name: string) => join(STATE_DIR, 'logs', `${name}.local.log`);
 
-interface ContainerInfo { name: string; state: string; image: string; hash: string; started: string; health: boolean }
+interface ContainerInfo {
+  name: string;
+  state: string;
+  image: string;
+  hash: string;
+  started: string;
+  health: boolean;
+}
 
 /** Every container run.sh manages (label rm.component), in one call. */
 export function containers(): Map<string, ContainerInfo> {
   const r = capture(ENGINE, ['ps', '-a', '--filter', 'label=rm.component', '--format', 'json']);
   const out = new Map<string, ContainerInfo>();
   if (r.code !== 0) return out;
-  const list = JSON.parse(r.out || '[]') as { Names: string[]; State: string; Image: string; Labels: Record<string, string>; StartedAt: number; Status: string }[];
+  const list = JSON.parse(r.out || '[]') as {
+    Names: string[];
+    State: string;
+    Image: string;
+    Labels: Record<string, string>;
+    StartedAt: number;
+    Status: string;
+  }[];
   for (const x of list) {
     const name = x.Labels?.['rm.component'];
     if (!name) continue;
-    out.set(name, { name, state: x.State, image: x.Image, hash: x.Labels['rm.hash'] ?? '', started: x.StartedAt ? new Date(x.StartedAt * 1000).toISOString() : '', health: x.Labels['rm.health'] === 'yes' });
+    out.set(name, {
+      name,
+      state: x.State,
+      image: x.Image,
+      hash: x.Labels['rm.hash'] ?? '',
+      started: x.StartedAt ? new Date(x.StartedAt * 1000).toISOString() : '',
+      health: x.Labels['rm.health'] === 'yes',
+    });
   }
   return out;
 }
@@ -48,13 +69,21 @@ function healthCmd(comp: Component): string | undefined {
 function httpsProbe(port: number, path: string): Promise<{ ok: boolean; detail: string }> {
   return new Promise((resolve) => {
     let ca: Buffer;
-    try { ca = readFileSync(join(CERT_DIR, 'ca.crt')); } catch { resolve({ ok: false, detail: `${join(CERT_DIR, 'ca.crt')} is missing` }); return; }
+    try {
+      ca = readFileSync(join(CERT_DIR, 'ca.crt'));
+    } catch {
+      resolve({ ok: false, detail: `${join(CERT_DIR, 'ca.crt')} is missing` });
+      return;
+    }
     const req = request({ host: '127.0.0.1', port, path, ca, timeout: 4000 }, (res) => {
       res.resume();
       resolve({ ok: (res.statusCode ?? 500) < 400, detail: `HTTP ${res.statusCode}` });
     });
     req.on('error', (e) => resolve({ ok: false, detail: e.message }));
-    req.on('timeout', () => { req.destroy(); resolve({ ok: false, detail: 'timed out' }); });
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ ok: false, detail: 'timed out' });
+    });
     req.end();
   });
 }
@@ -64,9 +93,24 @@ function runArgs(comp: Component, image: string, envFile: string, envHash: strin
   const spec = comp.runtimes.podman!;
   const env = baseEnv();
   const hc = healthCmd(comp);
-  const args = ['run', '-d', '--name', containerName(comp.name), '--network', 'host',
-    '--label', `rm.component=${comp.name}`, '--label', `rm.hash=${image.split(':').pop()}`, '--label', `rm.env=${envHash}`, '--label', `rm.health=${hc ? 'yes' : 'no'}`,
-    '--env-file', envFile];
+  const args = [
+    'run',
+    '-d',
+    '--name',
+    containerName(comp.name),
+    '--network',
+    'host',
+    '--label',
+    `rm.component=${comp.name}`,
+    '--label',
+    `rm.hash=${image.split(':').pop()}`,
+    '--label',
+    `rm.env=${envHash}`,
+    '--label',
+    `rm.health=${hc ? 'yes' : 'no'}`,
+    '--env-file',
+    envFile,
+  ];
   if (spec.readOnly) args.push('--read-only');
   for (const t of spec.tmpfs ?? []) args.push('--tmpfs', t);
   for (const m of spec.mounts ?? []) {
@@ -92,7 +136,10 @@ function runArgs(comp: Component, image: string, envFile: string, envHash: strin
 
 function podmanLogsTail(comp: Component, lines = 40): string[] {
   const r = capture(ENGINE, ['logs', '--tail', String(lines), containerName(comp.name)]);
-  return (r.out + r.err).split('\n').filter((l) => l.trim()).slice(-lines);
+  return (r.out + r.err)
+    .split('\n')
+    .filter((l) => l.trim())
+    .slice(-lines);
 }
 
 /** The owner of a TCP port on this machine (empty when free). */
@@ -106,29 +153,47 @@ export function portOwner(port: number): string {
  * Starts (or recreates) a component's container. Recreated when the image or its settings changed,
  * or when `recreate`; started again when stopped; left alone when already running unchanged.
  */
-export async function podmanStart(comp: Component, image: string, recreate: boolean): Promise<'started' | 'unchanged' | 'recreated'> {
+export async function podmanStart(
+  comp: Component,
+  image: string,
+  recreate: boolean,
+): Promise<'started' | 'unchanged' | 'recreated'> {
   const { file, env } = writeComponentEnv(comp, 'podman');
   const envHash = createHash('sha256').update(JSON.stringify(env)).digest('hex').slice(0, 12);
   const name = containerName(comp.name);
   const cur = containers().get(comp.name);
   if (cur) {
-    const same = cur.image === image && capture(ENGINE, ['inspect', '-f', '{{index .Config.Labels "rm.env"}}', name]).out.trim() === envHash;
+    const same =
+      cur.image === image &&
+      capture(ENGINE, ['inspect', '-f', '{{index .Config.Labels "rm.env"}}', name]).out.trim() === envHash;
     if (same && !recreate) {
-      if (cur.state === 'running') { log.info(`${name} is already running this image and settings`); return 'unchanged'; }
+      if (cur.state === 'running') {
+        log.info(`${name} is already running this image and settings`);
+        return 'unchanged';
+      }
       await exec(ENGINE, ['start', name], { logName: `${comp.name}.podman.log`, label: `starting ${name}` });
       return 'started';
     }
-    log.info(same ? `recreating ${name}` : `replacing ${name}: ${cur.image === image ? 'its settings changed' : `new image (was ${cur.image.split(':').pop()})`}`);
-    await exec(ENGINE, ['rm', '-f', '-t', '10', name], { logName: `${comp.name}.podman.log`, label: `removing ${name}` });
+    log.info(
+      same
+        ? `recreating ${name}`
+        : `replacing ${name}: ${cur.image === image ? 'its settings changed' : `new image (was ${cur.image.split(':').pop()})`}`,
+    );
+    await exec(ENGINE, ['rm', '-f', '-t', '10', name], {
+      logName: `${comp.name}.podman.log`,
+      label: `removing ${name}`,
+    });
   }
   for (const p of Object.values(comp.ports)) {
     const owner = portOwner(p);
-    if (owner) throw new RunError(`${comp.name}: port ${p} is already in use by '${owner}'`, {
-      hint: `stop whatever listens on ${p} (run/run.sh status shows this project's components)`,
-    });
+    if (owner)
+      throw new RunError(`${comp.name}: port ${p} is already in use by '${owner}'`, {
+        hint: `stop whatever listens on ${p} (run/run.sh status shows this project's components)`,
+      });
   }
   await exec(ENGINE, runArgs(comp, image, file, envHash), {
-    logName: `${comp.name}.podman.log`, label: `creating ${name}`,
+    logName: `${comp.name}.podman.log`,
+    label: `creating ${name}`,
     hint: 'the container could not be created; the podman output above says why',
   });
   return cur ? 'recreated' : 'started';
@@ -138,17 +203,27 @@ export async function podmanStop(comp: Component, remove = false): Promise<boole
   const name = containerName(comp.name);
   const cur = containers().get(comp.name);
   if (!cur) return false;
-  if (remove) await exec(ENGINE, ['rm', '-f', '-t', '10', name], { logName: `${comp.name}.podman.log`, label: `removing ${name}` });
-  else if (cur.state === 'running') await exec(ENGINE, ['stop', '-t', '10', name], { logName: `${comp.name}.podman.log`, label: `stopping ${name}` });
+  if (remove)
+    await exec(ENGINE, ['rm', '-f', '-t', '10', name], {
+      logName: `${comp.name}.podman.log`,
+      label: `removing ${name}`,
+    });
+  else if (cur.state === 'running')
+    await exec(ENGINE, ['stop', '-t', '10', name], { logName: `${comp.name}.podman.log`, label: `stopping ${name}` });
   else return false;
   return true;
 }
 
 /** Runs the health check once: podman `healthcheck run`, or an HTTP probe for local processes. */
-export async function checkHealth(comp: Component, rt: 'local' | 'podman', maxAgeMs = 0): Promise<{ ok: boolean; detail: string }> {
+export async function checkHealth(
+  comp: Component,
+  rt: 'local' | 'podman',
+  maxAgeMs = 0,
+): Promise<{ ok: boolean; detail: string }> {
   const path = comp.health?.http;
   const port = mainPort(comp);
-  if (path && !comp.health?.cmd) return port ? httpsProbe(port, path) : { ok: false, detail: 'health.http needs a port' };
+  if (path && !comp.health?.cmd)
+    return port ? httpsProbe(port, path) : { ok: false, detail: 'health.http needs a port' };
   if (rt === 'podman') {
     if (!healthCmd(comp)) return { ok: true, detail: 'no health check' };
     // A result Podman (or an earlier run.sh) recorded within maxAgeMs is reused.
@@ -157,8 +232,11 @@ export async function checkHealth(comp: Component, rt: 'local' | 'podman', maxAg
       try {
         const h = JSON.parse(r.out) as { Log?: { End: string; ExitCode: number; Output: string }[] };
         const last = h.Log?.at(-1);
-        if (last && Date.now() - Date.parse(last.End) < maxAgeMs) return { ok: last.ExitCode === 0, detail: last.Output.trim().split('\n').pop() ?? '' };
-      } catch { /* none recorded: run it */ }
+        if (last && Date.now() - Date.parse(last.End) < maxAgeMs)
+          return { ok: last.ExitCode === 0, detail: last.Output.trim().split('\n').pop() ?? '' };
+      } catch {
+        /* none recorded: run it */
+      }
     }
     const r = await captureAsync(ENGINE, ['healthcheck', 'run', containerName(comp.name)]);
     return { ok: r.code === 0, detail: (r.out + r.err).trim().split('\n').pop() ?? '' };
@@ -178,22 +256,41 @@ export async function waitHealthy(comp: Component, rt: 'local' | 'podman'): Prom
   let lastPrint = 0;
   for (;;) {
     if (rt === 'podman') {
-      const state = capture(ENGINE, ['inspect', '-f', '{{.State.Status}} {{.State.ExitCode}}', containerName(comp.name)]).out.trim();
+      const state = capture(ENGINE, [
+        'inspect',
+        '-f',
+        '{{.State.Status}} {{.State.ExitCode}}',
+        containerName(comp.name),
+      ]).out.trim();
       if (!state.startsWith('running'))
-        throw new RunError(`${comp.name}: the container stopped while starting (${state || 'gone'})`, { tail: podmanLogsTail(comp), hint: `run/run.sh podman:${comp.name}:logs shows all of its output` });
+        throw new RunError(`${comp.name}: the container stopped while starting (${state || 'gone'})`, {
+          tail: podmanLogsTail(comp),
+          hint: `run/run.sh podman:${comp.name}:logs shows all of its output`,
+        });
     } else if (!localPid(comp.name)) {
-      throw new RunError(`${comp.name}: the local process exited while starting`, { tail: tailFile(localLog(comp.name)), logFile: localLog(comp.name) });
+      throw new RunError(`${comp.name}: the local process exited while starting`, {
+        tail: tailFile(localLog(comp.name)),
+        logFile: localLog(comp.name),
+      });
     }
     const h = await checkHealth(comp, rt);
-    if (h.ok) { log.ok(`${comp.name} is healthy on ${rt} (${elapsed(t)})`); return; }
+    if (h.ok) {
+      log.ok(`${comp.name} is healthy on ${rt} (${elapsed(t)})`);
+      return;
+    }
     if (Date.now() - t > timeout)
-      throw new RunError(`${comp.name}: not healthy after ${comp.health?.timeout ?? 0}s on ${rt} (last check: ${h.detail || 'failed'})`, {
-        tail: rt === 'podman' ? podmanLogsTail(comp) : tailFile(localLog(comp.name)),
-        ...(rt === 'local' && { logFile: localLog(comp.name) }),
-        hint: `run/run.sh ${rt}:${comp.name}:logs shows all of its output; health.timeout in ${comp.rel}/component.yaml sets the limit`,
-      });
+      throw new RunError(
+        `${comp.name}: not healthy after ${comp.health?.timeout ?? 0}s on ${rt} (last check: ${h.detail || 'failed'})`,
+        {
+          tail: rt === 'podman' ? podmanLogsTail(comp) : tailFile(localLog(comp.name)),
+          ...(rt === 'local' && { logFile: localLog(comp.name) }),
+          hint: `run/run.sh ${rt}:${comp.name}:logs shows all of its output; health.timeout in ${comp.rel}/component.yaml sets the limit`,
+        },
+      );
     if (Date.now() - lastPrint >= 10_000 || lastPrint === 0) {
-      log.detail(`waiting for ${comp.name} to become healthy (${elapsed(t)} of ${timeout / 1000}s)${h.detail ? `: ${h.detail.slice(0, 100)}` : ''}`);
+      log.detail(
+        `waiting for ${comp.name} to become healthy (${elapsed(t)} of ${timeout / 1000}s)${h.detail ? `: ${h.detail.slice(0, 100)}` : ''}`,
+      );
       lastPrint = Date.now();
     }
     await sleep(poll);
@@ -202,16 +299,34 @@ export async function waitHealthy(comp: Component, rt: 'local' | 'podman'): Prom
 
 function tailFile(file: string, lines = 40): string[] {
   if (!existsSync(file)) return [];
-  return readFileSync(file, 'utf8').split('\n').filter((l) => l.trim()).slice(-lines);
+  return readFileSync(file, 'utf8')
+    .split('\n')
+    .filter((l) => l.trim())
+    .slice(-lines);
 }
 
-interface PidInfo { pid: number; started: string; command: string }
+interface PidInfo {
+  pid: number;
+  started: string;
+  command: string;
+}
 
 export function localInfo(name: string): PidInfo | undefined {
-  try { return JSON.parse(readFileSync(pidFile(name), 'utf8')) as PidInfo; } catch { return undefined; }
+  try {
+    return JSON.parse(readFileSync(pidFile(name), 'utf8')) as PidInfo;
+  } catch {
+    return undefined;
+  }
 }
 
-const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+const alive = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 /** The pid of a running local process, or undefined. */
 export function localPid(name: string): number | undefined {
@@ -221,10 +336,16 @@ export function localPid(name: string): number | undefined {
 
 /** Starts a component's local command detached, behind the gateway at the same port as its container. */
 export async function localStart(comp: Component): Promise<'started' | 'unchanged'> {
-  if (localPid(comp.name)) { log.info(`${comp.name} is already running on local Node (pid ${localPid(comp.name)})`); return 'unchanged'; }
+  if (localPid(comp.name)) {
+    log.info(`${comp.name} is already running on local Node (pid ${localPid(comp.name)})`);
+    return 'unchanged';
+  }
   for (const p of Object.values(comp.ports)) {
     const owner = portOwner(p);
-    if (owner) throw new RunError(`${comp.name}: port ${p} is already in use by '${owner}'`, { hint: 'run/run.sh status shows where each component runs' });
+    if (owner)
+      throw new RunError(`${comp.name}: port ${p} is already in use by '${owner}'`, {
+        hint: 'run/run.sh status shows where each component runs',
+      });
   }
   const { env } = writeComponentEnv(comp, 'local');
   const command = interpolate(comp.runtimes.local!.command, { ...baseEnv(), ...env }, comp.rel);
@@ -234,7 +355,12 @@ export async function localStart(comp: Component): Promise<'started' | 'unchange
   const fd = openSync(logFile, 'a');
   writeFileSync(fd, `\n==== ${new Date().toISOString()} $ ${command}\n`);
   log.cmd(command);
-  const child = spawn('bash', ['-c', `exec ${command}`], { cwd: ROOT, env: { ...toolEnv(), ...env }, detached: true, stdio: ['ignore', fd, fd] });
+  const child = spawn('bash', ['-c', `exec ${command}`], {
+    cwd: ROOT,
+    env: { ...toolEnv(), ...env },
+    detached: true,
+    stdio: ['ignore', fd, fd],
+  });
   closeSync(fd);
   if (!child.pid) throw new RunError(`${comp.name}: could not start '${command}'`);
   child.unref();
@@ -248,11 +374,23 @@ export async function localStop(comp: Component): Promise<boolean> {
   const pid = localPid(comp.name);
   rmSync(pidFile(comp.name), { force: true });
   if (!pid) return false;
-  try { process.kill(-pid, 'SIGTERM'); } catch { try { process.kill(pid, 'SIGTERM'); } catch { /* gone */ } }
+  try {
+    process.kill(-pid, 'SIGTERM');
+  } catch {
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {
+      /* gone */
+    }
+  }
   for (let i = 0; i < 50 && alive(pid); i++) await sleep(200);
   if (alive(pid)) {
     log.warn(`${comp.name} (pid ${pid}) did not stop within 10s: killing it`);
-    try { process.kill(-pid, 'SIGKILL'); } catch { /* gone */ }
+    try {
+      process.kill(-pid, 'SIGKILL');
+    } catch {
+      /* gone */
+    }
   }
   return true;
 }

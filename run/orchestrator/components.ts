@@ -16,7 +16,11 @@ export const CATEGORIES = ['ui', 'service', 'infra', 'tool'] as const;
 export const RUNTIMES = ['local', 'podman'] as const;
 export type Category = (typeof CATEGORIES)[number];
 export type Runtime = (typeof RUNTIMES)[number];
-export type EnvLayers = { common?: Record<string, string>; local?: Record<string, string>; podman?: Record<string, string> };
+export type EnvLayers = {
+  common?: Record<string, string>;
+  local?: Record<string, string>;
+  podman?: Record<string, string>;
+};
 
 export interface PodmanSpec {
   /** Another component's image serves this one in Podman (the web modules: ui-modules). */
@@ -81,7 +85,26 @@ function hostSetting(key: string): string | undefined {
   return v;
 }
 
-const KEYS = new Set(['apiVersion', 'kind', 'name', 'category', 'description', 'group', 'optional', 'dependsOn', 'source', 'ports', 'health', 'route', 'provides', 'env', 'sharedEnv', 'runtimes', 'hooks', 'test']);
+const KEYS = new Set([
+  'apiVersion',
+  'kind',
+  'name',
+  'category',
+  'description',
+  'group',
+  'optional',
+  'dependsOn',
+  'source',
+  'ports',
+  'health',
+  'route',
+  'provides',
+  'env',
+  'sharedEnv',
+  'runtimes',
+  'hooks',
+  'test',
+]);
 const ARTIFACTS = ['node', 'static', 'modules', 'files', 'none'];
 
 function fail(file: string, msg: string): never {
@@ -97,8 +120,13 @@ const strMap = (file: string, what: string, v: unknown): Record<string, string> 
 const layers = (file: string, what: string, v: unknown): EnvLayers => {
   if (v === undefined) return {};
   if (!isObj(v)) fail(file, `${what} must have common/local/podman maps`);
-  for (const k of Object.keys(v)) if (!['common', 'local', 'podman'].includes(k)) fail(file, `${what}.${k}: expected common, local or podman`);
-  return { common: strMap(file, `${what}.common`, v['common']), local: strMap(file, `${what}.local`, v['local']), podman: strMap(file, `${what}.podman`, v['podman']) };
+  for (const k of Object.keys(v))
+    if (!['common', 'local', 'podman'].includes(k)) fail(file, `${what}.${k}: expected common, local or podman`);
+  return {
+    common: strMap(file, `${what}.common`, v['common']),
+    local: strMap(file, `${what}.local`, v['local']),
+    podman: strMap(file, `${what}.podman`, v['podman']),
+  };
 };
 
 /** Parses and checks one component.yaml (the contract, version road-map/v1). */
@@ -112,9 +140,11 @@ function parseComponent(file: string): Component {
   }
   if (!isObj(doc)) fail(rel, 'expected a map');
   for (const k of Object.keys(doc)) if (!KEYS.has(k)) fail(rel, `unknown key '${k}'`);
-  if (doc['apiVersion'] !== 'road-map/v1' || doc['kind'] !== 'Component') fail(rel, 'expected apiVersion: road-map/v1 and kind: Component');
+  if (doc['apiVersion'] !== 'road-map/v1' || doc['kind'] !== 'Component')
+    fail(rel, 'expected apiVersion: road-map/v1 and kind: Component');
   const name = doc['name'];
-  if (typeof name !== 'string' || !/^[a-z][a-z0-9-]*$/.test(name)) fail(rel, 'name must be lower-case letters, digits and dashes');
+  if (typeof name !== 'string' || !/^[a-z][a-z0-9-]*$/.test(name))
+    fail(rel, 'name must be lower-case letters, digits and dashes');
   const category = doc['category'] as Category;
   if (!CATEGORIES.includes(category)) fail(rel, `category must be one of ${CATEGORIES.join(', ')}`);
   const rt = doc['runtimes'];
@@ -123,26 +153,34 @@ function parseComponent(file: string): Component {
   if (!RUNTIMES.includes(def)) fail(rel, 'runtimes.default must be local or podman');
   if (!rt[def]) fail(rel, `runtimes.default is ${def}, but runtimes.${def} is missing`);
   const local = rt['local'];
-  if (local !== undefined && (!isObj(local) || typeof local['command'] !== 'string')) fail(rel, 'runtimes.local.command must be a string');
+  if (local !== undefined && (!isObj(local) || typeof local['command'] !== 'string'))
+    fail(rel, 'runtimes.local.command must be a string');
   if (rt['podman'] !== undefined && !isObj(rt['podman'])) fail(rel, 'runtimes.podman must be a map');
   const podman = rt['podman'] as PodmanSpec | undefined;
   if (podman !== undefined) {
     const ways = [podman.via, podman.image, podman.build].filter((x) => x !== undefined).length;
     if (ways !== 1) fail(rel, 'runtimes.podman needs exactly one of via, image or build');
-    if (podman.build && !ARTIFACTS.includes(podman.build.artifact)) fail(rel, `runtimes.podman.build.artifact must be one of ${ARTIFACTS.join(', ')}`);
+    if (podman.build && !ARTIFACTS.includes(podman.build.artifact))
+      fail(rel, `runtimes.podman.build.artifact must be one of ${ARTIFACTS.join(', ')}`);
   }
   const raw = doc['ports'] ?? {};
   if (!isObj(raw)) fail(rel, 'ports must map names to port numbers');
   // A port may come from host.conf (the gateway: `${RM_PORT}`).
-  const ports = Object.fromEntries(Object.entries(raw).map(([k, v]) => {
-    const n = typeof v === 'string' ? Number(v.replace(/^\$\{(\w+)(?::-(\d+))?\}$/, (_m, key: string, d?: string) => hostSetting(key) ?? d ?? '')) : v;
-    if (!Number.isInteger(n)) fail(rel, `ports.${k} must be a port number or \${HOST_CONF_KEY}`);
-    return [k, n as number];
-  }));
+  const ports = Object.fromEntries(
+    Object.entries(raw).map(([k, v]) => {
+      const n =
+        typeof v === 'string'
+          ? Number(v.replace(/^\$\{(\w+)(?::-(\d+))?\}$/, (_m, key: string, d?: string) => hostSetting(key) ?? d ?? ''))
+          : v;
+      if (!Number.isInteger(n)) fail(rel, `ports.${k} must be a port number or \${HOST_CONF_KEY}`);
+      return [k, n as number];
+    }),
+  );
   const health = doc['health'];
   if (health !== undefined && !isObj(health)) fail(rel, 'health must be a map');
   // Each component states its own limit (FR-002): no shared default to hide a slow start.
-  if (isObj(health) && !(Number.isInteger(health['timeout']) && (health['timeout'] as number) > 0)) fail(rel, 'health.timeout (seconds, a positive integer) is required');
+  if (isObj(health) && !(Number.isInteger(health['timeout']) && (health['timeout'] as number) > 0))
+    fail(rel, 'health.timeout (seconds, a positive integer) is required');
   const hooks = isObj(doc['hooks']) ? doc['hooks'] : {};
   const test = isObj(doc['test']) ? doc['test'] : {};
   const integration = test['integration'];
@@ -172,10 +210,17 @@ function parseComponent(file: string): Component {
     provides: layers(rel, 'provides', doc['provides']),
     env: layers(rel, 'env', doc['env']),
     sharedEnv: typeof doc['sharedEnv'] === 'boolean' ? doc['sharedEnv'] : category !== 'infra',
-    runtimes: { default: def, ...(local && { local: { command: String(local['command']), build: local['build'] === 'full' ? 'full' : 'deps' } }), ...(podman && { podman }) },
+    runtimes: {
+      default: def,
+      ...(local && {
+        local: { command: String(local['command']), build: local['build'] === 'full' ? 'full' : 'deps' },
+      }),
+      ...(podman && { podman }),
+    },
     hooks: {
       postStart: (Array.isArray(hooks['postStart']) ? hooks['postStart'] : []).map((h: unknown) => {
-        if (!isObj(h) || typeof h['component'] !== 'string') fail(rel, 'hooks.postStart entries need component and args');
+        if (!isObj(h) || typeof h['component'] !== 'string')
+          fail(rel, 'hooks.postStart entries need component and args');
         return { component: h['component'], args: list(h['args'], 'hooks.postStart[].args') };
       }),
     },
@@ -197,7 +242,9 @@ export function loadComponents(): Map<string, Component> {
   const found = new Map<string, Component>();
   // One component per folder: api/ and web/ at the top (one of each), the rest under infra/.
   const files = ['api', 'web'].map((d) => join(ROOT, d, 'component.yaml'));
-  if (existsSync(join(ROOT, 'infra'))) for (const d of readdirSync(join(ROOT, 'infra'), { withFileTypes: true })) if (d.isDirectory()) files.push(join(ROOT, 'infra', d.name, 'component.yaml'));
+  if (existsSync(join(ROOT, 'infra')))
+    for (const d of readdirSync(join(ROOT, 'infra'), { withFileTypes: true }))
+      if (d.isDirectory()) files.push(join(ROOT, 'infra', d.name, 'component.yaml'));
   for (const file of files) {
     if (!existsSync(file)) continue;
     const comp = parseComponent(file);
@@ -207,13 +254,21 @@ export function loadComponents(): Map<string, Component> {
   }
   const seenPorts = new Map<number, string>();
   for (const comp of found.values()) {
-    for (const dep of [...comp.dependsOn, ...comp.hooks.postStart.map((h) => h.component), ...(comp.test.integration?.needs ?? [])])
+    for (const dep of [
+      ...comp.dependsOn,
+      ...comp.hooks.postStart.map((h) => h.component),
+      ...(comp.test.integration?.needs ?? []),
+    ])
       if (!found.has(dep)) throw new RunError(`${comp.rel}/component.yaml: unknown component '${dep}'`);
     const via = comp.runtimes.podman?.via;
-    if (via && !found.has(via)) throw new RunError(`${comp.rel}/component.yaml: runtimes.podman.via names unknown component '${via}'`);
+    if (via && !found.has(via))
+      throw new RunError(`${comp.rel}/component.yaml: runtimes.podman.via names unknown component '${via}'`);
     for (const p of Object.values(comp.ports)) {
       const other = seenPorts.get(p);
-      if (other) throw new RunError(`port ${p} is claimed by both ${other} and ${comp.name}: every component needs its own ports on the host network`);
+      if (other)
+        throw new RunError(
+          `port ${p} is claimed by both ${other} and ${comp.name}: every component needs its own ports on the host network`,
+        );
       seenPorts.set(p, comp.name);
     }
   }
@@ -237,10 +292,22 @@ export const isProcess = (comp: Component) => comp.category !== 'tool';
 export function select(selector: string): Component[] {
   const all = [...loadComponents().values()];
   const out = new Map<string, Component>();
-  for (const part of selector.split(',').map((s) => s.trim()).filter(Boolean)) {
-    if (part === 'stack') for (const comp of all) { if (!comp.optional && isProcess(comp)) out.set(comp.name, comp); }
-    else if ((CATEGORIES as readonly string[]).includes(part)) for (const comp of all) { if (comp.category === part) out.set(comp.name, comp); }
-    else if (all.some((comp) => comp.group === part)) for (const comp of all) { if (comp.group === part) out.set(comp.name, comp); }
+  for (const part of selector
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)) {
+    if (part === 'stack')
+      for (const comp of all) {
+        if (!comp.optional && isProcess(comp)) out.set(comp.name, comp);
+      }
+    else if ((CATEGORIES as readonly string[]).includes(part))
+      for (const comp of all) {
+        if (comp.category === part) out.set(comp.name, comp);
+      }
+    else if (all.some((comp) => comp.group === part))
+      for (const comp of all) {
+        if (comp.group === part) out.set(comp.name, comp);
+      }
     else out.set(part, component(part));
   }
   if (!out.size) throw new RunError(`'${selector}' selects no components`, { code: 2 });
@@ -269,7 +336,10 @@ export function dependencies(comp: Component): Component[] {
   const walk = (x: Component) => {
     for (const d of x.dependsOn) {
       const dc = component(d);
-      if (!seen.has(d)) { seen.set(d, dc); walk(dc); }
+      if (!seen.has(d)) {
+        seen.set(d, dc);
+        walk(dc);
+      }
     }
   };
   walk(comp);
@@ -281,7 +351,10 @@ export function runtimeFor(comp: Component, requested: Runtime | undefined): Run
   const rt = requested ?? comp.runtimes.default;
   if (!comp.runtimes[rt]) {
     const has = RUNTIMES.filter((r) => comp.runtimes[r]).join(' or ');
-    throw new RunError(`${comp.name} does not run on ${rt} (it runs on ${has})`, { hint: `use ${has}:${comp.name}:<command>`, code: 2 });
+    throw new RunError(`${comp.name} does not run on ${rt} (it runs on ${has})`, {
+      hint: `use ${has}:${comp.name}:<command>`,
+      code: 2,
+    });
   }
   return rt;
 }
