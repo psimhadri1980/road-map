@@ -6,6 +6,7 @@ import { c, initLogs, log, opts, reportError, RunError } from './log.ts';
 import { CATEGORIES, component, isProcess, loadComponents, mainPort, ROOT, RUNTIMES, select, STATE_DIR, type Runtime } from './components.ts';
 import { build, ensureDependencies, execIn, logs, plan, reset, shell, status, stop, up } from './lifecycle.ts';
 import { doctor } from './extras.ts';
+import { ensureSecrets } from './secrets.ts';
 import { test } from './test.ts';
 
 const COMMANDS = ['build', 'deploy', 'start', 'stop', 'reset', 'status', 'logs', 'test', 'exec', 'shell'] as const;
@@ -93,6 +94,8 @@ async function main(argv: string[]): Promise<number> {
   const single = comps.length === 1 && sel === comps[0]!.name;
   const rest = args.filter((a) => a !== '--');
   const after = args.includes('--') ? args.slice(args.indexOf('--') + 1) : rest;
+
+  if (cmd === 'deploy' || cmd === 'start') ensureSecrets();
 
   switch (cmd) {
     case 'build': await build(plan(comps, rt, single)); return 0;
