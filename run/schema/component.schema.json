@@ -105,6 +105,7 @@
       "additionalProperties": false,
       "properties": {
         "unit": { "type": "boolean" },
+        "maven": { "type": "boolean", "description": "Java component: test runs Maven in the pinned Maven image (run/orchestrator/maven.ts) instead of turbo." },
         "integration": { "type": "object", "additionalProperties": false, "properties": { "needs": { "$ref": "#/$defs/names" } } }
       }
     }
