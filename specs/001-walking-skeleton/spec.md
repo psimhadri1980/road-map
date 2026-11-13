@@ -152,7 +152,9 @@ violation, known-vulnerable dependency, committed secret, failing test) and conf
 - **FR-001**: The system MUST start the complete application — front door, roadmap service,
   database, cache and identity provider — from a clean checkout with a single command.
 - **FR-002**: The system MUST report each component as healthy or not, and the deploy command
-  MUST succeed only when all are healthy.
+  MUST succeed only when all are healthy. Each component declares its own health time limit;
+  deploy waits no longer than that limit for each component. Running deploy on a healthy stack
+  MUST change nothing.
 - **FR-003**: The system MUST store one sample roadmap in the database on first start, without
   manual steps, and MUST NOT duplicate it on later starts.
 - **FR-004**: The system MUST show the sample roadmap as a Gantt chart in a browser, using the
@@ -191,12 +193,20 @@ violation, known-vulnerable dependency, committed secret, failing test) and conf
   (127.0.0.1) in this feature; none is reachable from another machine.
 - **FR-016**: The database and the cache MUST each accept only the credentials issued to the
   components that use them, with the least privileges those components need.
-- **FR-017**: Certificates, private keys and credentials MUST be created locally on first use
-  and MUST NOT be tracked by the repository.
+- **FR-017**: Certificates, private keys and credentials — development passwords included — MUST
+  be created locally on first use and MUST NOT be tracked by the repository. (This differs from
+  the D4 workspace, which tracks its development passwords.)
+- **FR-017a**: Certificates MUST be valid for one year. The status command MUST warn when a
+  certificate expires within 30 days. A missing, unreadable, empty or malformed certificate, key
+  or secret file MUST stop deploy with a message naming the file; deleting the files and
+  deploying again MUST create new ones without losing stored data.
+- **FR-017b**: No secret, private key or credential MUST appear in any log or command output.
 - **FR-018**: Every component MUST run without administrator privileges and without write access
   to its own program files.
-- **FR-019**: The front door MUST send security headers restricting framing, content sources and
-  transport, and MUST limit the request rate per client.
+- **FR-019**: The front door MUST send `Strict-Transport-Security` (one year),
+  `Content-Security-Policy` (own origin only, no framing), `X-Content-Type-Options: nosniff` and
+  `Referrer-Policy: no-referrer`, and MUST limit each client to 10 requests per second with a
+  burst of 20.
 
 **Quality gates**
 
@@ -207,7 +217,15 @@ violation, known-vulnerable dependency, committed secret, failing test) and conf
 - **FR-023**: Tests MUST run against a real database, cache and identity provider.
 - **FR-024**: Tests MUST include: the roadmap is served end to end; the second request is served
   from the cache; an unencrypted connection to the database and to the cache is refused.
-- **FR-025**: Every source file MUST meet the constitution's comment standard, checked by a gate.
+- **FR-025**: Every source file MUST meet the constitution's comment standard (Principle VI),
+  checked by a gate.
+
+**Operation alongside D4**
+
+- **FR-026**: Any command run without the gantt library checked out MUST stop with a message
+  saying how to fetch it.
+- **FR-027**: The application MUST run on the same machine as the D4 workspace at the same time,
+  without sharing names or ports with it.
 
 **Out of scope** (later features): sign-in and token checks; teams and access control; editing,
 Proposals, versions and baselines; live events; more than one roadmap.
@@ -255,3 +273,14 @@ Proposals, versions and baselines; live events; more than one roadmap.
   everything else is built inside containers.
 - The entry point starts as a copy of the D4 workspace's `run/` folder, adapted only where this
   project differs.
+- The gantt library builds with pnpm once psimhadri1980/gantt#10 is merged. Until then the
+  submodule cannot be pinned and the web application cannot be built.
+- Continuous integration runners may provide an older container runtime (Podman 4.9 on Ubuntu
+  24.04) than developer machines; the first CI task establishes which version runs there.
+
+## Amendments after checklist (2026-11-13)
+
+FR-002, FR-017, FR-017a, FR-017b, FR-019, FR-026, FR-027 and the last two assumptions were added or
+made specific after the requirements checklists in `checklists/security.md` and
+`checklists/gates.md` (items CHK002, CHK004, CHK006, CHK007, CHK010, CHK013–CHK015, CHK019,
+CHK026, CHK028, CHK029, CHK032, CHK033).
