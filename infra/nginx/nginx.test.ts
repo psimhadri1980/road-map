@@ -84,10 +84,25 @@ test('actuator is not routed; /api/ reaches the service and /auth/ reaches Keycl
   assert.equal((await get('/auth/realms/road-map')).status, 200);
 });
 
+test('a refused request carries the FR-019 headers too', async () => {
+  await new Promise((r) => setTimeout(r, 3000));
+  const burst = await Promise.all(Array.from({ length: 40 }, () => get('/')));
+  const refused = burst.find((r) => r.status === 429);
+  assert.ok(refused, 'no 429 among 40 rapid requests');
+  assert.equal(refused.headers['x-content-type-options'], 'nosniff');
+  assert.equal(refused.headers['strict-transport-security'], 'max-age=31536000');
+  assert.equal(refused.headers['referrer-policy'], 'no-referrer');
+  assert.match(String(refused.headers['content-security-policy']), /frame-ancestors 'none'/);
+  await new Promise((r) => setTimeout(r, 3000));
+});
+
 test('a client is limited to a burst of 20 (FR-019)', async () => {
   await new Promise((r) => setTimeout(r, 3000)); // earlier tests spent part of the burst
   const codes = await Promise.all(Array.from({ length: 40 }, () => get('/').then((r) => r.status)));
   assert.ok(codes.includes(429), `no 429 among ${codes.length} rapid requests`);
-  assert.ok(codes.filter((c) => c === 200).length >= 20);
+  // 10 per second with a burst of 20: the burst plus the request that opens it, and a little refill.
+  const accepted = codes.filter((c) => c === 200).length;
+  assert.ok(accepted >= 20 && accepted <= 23, `${accepted} of ${codes.length} were accepted`);
+  assert.equal(codes.filter((c) => c !== 200 && c !== 429).length, 0);
   await new Promise((r) => setTimeout(r, 3000)); // let the bucket refill for the next run
 });
