@@ -113,7 +113,7 @@ Two choices depart from strict story order, both for constitution reasons:
 
 **Independent Test**: One pull request per gate that breaks it is blocked; a clean one passes.
 
-- [ ] T031 [US4] Pre-commit hook: `.githooks/pre-commit` runs `run/run.sh format` on staged files and re-stages them; `run.sh` sets `core.hooksPath` on first run. [FR-020]
+- [x] T031 [US4] Pre-commit hook: `.githooks/pre-commit` runs `run/run.sh format` on staged files and re-stages them; `run.sh` sets `core.hooksPath` on first run. [FR-020]
 - [ ] T032 [P] [US4] Java gates in `api/pom.xml` and `api/config/`: Checkstyle with Javadoc rules for every class and public method, Error Prone, SpotBugs with FindSecBugs, an ArchUnit test for controller → service → repository. [FR-021, FR-025]
 - [ ] T033 [P] [US4] Web gates: `eslint.config.mjs` (typescript-eslint, react-hooks, `eslint-plugin-jsdoc` for exported symbols, zero warnings) and TypeScript strict, run by `web:test static`. [FR-021, FR-025]
 - [ ] T034 [US4] Container and secret gates in `test static`: hadolint on every Containerfile, Trivy on every built image and the repository, gitleaks on the repository and its history including the submodule, each in its pinned image. [FR-021, SC-006]
