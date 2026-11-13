@@ -1,12 +1,14 @@
 openapi: 3.1.0
 info:
   title: road-map service — walking skeleton
-  version: 0.1.0
+  version: 0.2.0
   description: >
-    The roadmap service as seen through nginx in spec 001. Read-only; no authentication yet
+    The roadmap service as seen through nginx. Read-only. Every route except health needs a bearer token
     (spec 002). Error bodies follow the gantt library's server: {error, code}.
 servers:
   - url: https://127.0.0.1:8443/api
+security:
+  - bearer: []
 paths:
   /roadmaps/{slug}:
     get:
@@ -18,6 +20,7 @@ paths:
           required: true
           schema: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,62}$' }
       responses:
+        '401': { $ref: '#/components/responses/Unauthenticated' }
         '200':
           description: The roadmap in the gantt-roadmap/1 format.
           content:
@@ -43,11 +46,27 @@ paths:
       - url: https://127.0.0.1:18443
     get:
       operationId: readiness
+      security: [] # health stays open (spec 002 FR-013)
       summary: Ready when the database is reachable. Redis is reported but does not fail readiness (FR-008).
       responses:
         '200': { description: Ready. }
         '503': { description: Not ready. }
 components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Access token issued by the road-map realm for the client road-map-web, audience road-map-api.
+  responses:
+    Unauthenticated:
+      description: >
+        Missing, expired, tampered, wrong-issuer, wrong-audience or signed-out token. The front door answers
+        first (status only); from the service the body is {error, code}. Never says which check failed.
+      headers:
+        WWW-Authenticate: { schema: { type: string, example: Bearer } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
     Error:
       type: object
@@ -56,4 +75,4 @@ components:
         error: { type: string, description: A message for people. No internal details. }
         code:
           type: string
-          enum: [invalid, notFound, nonConforming, unavailable]
+          enum: [invalid, notFound, nonConforming, unavailable, unauthenticated]

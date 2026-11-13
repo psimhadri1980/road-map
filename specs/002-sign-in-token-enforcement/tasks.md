@@ -33,7 +33,7 @@ description: 'Task list for spec 002, sign-in and token enforcement'
 
 ## Phase 5: Polish
 
-- [ ] T006 Close out. Merge `contracts/openapi-delta.yaml` into `specs/001-walking-skeleton/contracts/openapi.yaml`; measure SC-001, SC-004 (scripted 30 minutes may be reduced to six token lifetimes, recorded as such), SC-007 and write them into `quickstart.md`; mark tasks done; update `PLAN.md` status. Serves SC-001, SC-004, SC-006, SC-007. Done when: all seven checks are green on `main` and the measurements are recorded. Needs T005.
+- [x] T006 Close out. Merge `contracts/openapi-delta.yaml` into `specs/001-walking-skeleton/contracts/openapi.yaml`; measure SC-001, SC-004 (scripted 30 minutes may be reduced to six token lifetimes, recorded as such), SC-007 and write them into `quickstart.md`; mark tasks done; update `PLAN.md` status. Serves SC-001, SC-004, SC-006, SC-007. Done when: all seven checks are green on `main` and the measurements are recorded. Needs T005.
 
 ## Dependencies
 
