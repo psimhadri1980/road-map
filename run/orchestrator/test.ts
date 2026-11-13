@@ -134,12 +134,13 @@ const noServices: Record<string, string> = {};
 
 /** Start (on podman) any needed service that is not running, then require every one to be healthy. */
 async function ensureServices(needs: string[]): Promise<void> {
+  // A fresh checkout (CI) has neither passwords nor certificates; `deploy` makes them, so do the same here. All
+  // components' certificates, not just the services': the tests start the api themselves with its own certificate.
+  ensureSecrets();
+  await ensureCerts([...loadComponents().values()].filter((x) => Object.keys(x.ports).length).map((x) => x.name));
   const missing = needs.map((n) => component(n)).filter((n) => !whereRunning(n).length);
   if (missing.length) {
     log.info(`integration tests need ${needs.join(', ')}; starting ${missing.map((x) => x.name).join(', ')} on podman`);
-    // A fresh checkout (CI) has neither passwords nor certificates yet; `deploy` makes them, so do the same here.
-    ensureSecrets();
-    await ensureCerts(missing.filter((x) => Object.keys(x.ports).length).map((x) => x.name));
     await up(plan(missing, 'podman', false), { build: false });
   }
   for (const n of needs) {
