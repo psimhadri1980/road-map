@@ -14,7 +14,8 @@ import { maven, MAVEN_GOALS } from './maven.ts';
 import { prettier } from './format.ts';
 import { scan } from './scan.ts';
 import { browse } from './browser.ts';
-import { CERT_DIR } from './certs.ts';
+import { CERT_DIR, ensureCerts } from './certs.ts';
+import { ensureSecrets } from './secrets.ts';
 
 interface Pkg {
   name: string;
@@ -136,6 +137,9 @@ async function ensureServices(needs: string[]): Promise<void> {
   const missing = needs.map((n) => component(n)).filter((n) => !whereRunning(n).length);
   if (missing.length) {
     log.info(`integration tests need ${needs.join(', ')}; starting ${missing.map((x) => x.name).join(', ')} on podman`);
+    // A fresh checkout (CI) has neither passwords nor certificates yet; `deploy` makes them, so do the same here.
+    ensureSecrets();
+    await ensureCerts(missing.filter((x) => Object.keys(x.ports).length).map((x) => x.name));
     await up(plan(missing, 'podman', false), { build: false });
   }
   for (const n of needs) {
@@ -204,12 +208,13 @@ export async function test(comp: Component | 'stack', rtArg: Runtime | undefined
   if (suite === 'smoke') return smoke();
   // Java formatting is checked by Maven's verify (Spotless); everything else by Prettier, here.
   if (suite === 'static') await prettier(comp, true);
-  // Whole-repository gates (images, history, Containerfiles) run once, for the stack.
-  if (suite === 'static' && comp === 'stack') await scan();
-
   // The stack's Java components run through Maven (Spotless, Checkstyle, SpotBugs, tests); the turbo path below is Node only.
   if (comp === 'stack')
     for (const j of loadComponents().values()) if (j.test.maven) await mavenSuite(j, suite, t, j.name);
+
+  // Whole-repository gates (images, history, Containerfiles) run once, for the stack. After Maven, whose local
+  // repository Trivy reads for pom.xml dependencies instead of asking Maven Central (which answers 429 when cold).
+  if (suite === 'static' && comp === 'stack') await scan();
 
   if (comp !== 'stack' && comp.test.maven) return mavenSuite(comp, suite as keyof typeof MAVEN_GOALS, t, name);
 
