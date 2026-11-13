@@ -18,7 +18,7 @@ every quality gate runs on pull requests from this feature on. Decisions are in
 
 **Language/Version**: Java 25 (service); TypeScript 5.8, Node 24 (web app, orchestrator)
 
-**Primary Dependencies**: Spring Boot 4.1.2 (web, actuator, data-jdbc, cache, data-redis),
+**Primary Dependencies**: Spring Boot 4.1.2 (web, actuator, jdbc, cache, data-redis),
 Flyway, networknt json-schema-validator; React 19, Vite 8, the gantt library (submodule)
 
 **Storage**: PostgreSQL 18.7 (roadmap documents as `jsonb`); Redis 8.8.4 (cache only)
@@ -80,9 +80,9 @@ run/                         # copied from D4 (R4), then adapted
 ├── run.sh
 ├── orchestrator/            # TypeScript run by Node 24
 ├── schema/component.schema.json
-├── env/                     # common.env, images.env (digest-pinned), dev-secrets.env
+├── env/                     # common.env, images.env (digest-pinned); no secrets
 ├── certs/                   # README only in git; CA and certificates created on first deploy
-└── secrets/                 # git-ignored
+└── secrets/                 # git-ignored; dev.env generated on first deploy (FR-017)
 
 api/                         # Spring Boot service (component: api)
 ├── component.yaml

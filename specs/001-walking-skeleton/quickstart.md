@@ -41,7 +41,13 @@ run/run.sh stack:test integration -- -Dgroups=transport
 ```
 
 Includes: plain-text connections to PostgreSQL and Redis are refused; a certificate from another
-authority is rejected; every listening port is bound to 127.0.0.1.
+authority is rejected.
+
+```bash
+run/run.sh stack:test integration
+```
+
+The orchestrator's own tests include the exposure check: every listening port is bound to 127.0.0.1.
 
 ```bash
 run/run.sh stack:status
