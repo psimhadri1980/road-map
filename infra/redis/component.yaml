@@ -1,0 +1,48 @@
+# Redis (T010): the roadmap cache, TLS only, one ACL user (FR-001, FR-013, FR-014, FR-016, FR-018).
+apiVersion: road-map/v1
+kind: Component
+name: redis
+category: infra
+description: Redis over TLS; the cache for roadmap documents
+ports:
+  redis: 16379
+health:
+  # PONG as the service's own account, over TLS with the certificate verified. The password goes by
+  # environment (REDISCLI_AUTH), not on a command line; `$VAR` is read by the container's shell.
+  cmd: REDISCLI_AUTH=$REDIS_APP_PASSWORD redis-cli -h 127.0.0.1 -p 16379 --tls --cacert /tls/ca.crt --user roadmap_app ping | grep -q PONG
+  timeout: 30
+provides:
+  common:
+    REDIS_HOST: 127.0.0.1
+    REDIS_PORT: "16379"
+env:
+  common:
+    REDIS_APP_PASSWORD: ${REDIS_APP_PASSWORD}
+runtimes:
+  default: podman
+  podman:
+    image: ${REDIS_IMAGE}
+    # Runs as redis (uid 999), never root; the host user maps to it, so the mounted key is readable.
+    user: "999:999"
+    userns: keep-id:uid=999,gid=999
+    readOnly: true
+    tmpfs: [/tmp]
+    mounts:
+      - { src: run/certs/redis.crt, dst: /tls/server.crt, ro: true }
+      - { src: run/certs/redis.key, dst: /tls/server.key, ro: true }
+      - { src: run/certs/ca.crt, dst: /tls/ca.crt, ro: true }
+    memory: 256m
+    entrypoint: sh
+    # The ACL file is written at start from the environment, so no password is stored in the
+    # repository or an image; only the SHA-256 of it reaches the file (in tmpfs). The `default`
+    # user is off: nothing can connect without the service's account. A cache needs no disk:
+    # persistence is off and there is no volume.
+    command:
+      - -c
+      - |
+        set -eu
+        h=$(printf %s "$REDIS_APP_PASSWORD" | sha256sum | cut -d' ' -f1)
+        printf 'user default off\nuser roadmap_app on #%s ~roadmap::* +get +set +ping +hello +client|setname +client|setinfo\n' "$h" > /tmp/users.acl
+        exec redis-server --aclfile /tmp/users.acl --bind 127.0.0.1 --port 0 --tls-port 16379 \
+          --tls-cert-file /tls/server.crt --tls-key-file /tls/server.key --tls-ca-cert-file /tls/ca.crt \
+          --tls-auth-clients no --tls-protocols TLSv1.3 --save "" --appendonly no
