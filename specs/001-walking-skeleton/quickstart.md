@@ -87,3 +87,36 @@ run/run.sh stack:reset --yes
 
 `reset` deletes the containers and the database and cache volumes. Certificates stay in
 `run/certs/` until deleted by hand.
+
+## 6. Gate proof (T036, FR-022, SC-007)
+
+On 2026-11-13 one throw-away pull request per gate broke only that gate. Every one was blocked by
+the gate named below, with the finding in the job log; all were closed unmerged and their
+branches deleted. A compliant pull request (T035) got all eight checks green in about 3 minutes
+on `ubuntu-24.04` (slowest job `static`, 2m46s; limit 15 minutes).
+
+| Gate (FR-021)     | What was broken                      | Blocked by (job)               | Finding named in the log                                      |
+| ----------------- | ------------------------------------ | ------------------------------ | ------------------------------------------------------------- |
+| Formatting        | extra spaces in `web/vite.config.ts` | `static`                       | Prettier: "Code style issues found" for that file             |
+| Linting           | `console.log` in `web/src/main.tsx`  | `static`                       | ESLint `no-console` at `main.tsx` 6:1                         |
+| Static analysis   | `a == b` on strings                  | `static`                       | Error Prone `ReferenceEquality`, `ProbeStatic.java:[7,14]`    |
+| Security analysis | `new java.util.Random()`             | `static`                       | FindSecBugs `PREDICTABLE_RANDOM`, `ProbeSecurity.java` line 7 |
+| Comment standard  | class without Javadoc                | `static`                       | Checkstyle `MissingJavadocType`, `ProbeDoc.java:3:1`          |
+| Layering          | repository referencing a controller  | `unit`                         | ArchUnit `ArchitectureTest.layers` violation                  |
+| Tests             | changed an expected message          | `unit`, `integration`          | Vitest "shows a plain message when the service answers 503"   |
+| Image scanning    | removed the accepted-finding entry   | `static`                       | Trivy CVE-2026-102554 (guava) in `localhost/rm-keycloak`      |
+| Secret scanning   | a random `api_key` in a JSON file    | `static`                       | gitleaks `generic-api-key`, `run/zz-proof.json`, commit named |
+| Dependency review | `log4j-core` 2.14.1 in `api/pom.xml` | `review` (and `static`, Trivy) | "api/pom.xml » log4j-core@2.14.1 (high severity)"             |
+
+What the proofs showed beyond the table:
+
+- gitleaks printed only "leaks found: 1" at first, which does not name a file (FR-022). Fixed with
+  `--verbose` before the secret-scan result above was read.
+- gitleaks scans every branch the runner fetches, so one leaked branch fails every other pull
+  request's `static` job until it is deleted. That is the right behaviour for a leak, but it made
+  the other proofs fail too until the secret-scan branch was removed; they were then re-run.
+- A Java change that does not compile cleanly (Error Prone, SpotBugs) also fails `unit`,
+  `integration` and `smoke`, because they all build the service. The named finding is still the
+  one above.
+- CodeQL reports findings as alerts and its job passes; it does not block a merge by itself. The
+  blocking gates for security analysis are FindSecBugs, Trivy, gitleaks and dependency review.
