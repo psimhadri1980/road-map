@@ -1,7 +1,7 @@
 // T007: certificate creation and every refusal case (FR-013, FR-017a). Needs Podman and the JRE image
 // (it holds openssl); a copy of the orchestrator runs in a temp root so run/certs is not touched.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { X509Certificate } from 'node:crypto';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -98,4 +98,23 @@ test('status warns only for certificates that expire within 30 days', () => {
   const warn = expiringCerts(['soon']);
   assert.equal(warn.length, 1);
   assert.match(warn[0]!, /soon\.crt expires in \d+ day/);
+});
+
+test('the status command prints the warning, naming the certificate (FR-017a)', () => {
+  // The temp root has no components, so `status` has nothing to report but the certificate warning.
+  mkdirSync(join(root, 'vendor/gantt'), { recursive: true });
+  writeFileSync(join(root, 'vendor/gantt/package.json'), '{}');
+  execFileSync(
+    'sh',
+    [
+      '-c',
+      'openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout /dev/null -out ca.crt -subj /CN=short -days 5',
+    ],
+    { cwd: CERT_DIR, stdio: 'pipe' },
+  );
+  const out = spawnSync(process.execPath, [join(root, 'run/orchestrator/main.ts'), 'status'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  assert.match(out.stdout + out.stderr, /ca\.crt expires in \d+ day/);
 });
