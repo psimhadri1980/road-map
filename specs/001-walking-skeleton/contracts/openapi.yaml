@@ -1,0 +1,59 @@
+openapi: 3.1.0
+info:
+  title: road-map service — walking skeleton
+  version: 0.1.0
+  description: >
+    The roadmap service as seen through nginx in spec 001. Read-only; no authentication yet
+    (spec 002). Error bodies follow the gantt library's server: {error, code}.
+servers:
+  - url: https://127.0.0.1:8443/api
+paths:
+  /roadmaps/{slug}:
+    get:
+      operationId: getRoadmap
+      summary: The roadmap document, served from the cache when present.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,62}$' }
+      responses:
+        '200':
+          description: The roadmap in the gantt-roadmap/1 format.
+          content:
+            application/json:
+              schema:
+                # The gantt library's schema, from the pinned submodule.
+                $ref: '../../../vendor/gantt/packages/contract/schema/gantt-roadmap-1.schema.json'
+        '400':
+          description: The slug does not match the pattern.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '404':
+          description: No roadmap with this slug.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '422':
+          description: The stored roadmap does not conform to the gantt format and is not served.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '503':
+          description: Neither the cache nor the database could provide the roadmap.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  /actuator/health/readiness:
+    servers:
+      # Not routed by nginx: only run/run.sh health checks call it, on the service's own port.
+      - url: https://127.0.0.1:18443
+    get:
+      operationId: readiness
+      summary: Ready when the database is reachable. Redis is reported but does not fail readiness (FR-008).
+      responses:
+        '200': { description: Ready. }
+        '503': { description: Not ready. }
+components:
+  schemas:
+    Error:
+      type: object
+      required: [error, code]
+      properties:
+        error: { type: string, description: A message for people. No internal details. }
+        code:
+          type: string
+          enum: [invalid, notFound, nonConforming, unavailable]
