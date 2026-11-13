@@ -1,4 +1,82 @@
 {
   "realm": "road-map",
-  "enabled": true
+  "enabled": true,
+  "sslRequired": "all",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 300,
+  "maxFailureWaitSeconds": 300,
+  "clients": [
+    {
+      "clientId": "road-map-web",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "redirectUris": ["https://127.0.0.1:8443/*"],
+      "webOrigins": ["https://127.0.0.1:8443"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://127.0.0.1:8443/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "road-map-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "road-map-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "road-map-test",
+      "description": "Development realm only: lets tests obtain real tokens without a browser (spec 002 research R5). Remove from any production realm.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "attributes": { "access.token.lifespan": "5" },
+      "protocolMappers": [
+        {
+          "name": "road-map-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "road-map-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "road-map-test-other-audience",
+      "description": "Development realm only: issues tokens WITHOUT the road-map-api audience, to prove the service refuses them.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "sample",
+      "enabled": true,
+      "email": "sample@road-map.test",
+      "emailVerified": true,
+      "firstName": "Sample",
+      "lastName": "User",
+      "credentials": [{ "type": "password", "value": "${SAMPLE_USER_PASSWORD}", "temporary": false }]
+    }
+  ]
 }

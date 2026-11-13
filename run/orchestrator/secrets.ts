@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { log, RunError } from './log.ts';
 import { RUN_DIR } from './components.ts';
 
-/** One password per account: the database accounts (data-model.md), Redis, and Keycloak's admin. */
+/** One password per account: the database accounts (data-model.md), Redis, Keycloak's admin and the sample user. */
 export const SECRET_KEYS = [
   'POSTGRES_PASSWORD', // superuser: only to initialise the container
   'ROADMAP_MIGRATOR_PASSWORD',
@@ -14,6 +14,7 @@ export const SECRET_KEYS = [
   'KEYCLOAK_DB_PASSWORD',
   'REDIS_APP_PASSWORD',
   'KEYCLOAK_ADMIN_PASSWORD',
+  'SAMPLE_USER_PASSWORD', // the road-map realm's development user (spec 002 FR-014)
 ] as const;
 
 export const secretsFile = () => join(RUN_DIR, 'secrets/dev.env');
