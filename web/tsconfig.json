@@ -1,4 +1,14 @@
 {
   "extends": "../vendor/gantt/tsconfig.json",
+  "compilerOptions": {
+    // The gantt sources are type-checked with this app, and they sit outside web/ where @types/react is not
+    // installed; point React's types at the copy this package has (T033).
+    "paths": {
+      "react": ["./node_modules/@types/react"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "react-dom/client": ["./node_modules/@types/react-dom/client"]
+    }
+  },
   "include": ["src", "vite.config.ts"]
 }

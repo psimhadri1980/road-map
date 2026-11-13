@@ -3,6 +3,7 @@
 // those depending on them, within the component's own packages; --all runs every one of them.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse } from 'yaml';
 import { c, capture, elapsed, exec, log, RunError } from './log.ts';
 import { component, ROOT, type Component, type Runtime } from './components.ts';
 import { baseEnv, ENGINE } from './env.ts';
@@ -20,25 +21,30 @@ interface Pkg {
   deps: string[];
 }
 
-/** Every workspace package with its workspace dependencies. */
+/** Every workspace package with its workspace dependencies, found through pnpm-workspace.yaml's `packages` globs. */
 function workspace(): Map<string, Pkg> {
   const out = new Map<string, Pkg>();
-  for (const top of ['apps', 'packages', 'mocks']) {
-    const base = join(ROOT, top);
-    if (!existsSync(base)) continue;
-    for (const d of readdirSync(base)) {
-      const file = join(base, d, 'package.json');
-      if (!existsSync(file)) continue;
-      const pj = JSON.parse(readFileSync(file, 'utf8')) as {
-        name: string;
-        dependencies?: Record<string, string>;
-        devDependencies?: Record<string, string>;
-      };
-      const deps = Object.entries({ ...pj.dependencies, ...pj.devDependencies })
-        .filter(([, v]) => v.startsWith('workspace:'))
-        .map(([k]) => k);
-      out.set(pj.name, { name: pj.name, dir: join(top, d), deps });
-    }
+  const globs = (parse(readFileSync(join(ROOT, 'pnpm-workspace.yaml'), 'utf8')) as { packages: string[] }).packages;
+  // shortcut: only `dir` and `dir/*` globs, which is all this workspace uses; add a matcher when one needs more.
+  const dirs = globs.flatMap((g) =>
+    g.endsWith('/*')
+      ? existsSync(join(ROOT, g.slice(0, -2)))
+        ? readdirSync(join(ROOT, g.slice(0, -2))).map((d) => join(g.slice(0, -2), d))
+        : []
+      : [g],
+  );
+  for (const dir of dirs) {
+    const file = join(ROOT, dir, 'package.json');
+    if (!existsSync(file)) continue;
+    const pj = JSON.parse(readFileSync(file, 'utf8')) as {
+      name: string;
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const deps = Object.entries({ ...pj.dependencies, ...pj.devDependencies })
+      .filter(([, v]) => v.startsWith('workspace:'))
+      .map(([k]) => k);
+    out.set(pj.name, { name: pj.name, dir, deps });
   }
   return out;
 }
