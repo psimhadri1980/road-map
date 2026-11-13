@@ -1,0 +1,5 @@
+# Keycloak (T011): the published image with its build-time options applied, so the container can
+# run `start --optimized` on a read-only root filesystem (a plain `start` would rebuild into /opt).
+ARG KEYCLOAK_IMAGE
+FROM ${KEYCLOAK_IMAGE}
+RUN /opt/keycloak/bin/kc.sh build --db=postgres --health-enabled=true
