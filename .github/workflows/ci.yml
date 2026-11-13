@@ -1,5 +1,5 @@
-# Minimal gate (T005, spec 001): every pull request runs the repository's one entry point, the
-# same commands a developer runs (FR-011). User Story 4 adds the other gates to this file.
+# Every pull request runs the repository's one entry point, the same commands a developer runs (FR-011).
+# Branch protection on main requires every job here by name (T035); `smoke` is the full-stack deploy.
 name: ci
 on:
   pull_request:
@@ -10,10 +10,32 @@ permissions:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+# A clean checkout has no changes to select from, so every suite passes --all.
+# Each job checks out the gantt submodule and starts from the same two steps; only the command differs.
 jobs:
   static:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
+    steps:
+      # Full history: gitleaks scans every commit (FR-021).
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      # R9: the runner's Podman version decides what the orchestrator can rely on; keep it in the log.
+      - run: podman --version
+      - run: run/run.sh doctor
+      - run: node --test run/orchestrator/*.test.ts
+      # Formatting, lint, static and security analysis, Containerfiles, secrets, images (T022, T032-T034).
+      - run: run/run.sh stack:test static --all
+
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -21,10 +43,30 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
-      # R9: the runner's Podman version decides what the orchestrator can rely on; keep it in the log.
-      - run: podman --version
-      # shortcut: no components exist yet, so `stack:test static` has nothing to select. Until
-      # T006 adds the first one this job runs `doctor` and the orchestrator's own tests; then it
-      # becomes `run/run.sh stack:test static`.
-      - run: run/run.sh doctor
-      - run: node --test run/orchestrator/*.test.ts
+      - run: run/run.sh stack:test unit --all
+
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      # Starts the real PostgreSQL, Redis and Keycloak the tests need (FR-023).
+      - run: run/run.sh stack:test integration --all
+
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      - run: run/run.sh podman:stack:deploy
+      - run: run/run.sh stack:test smoke

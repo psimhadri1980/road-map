@@ -1,0 +1,13 @@
+# A pull request that adds a dependency with a known vulnerability or a disallowed licence is blocked (T035, FR-021).
+name: dependency-review
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
