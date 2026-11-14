@@ -117,6 +117,27 @@ public class ProposalRepository {
         .optional();
   }
 
+  /**
+   * Like {@link #find} but locks the row until the transaction ends, so two requests adding changes
+   * to one Proposal take turns and each sees the other's changes (research R8).
+   */
+  public Optional<Row> findForUpdate(UUID roadmap, UUID id) {
+    return jdbc.sql(
+            "SELECT " + COLUMNS + " FROM proposal WHERE id = :i AND roadmap_id = :r FOR UPDATE")
+        .param("i", id)
+        .param("r", roadmap)
+        .query(Row.class)
+        .optional();
+  }
+
+  /** Records the new total of changes and the time of the edit. */
+  public void setChangeCount(UUID proposal, int count) {
+    jdbc.sql("UPDATE proposal SET change_count = :c, updated_at = now() WHERE id = :p")
+        .param("c", count)
+        .param("p", proposal)
+        .update();
+  }
+
   /** The Proposal's changes in the order they were made. */
   public List<Stored> changes(UUID proposal) {
     return jdbc.sql(

@@ -153,4 +153,64 @@ class ProposalIT {
   void aMalformedProposalIdIsNotFound() throws Exception {
     assertEquals(404, send("GET", base() + "/not-a-uuid", "sample", null).getStatus());
   }
+
+  private MockHttpServletResponse add(String user, String id, String... changes) throws Exception {
+    return send(
+        "POST",
+        base() + "/" + id + "/changes",
+        user,
+        "{\"changes\":[" + String.join(",", changes) + "]}");
+  }
+
+  @Test
+  void theCreatorAddsChangesInOrderAndTheDocumentFollows() throws Exception {
+    String id = create("sample", "Edit", RENAME);
+    String second =
+        "{\"entity\":\"task\",\"op\":\"update\",\"id\":\"t2\",\"fields\":{\"name\":\"Final\"}}";
+    var r = add("sample", id, second);
+    assertEquals(200, r.getStatus(), r.getContentAsString());
+    assertEquals(2, JSON.readTree(r.getContentAsString()).get("changeCount").asInt());
+    var doc = send("GET", base() + "/" + id + "/document", "sample", null).getContentAsString();
+    assertTrue(doc.contains("Final") && !doc.contains("Renamed"));
+  }
+
+  @Test
+  void onlyTheCreatorMayAddChanges() throws Exception {
+    String id = create("sample", "Mine");
+    assertEquals(403, add("alice", id, RENAME).getStatus()); // another editor
+    assertEquals(403, add("bob", id, RENAME).getStatus()); // a viewer
+    assertEquals(404, add("carol", id, RENAME).getStatus()); // another team
+    assertEquals(
+        0,
+        JSON.readTree(send("GET", base() + "/" + id, "sample", null).getContentAsString())
+            .get("changeCount")
+            .asInt());
+  }
+
+  @Test
+  void aRequestWithOneBadChangeStoresNoneOfIt() throws Exception {
+    String id = create("sample", "Atomic");
+    String bad =
+        "{\"entity\":\"task\",\"op\":\"update\",\"id\":\"nope\",\"fields\":{\"name\":\"x\"}}";
+    var r = add("sample", id, RENAME, bad);
+    assertEquals(422, r.getStatus());
+    assertEquals(
+        0,
+        JSON.readTree(send("GET", base() + "/" + id, "sample", null).getContentAsString())
+            .get("changeCount")
+            .asInt());
+    assertEquals(422, add("sample", id).getStatus()); // empty
+  }
+
+  @Test
+  void aSecondRequestSeesTheFirstOnesChanges() throws Exception {
+    String id = create("sample", "Order");
+    String addTask =
+        "{\"entity\":\"task\",\"op\":\"create\",\"id\":\"t77\",\"fields\":{\"name\":\"New\",\"type\":\"task\",\"parent\":\"t1\",\"start\":\"2026-11-03\",\"duration\":2}}";
+    assertEquals(200, add("sample", id, addTask).getStatus());
+    assertEquals(422, add("sample", id, addTask).getStatus()); // t77 now exists
+    var rename77 =
+        "{\"entity\":\"task\",\"op\":\"update\",\"id\":\"t77\",\"fields\":{\"name\":\"Two\"}}";
+    assertEquals(200, add("sample", id, rename77).getStatus());
+  }
 }
