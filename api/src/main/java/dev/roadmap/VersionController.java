@@ -8,6 +8,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /** HTTP for versions (006): the request and the response, nothing else. */
@@ -33,6 +34,15 @@ public class VersionController {
   public List<VersionSummary> list(
       @PathVariable @Pattern(regexp = SLUG) String slug, @AuthenticationPrincipal Jwt token) {
     return service.list(slug, teams(token));
+  }
+
+  /** Restores an earlier version as a new one. */
+  @PostMapping(path = BASE + "/{v}/restore", produces = MediaType.APPLICATION_JSON_VALUE)
+  public VersionSummary restore(
+      @PathVariable @Pattern(regexp = SLUG) String slug,
+      @PathVariable String v,
+      @AuthenticationPrincipal Jwt token) {
+    return service.restore(slug, v, teams(token), ProposalController.actor(token));
   }
 
   /** The roadmap as it was in one version. */
