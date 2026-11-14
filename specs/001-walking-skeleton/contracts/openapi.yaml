@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: road-map service — walking skeleton
-  version: 0.5.0
+  version: 0.6.0
   description: >
     The roadmap service as seen through nginx. Read-only. Every route except health needs a bearer token
     (spec 002); a roadmap is served only to members of its owning team (spec 003). Proposals can be created and edited, never submitted yet (spec 004), submitted, reviewed and approved (spec 005). Error bodies follow the gantt library's server: {error, code}.
@@ -189,6 +189,72 @@ paths:
       responses:
         '200': { description: Ready. }
         '503': { description: Not ready. }
+  /roadmaps/{slug}/versions:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: listVersions
+      summary: Versions, newest first.
+      responses:
+        '200':
+          description: The versions.
+          content:
+            { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/VersionSummary' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /roadmaps/{slug}/versions/{v}:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: v, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: getVersion
+      summary: The roadmap document as it was in that version.
+      responses:
+        '200': { description: The roadmap document. }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /roadmaps/{slug}/versions/{v}/restore:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: v, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    post:
+      operationId: restoreVersion
+      summary: Make the roadmap equal to version v, as a new version. Reviewers only.
+      responses:
+        '200':
+          description: The new version.
+          content: { application/json: { schema: { $ref: '#/components/schemas/VersionSummary' } } }
+        '403': { $ref: '#/components/responses/Denied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /roadmaps/{slug}/baselines:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: listBaselines
+      responses:
+        '200':
+          description: The baselines.
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Baseline' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: createBaseline
+      summary: Name a version. Reviewers only; names are unique; at most 50.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                version: { type: integer, minimum: 1, description: Defaults to the current version. }
+      responses:
+        '201':
+          description: The baseline.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Baseline' } } }
+        '403': { $ref: '#/components/responses/Denied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Invalid' }
 components:
   securitySchemes:
     bearer:
@@ -253,3 +319,20 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         changeCount: { type: integer }
+    VersionSummary:
+      type: object
+      required: [version, at, by]
+      properties:
+        version: { type: integer }
+        at: { type: string, format: date-time }
+        by: { type: string }
+        proposalId: { type: string, format: uuid, nullable: true }
+        note: { type: string, nullable: true }
+    Baseline:
+      type: object
+      required: [name, version, at, by]
+      properties:
+        name: { type: string }
+        version: { type: integer }
+        at: { type: string, format: date-time }
+        by: { type: string }

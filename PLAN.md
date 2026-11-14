@@ -1,6 +1,6 @@
 # PLAN — road-map
 
-Status: approved 2026-11-13 (revision 4). Specs 001 (walking skeleton), 002 (sign-in and token enforcement), 003 (teams and roadmap access) 004 (Proposals: create and edit) and 005 (Proposal lifecycle) are built and this file matches them; later specs follow §8.
+Status: approved 2026-11-13 (revision 4). Specs 001 (walking skeleton), 002 (sign-in and token enforcement), 003 (teams and roadmap access) 004 (Proposals: create and edit), 005 (Proposal lifecycle) and 006 (versions and baselines) are built and this file matches them; later specs follow §8.
 
 Changes in revision 2: the separate Design phase is gone — the full Spec Kit lifecycle carries the design work
 (§5, §8); and authorisation is token-based (§4).

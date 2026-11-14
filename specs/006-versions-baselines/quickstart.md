@@ -23,4 +23,5 @@ run/run.sh stack:test static
 
 ## 5. Measurements (recorded at close-out)
 
-SC-001, SC-005 (against spec 005's 0.92 to 1.09 s).
+- **SC-005**: opening the app and seeing a roadmap took 0.92, 0.95, 0.98, 1.00 s warm (first run after a deploy 1.9 s, a cold cache); spec 005 measured 0.92 to 1.09 s, so no slower.
+- **SC-001**: `RestoreIT` restores and reads back the restored content at once (the cache is keyed by version, so it cannot be stale). The restore call itself was not timed over HTTPS; it is one locked row update and one insert.
