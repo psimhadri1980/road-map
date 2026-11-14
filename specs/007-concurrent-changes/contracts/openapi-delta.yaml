@@ -1,0 +1,69 @@
+# Delta to specs/001-walking-skeleton/contracts/openapi.yaml (0.6.0 to 0.7.0), merged at close-out (T003).
+paths:
+  /roadmaps/{slug}/proposals/{id}/conflicts:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: proposalConflicts
+      summary: The Proposal's changes that touch something changed since its base version.
+      responses:
+        '200':
+          description: Positions (1-based) of conflicting changes.
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Conflict' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /roadmaps/{slug}/proposals/{id}/refresh:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: refreshProposal
+      summary: Move a draft onto the current version; every conflict needs a pick.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                picks: { type: object, additionalProperties: { type: string, enum: [keep, drop] } }
+      responses:
+        '200':
+          {
+            description: The Proposal.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Proposal' } } },
+          }
+        '403': { $ref: '#/components/responses/Denied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /roadmaps/{slug}/proposals/{id}/undo-refresh:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: undoRefresh
+      responses:
+        '200':
+          {
+            description: The Proposal.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Proposal' } } },
+          }
+        '403': { $ref: '#/components/responses/Denied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+components:
+  schemas:
+    Conflict:
+      type: object
+      required: [position, entity, id]
+      properties:
+        position: { type: integer, minimum: 1 }
+        entity: { type: string }
+        id: { type: string }
+    ProposalStaleness:
+      description: Added to Proposal.
+      type: object
+      properties:
+        baseVersion: { type: integer }
+        headVersion: { type: integer }
+        stale: { type: boolean }
