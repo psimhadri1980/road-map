@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: road-map service — walking skeleton
-  version: 0.6.0
+  version: 0.7.0
   description: >
     The roadmap service as seen through nginx. Read-only. Every route except health needs a bearer token
     (spec 002); a roadmap is served only to members of its owning team (spec 003). Proposals can be created and edited, never submitted yet (spec 004), submitted, reviewed and approved (spec 005). Error bodies follow the gantt library's server: {error, code}.
@@ -255,6 +255,57 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Invalid' }
+  /roadmaps/{slug}/proposals/{id}/conflicts:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: proposalConflicts
+      summary: The Proposal's changes that touch something changed since its base version.
+      responses:
+        '200':
+          description: Positions (1-based) of conflicting changes.
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Conflict' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /roadmaps/{slug}/proposals/{id}/refresh:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: refreshProposal
+      summary: Move a draft onto the current version; every conflict needs a pick.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                picks: { type: object, additionalProperties: { type: string, enum: [keep, drop] } }
+      responses:
+        '200':
+          {
+            description: The Proposal.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ProposalSummary' } } },
+          }
+        '403': { $ref: '#/components/responses/Denied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /roadmaps/{slug}/proposals/{id}/undo-refresh:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: undoRefresh
+      responses:
+        '200':
+          {
+            description: The Proposal.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ProposalSummary' } } },
+          }
+        '403': { $ref: '#/components/responses/Denied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 components:
   securitySchemes:
     bearer:
@@ -315,6 +366,9 @@ components:
         noteBy: { type: string, nullable: true }
         decidedBy: { type: string, nullable: true, description: The approving reviewer. }
         decidedAt: { type: string, format: date-time, nullable: true }
+        baseVersion: { type: integer, description: The roadmap version the Proposal was made against. }
+        headVersion: { type: integer }
+        stale: { type: boolean, description: True when the roadmap has moved past baseVersion. }
         owner: { type: string, description: 'The creator: preferred_username when the token has it, else the subject.' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -336,3 +390,10 @@ components:
         version: { type: integer }
         at: { type: string, format: date-time }
         by: { type: string }
+    Conflict:
+      type: object
+      required: [position, entity, id]
+      properties:
+        position: { type: integer, minimum: 1 }
+        entity: { type: string }
+        id: { type: string }
