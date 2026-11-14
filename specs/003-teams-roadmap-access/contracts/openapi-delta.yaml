@@ -1,0 +1,31 @@
+# Changes to specs/001-walking-skeleton/contracts/openapi.yaml made by spec 003; merged by the close-out task.
+openapi: 3.1.0
+info: { title: road-map service, version: 0.3.0 }
+paths:
+  /roadmaps:
+    get:
+      operationId: listRoadmaps
+      summary: The roadmaps owned by the caller's teams, ordered by name. Empty when the caller is in no team.
+      responses:
+        '200':
+          description: The visible roadmaps.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [slug, name, team, role]
+                  properties:
+                    slug: { type: string }
+                    name: { type: string }
+                    team: { type: string }
+                    role: { type: string, enum: [viewer, editor, reviewer] }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+  /roadmaps/{slug}:
+    get:
+      responses:
+        '404':
+          description: >
+            No such roadmap, or the caller's teams do not own it. The two cases are indistinguishable (same
+            status, same body).
