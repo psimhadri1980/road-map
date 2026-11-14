@@ -48,4 +48,37 @@ public class VersionRepository {
         .query(String.class)
         .optional();
   }
+
+  /** The roadmap's baselines, newest first. */
+  public List<Baseline> baselines(UUID roadmap) {
+    return jdbc.sql(
+            "SELECT name, version, at, by_name AS by FROM baseline"
+                + " WHERE roadmap_id = :r ORDER BY at DESC, name")
+        .param("r", roadmap)
+        .query(Baseline.class)
+        .list();
+  }
+
+  /** Whether the roadmap already has a baseline of this name. */
+  public boolean hasBaseline(UUID roadmap, String name) {
+    return jdbc.sql("SELECT count(*) FROM baseline WHERE roadmap_id = :r AND name = :n")
+            .param("r", roadmap)
+            .param("n", name)
+            .query(Integer.class)
+            .single()
+        > 0;
+  }
+
+  /** Records a baseline; the caller has checked the name is free and the version exists. */
+  public void addBaseline(UUID roadmap, String name, int version, String byUser, String byName) {
+    jdbc.sql(
+            "INSERT INTO baseline (roadmap_id, name, version, by_user, by_name)"
+                + " VALUES (:r, :n, :v, :u, :b)")
+        .param("r", roadmap)
+        .param("n", name)
+        .param("v", version)
+        .param("u", byUser)
+        .param("b", byName)
+        .update();
+  }
 }
