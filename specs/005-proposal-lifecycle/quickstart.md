@@ -28,4 +28,11 @@ run/run.sh stack:test static
 
 ## 6. Measurements (recorded at close-out)
 
-SC-001 and SC-006 (against spec 004's 0.97 to 1.05 s).
+Recorded 2026-11-14, development machine.
+
+| Check                                                                                                          | Result                                        | Limit                      |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | -------------------------- |
+| SC-001: approve a submitted Proposal and read the changed roadmap, `carol` and `dave` on `beta-plan`, api port | 68 to 154 ms (3 runs)                         | under 2 s                  |
+| SC-006: sign in and see the roadmap in a headless browser, 5 runs                                              | 0.92 to 1.09 s (1019, 1093, 915, 986, 966 ms) | spec 004's 1.05 s plus 1 s |
+
+The measurement runs approved real changes on `beta-plan`; the seed was restored afterwards.
