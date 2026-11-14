@@ -26,6 +26,11 @@ run/run.sh api:test unit            # ChangeApplierTest
 run/run.sh stack:test static        # gitleaks, Trivy, hadolint
 ```
 
-## 6. Measurements to record at close-out
+## 6. Measurements (recorded 2026-11-14, development machine)
 
-SC-001 (create + read time) and SC-007 (against spec 003's 0.97 s).
+| Check                                                                                        | Result                                        | Limit                      |
+| -------------------------------------------------------------------------------------------- | --------------------------------------------- | -------------------------- |
+| SC-001: create a Proposal with a change and read its document, through nginx's upstream port | 87 to 290 ms (3 runs)                         | under 2 s                  |
+| SC-007: sign in and see the roadmap in a headless browser, `sample`, 5 runs                  | 0.97 to 1.05 s (975, 1034, 990, 1050, 966 ms) | spec 003's 0.97 s plus 1 s |
+
+SC-001 was timed with `curl` against the api's own port, so it excludes the front door, which SC-007 covers. The web app is unchanged by this spec (FR-014).
