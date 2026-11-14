@@ -308,7 +308,9 @@ async function smokeAs(
         join(CERT_DIR, 'nginx.crt'),
         `(async () => {
     const user = document.querySelector('#username');
-    if (user && !window.__signedIn) {
+    // Act only once the whole form is there: a half-loaded page made this throw on a slow runner, and a
+    // thrown error comes back from the browser as a truthy empty object, not as a failure.
+    if (user && document.querySelector('#password') && document.querySelector('#kc-login') && !window.__signedIn) {
       window.__signedIn = true;
       user.value = ${JSON.stringify(who)};
       document.querySelector('#password').value = ${JSON.stringify(baseEnv()['SAMPLE_USER_PASSWORD'] ?? '')};
