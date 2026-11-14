@@ -119,6 +119,24 @@ test('the sample user gets a token issued for the front door address and audienc
   assert.equal((c['exp'] as number) - (c['iat'] as number), 5); // the test client's short lifetime
 });
 
+// 003-T001 (FR-002, FR-011): the claim the service reads is the only source of teams and roles (research R1).
+const teams: [string, string[] | undefined][] = [
+  ['sample', ['/alpha/editor']],
+  ['alice', ['/alpha/editor']],
+  ['bob', ['/alpha/viewer']],
+  ['carol', ['/beta/reviewer']],
+  ['dave', ['/alpha/viewer', '/beta/editor']],
+  ['erin', undefined],
+];
+for (const [user, expected] of teams)
+  test(`${user} gets the team claim ${JSON.stringify(expected)}`, async () => {
+    const r = await passwordToken('road-map', 'road-map-test', user, secrets['SAMPLE_USER_PASSWORD']!);
+    assert.equal(r.status, 200, r.body.slice(0, 200));
+    const groups = claims((JSON.parse(r.body) as { access_token: string }).access_token)['groups'] as
+      string[] | undefined;
+    assert.deepEqual(groups?.slice().sort(), expected);
+  });
+
 test('the other development client issues tokens without the audience, so the service can refuse them', async () => {
   const r = await passwordToken('road-map', 'road-map-test-other-audience', 'sample', secrets['SAMPLE_USER_PASSWORD']!);
   assert.equal(r.status, 200, r.body.slice(0, 200));

@@ -35,6 +35,18 @@
             "access.token.claim": "true",
             "id.token.claim": "false"
           }
+        },
+        {
+          "name": "team-groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
         }
       ]
     },
@@ -45,7 +57,9 @@
       "publicClient": true,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": true,
-      "attributes": { "access.token.lifespan": "5" },
+      "attributes": {
+        "access.token.lifespan": "5"
+      },
       "protocolMappers": [
         {
           "name": "road-map-api-audience",
@@ -55,6 +69,18 @@
             "included.custom.audience": "road-map-api",
             "access.token.claim": "true",
             "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "team-groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
           }
         }
       ]
@@ -76,7 +102,132 @@
       "emailVerified": true,
       "firstName": "Sample",
       "lastName": "User",
-      "credentials": [{ "type": "password", "value": "${SAMPLE_USER_PASSWORD}", "temporary": false }]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${SAMPLE_USER_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "groups": ["/alpha/editor"]
+    },
+    {
+      "username": "alice",
+      "enabled": true,
+      "email": "alice@road-map.test",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "User",
+      "groups": ["/alpha/editor"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${SAMPLE_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@road-map.test",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "User",
+      "groups": ["/alpha/viewer"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${SAMPLE_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "carol",
+      "enabled": true,
+      "email": "carol@road-map.test",
+      "emailVerified": true,
+      "firstName": "Carol",
+      "lastName": "User",
+      "groups": ["/beta/reviewer"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${SAMPLE_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "dave",
+      "enabled": true,
+      "email": "dave@road-map.test",
+      "emailVerified": true,
+      "firstName": "Dave",
+      "lastName": "User",
+      "groups": ["/alpha/viewer", "/beta/editor"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${SAMPLE_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "erin",
+      "enabled": true,
+      "email": "erin@road-map.test",
+      "emailVerified": true,
+      "firstName": "Erin",
+      "lastName": "User",
+      "groups": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${SAMPLE_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "name": "alpha",
+      "path": "/alpha",
+      "subGroups": [
+        {
+          "name": "viewer",
+          "path": "/alpha/viewer"
+        },
+        {
+          "name": "editor",
+          "path": "/alpha/editor"
+        },
+        {
+          "name": "reviewer",
+          "path": "/alpha/reviewer"
+        }
+      ]
+    },
+    {
+      "name": "beta",
+      "path": "/beta",
+      "subGroups": [
+        {
+          "name": "viewer",
+          "path": "/beta/viewer"
+        },
+        {
+          "name": "editor",
+          "path": "/beta/editor"
+        },
+        {
+          "name": "reviewer",
+          "path": "/beta/reviewer"
+        }
+      ]
     }
   ]
 }
