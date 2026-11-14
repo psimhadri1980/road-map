@@ -155,7 +155,7 @@ public class ProposalService {
       throw new ApiErrors.Invalid("a Proposal with no changes cannot be submitted");
     }
     if (action == ProposalState.Action.APPROVE) {
-      apply(roadmap.id(), row);
+      apply(roadmap.id(), row, actor);
     }
     proposals.move(
         row.id(),
@@ -173,11 +173,12 @@ public class ProposalService {
    * locked; the roadmap row is locked next, always in that order. The changes are applied to the
    * document as it is now, so a change that no longer fits is a conflict and nothing is written.
    */
-  private void apply(UUID roadmapId, ProposalRepository.Row row) {
+  private void apply(UUID roadmapId, ProposalRepository.Row row, Actor actor) {
     String current = roadmaps.lockDocument(roadmapId).orElseThrow();
     try {
       var result = ChangeApplier.apply(json.readTree(current), changesOf(row.id()));
-      roadmaps.replaceDocument(roadmapId, result.toString());
+      roadmaps.replaceDocument(
+          roadmapId, result.toString(), actor.subject(), actor.name(), row.id(), null);
     } catch (ChangeApplier.Refused e) {
       throw new ApiErrors.Conflict("the changes no longer fit the roadmap: " + e.getMessage());
     }
