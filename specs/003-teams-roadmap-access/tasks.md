@@ -30,7 +30,7 @@ description: 'Task list for spec 003, teams and roadmap access'
 
 ## Phase 4: Polish
 
-- [ ] T005 Close out. Merge `contracts/openapi-delta.yaml` into `specs/001-walking-skeleton/contracts/openapi.yaml`; measure SC-007 and record it in `quickstart.md`; mark tasks done; update `PLAN.md` status. Serves SC-006, SC-007. Done when: all seven checks are green on `main` and the measurement is recorded. Needs T004.
+- [x] T005 Close out. Merge `contracts/openapi-delta.yaml` into `specs/001-walking-skeleton/contracts/openapi.yaml`; measure SC-007 and record it in `quickstart.md`; mark tasks done; update `PLAN.md` status. Serves SC-006, SC-007. Done when: all seven checks are green on `main` and the measurement is recorded. Needs T004.
 
 ## Dependencies
 

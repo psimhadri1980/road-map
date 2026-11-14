@@ -1,15 +1,35 @@
 openapi: 3.1.0
 info:
   title: road-map service — walking skeleton
-  version: 0.2.0
+  version: 0.3.0
   description: >
     The roadmap service as seen through nginx. Read-only. Every route except health needs a bearer token
-    (spec 002). Error bodies follow the gantt library's server: {error, code}.
+    (spec 002); a roadmap is served only to members of its owning team (spec 003). Error bodies follow the gantt library's server: {error, code}.
 servers:
   - url: https://127.0.0.1:8443/api
 security:
   - bearer: []
 paths:
+  /roadmaps:
+    get:
+      operationId: listRoadmaps
+      summary: The roadmaps owned by the caller's teams, ordered by name. Empty when the caller is in no team.
+      responses:
+        '200':
+          description: The visible roadmaps.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [slug, name, team, role]
+                  properties:
+                    slug: { type: string }
+                    name: { type: string }
+                    team: { type: string }
+                    role: { type: string, enum: [viewer, editor, reviewer] }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
   /roadmaps/{slug}:
     get:
       operationId: getRoadmap
@@ -32,13 +52,17 @@ paths:
           description: The slug does not match the pattern.
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '404':
-          description: No roadmap with this slug.
+          description: >
+            No such roadmap, or the caller's teams do not own it. The two cases are indistinguishable (same
+            status, same body; spec 003 FR-005).
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '422':
           description: The stored roadmap does not conform to the gantt format and is not served.
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '503':
-          description: Neither the cache nor the database could provide the roadmap.
+          description: >
+            The database could not answer. Since spec 003 the owning team is read from it on every request, so
+            a cached roadmap is not served without it (a change from spec 001 FR-008).
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   /actuator/health/readiness:
     servers:

@@ -36,4 +36,4 @@ run/run.sh stack:test static        # gitleaks, Trivy, hadolint, including the r
 
 ## 5. Measurements to record at close-out
 
-SC-007 (time to first roadmap with the picker, against spec 002's 0.95 s).
+| SC-007 time to first roadmap with the picker | <= 1 s over spec 002's 0.95 s | 0.91-1.01 s over 5 runs (961, 1011, 1000, 980, 911 ms), about 0.02 s above spec 002's mean; same scripted path and machine, Chrome start-up included |
