@@ -59,6 +59,16 @@ public class ProposalController {
     return service.list(slug, teams(token));
   }
 
+  /** More changes for the caller's own Proposal. */
+  @PostMapping(path = BASE + "/{id}/changes", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ProposalSummary addChanges(
+      @PathVariable @Pattern(regexp = SLUG) String slug,
+      @PathVariable String id,
+      @RequestBody ProposalService.NewChanges body,
+      @AuthenticationPrincipal Jwt token) {
+    return service.addChanges(slug, id, teams(token), actor(token), body.changes());
+  }
+
   /** One Proposal. */
   @GetMapping(path = BASE + "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ProposalSummary get(
