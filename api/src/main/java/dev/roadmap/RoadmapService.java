@@ -1,5 +1,6 @@
 package dev.roadmap;
 
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
@@ -27,5 +28,19 @@ public class RoadmapService {
       throw new ApiErrors.NotFound(slug);
     }
     return documents.document(slug);
+  }
+
+  /**
+   * The roadmaps the caller may open, each with the caller's role in its team (003-T003, FR-004).
+   * shortcut: no pagination, because a team owns a handful of roadmaps; add a page size when one
+   * team's list stops fitting a picker.
+   */
+  public List<RoadmapSummary> list(Teams teams) {
+    if (teams.names().isEmpty()) {
+      return List.of();
+    }
+    return repository.findByTeams(teams.names()).stream()
+        .map(r -> new RoadmapSummary(r.slug(), r.name(), r.team(), teams.role(r.team())))
+        .toList();
   }
 }
