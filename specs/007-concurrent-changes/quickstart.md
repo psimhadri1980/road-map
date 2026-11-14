@@ -10,4 +10,5 @@ Manual: as dave make a draft renaming t2 on `beta-plan`, as carol approve anothe
 
 ## Measurements (recorded at close-out)
 
-SC-001, SC-004 (against spec 006's 0.92 to 1.00 s).
+- **SC-004**: opening the app and seeing a roadmap took 0.92, 0.96, 0.94, 1.00 s warm (first run after a deploy 1.9 s, a cold cache); spec 006 measured 0.92 to 1.00 s.
+- **SC-001**, **SC-002**: conflicts, refresh and undo are tested in `ConflictIT` and `RefreshIT` (each request is a few indexed reads plus a version-document read); they were not timed over HTTPS.

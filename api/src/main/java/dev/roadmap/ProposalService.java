@@ -257,8 +257,15 @@ public class ProposalService {
    */
   private void apply(UUID roadmapId, ProposalRepository.Row row, Actor actor) {
     String current = roadmaps.lockDocument(roadmapId).orElseThrow();
+    // Read after the lock, so the version is the one these changes will be applied on (007,
+    // FR-007).
+    int head = proposals.find(roadmapId, row.id()).orElseThrow().headVersion();
+    var changes = changesOf(row.id());
+    if (!conflicts.find(roadmapId, row.baseVersion(), head, changes).isEmpty()) {
+      throw new ApiErrors.Conflict("newer changes touch the same things: return it and refresh");
+    }
     try {
-      var result = ChangeApplier.apply(json.readTree(current), changesOf(row.id()));
+      var result = ChangeApplier.apply(json.readTree(current), changes);
       roadmaps.replaceDocument(
           roadmapId, result.toString(), actor.subject(), actor.name(), row.id(), null);
     } catch (ChangeApplier.Refused e) {
