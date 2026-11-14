@@ -26,7 +26,7 @@ description: 'Task list for spec 004, Proposals: create and edit'
 
 ## Phase 3: Polish
 
-- [ ] T004 Close out. Merge `contracts/openapi-delta.yaml` into `specs/001-walking-skeleton/contracts/openapi.yaml` (0.4.0); measure SC-001 and SC-007 and record both in `quickstart.md`; mark tasks done; update `PLAN.md` status. Serves SC-001, SC-006, SC-007. Done when: all seven checks are green on `main` and the measurements are recorded. Needs T003.
+- [x] T004 Close out. Merge `contracts/openapi-delta.yaml` into `specs/001-walking-skeleton/contracts/openapi.yaml` (0.4.0); measure SC-001 and SC-007 and record both in `quickstart.md`; mark tasks done; update `PLAN.md` status. Serves SC-001, SC-006, SC-007. Done when: all seven checks are green on `main` and the measurements are recorded. Needs T003.
 
 ## Dependencies
 

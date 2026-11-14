@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: road-map service — walking skeleton
-  version: 0.3.0
+  version: 0.4.0
   description: >
     The roadmap service as seen through nginx. Read-only. Every route except health needs a bearer token
-    (spec 002); a roadmap is served only to members of its owning team (spec 003). Error bodies follow the gantt library's server: {error, code}.
+    (spec 002); a roadmap is served only to members of its owning team (spec 003). Proposals can be created and edited, never submitted yet (spec 004). Error bodies follow the gantt library's server: {error, code}.
 servers:
   - url: https://127.0.0.1:8443/api
 security:
@@ -64,6 +64,91 @@ paths:
             The database could not answer. Since spec 003 the owning team is read from it on every request, so
             a cached roadmap is not served without it (a change from spec 001 FR-008).
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  /roadmaps/{slug}/proposals:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,62}$' } }
+    get:
+      operationId: listProposals
+      summary: The roadmap's Proposals, newest first. Any role of the owning team.
+      responses:
+        '200':
+          description: The Proposals.
+          content:
+            { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ProposalSummary' } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: createProposal
+      summary: A new draft Proposal with optional first changes. Editor of the owning team.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/NewProposal' } } }
+      responses:
+        '201':
+          description: Created.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ProposalSummary' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Denied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /roadmaps/{slug}/proposals/{id}:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getProposal
+      responses:
+        '200':
+          {
+            description: The Proposal.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ProposalSummary' } } },
+          }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /roadmaps/{slug}/proposals/{id}/document:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getProposalDocument
+      summary: The approved roadmap with the Proposal's changes applied, never cached.
+      responses:
+        '200': { description: A gantt-roadmap/1 document. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /roadmaps/{slug}/proposals/{id}/changes:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: addChanges
+      summary: Add changes to your own draft. All or nothing.
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    required: [changes],
+                    properties:
+                      {
+                        changes:
+                          { type: array, minItems: 1, maxItems: 500, items: { $ref: '#/components/schemas/Change' } },
+                      },
+                  },
+              },
+          }
+      responses:
+        '200':
+          {
+            description: The updated Proposal.,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ProposalSummary' } } },
+          }
+        '403': { $ref: '#/components/responses/Denied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
   /actuator/health/readiness:
     servers:
       # Not routed by nginx: only run/run.sh health checks call it, on the service's own port.
@@ -91,6 +176,12 @@ components:
       headers:
         WWW-Authenticate: { schema: { type: string, example: Bearer } }
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Denied: { description: 'A member of the owning team without the needed permission. Body {error, code: denied}.' }
+    NotFound:
+      {
+        description: 'No such roadmap or Proposal, or the caller is not in the owning team: the answers are identical.',
+      }
+    Invalid: { description: 'A change or limit is invalid; nothing was stored. Body {error, code: invalid}.' }
   schemas:
     Error:
       type: object
@@ -99,4 +190,29 @@ components:
         error: { type: string, description: A message for people. No internal details. }
         code:
           type: string
-          enum: [invalid, notFound, nonConforming, unavailable, unauthenticated]
+          enum: [invalid, denied, notFound, nonConforming, unavailable, unauthenticated]
+    Change:
+      type: object
+      required: [entity, op, id]
+      properties:
+        entity: { type: string, enum: [task, link, resource, calendar, roadmap] }
+        op: { type: string, enum: [create, update, delete] }
+        id: { type: string, minLength: 1, maxLength: 128 }
+        fields: { type: object }
+    NewProposal:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        changes: { type: array, maxItems: 500, items: { $ref: '#/components/schemas/Change' } }
+    ProposalSummary:
+      type: object
+      required: [id, name, state, owner, createdAt, updatedAt, changeCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        state: { type: string, enum: [draft] }
+        owner: { type: string, description: 'The creator: preferred_username when the token has it, else the subject.' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        changeCount: { type: integer }
