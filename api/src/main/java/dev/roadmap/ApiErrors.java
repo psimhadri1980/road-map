@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -45,6 +46,23 @@ public class ApiErrors {
     }
   }
 
+  /**
+   * A member of the owning team lacks the role or ownership the action needs (004-T002, R6). Only
+   * ever thrown after the team check, so it reveals nothing the caller does not already know.
+   */
+  public static final class Denied extends RuntimeException {
+    Denied() {
+      super("not permitted");
+    }
+  }
+
+  /** The request is well-formed but cannot be applied; the message is safe to show (R9). */
+  public static final class Invalid extends RuntimeException {
+    Invalid(String message) {
+      super(message);
+    }
+  }
+
   @ExceptionHandler({HandlerMethodValidationException.class, ConstraintViolationException.class})
   ResponseEntity<Body> invalid() {
     return reply(HttpStatus.BAD_REQUEST, "The roadmap name is not valid.", "invalid");
@@ -52,7 +70,24 @@ public class ApiErrors {
 
   @ExceptionHandler(NotFound.class)
   ResponseEntity<Body> notFound() {
-    return reply(HttpStatus.NOT_FOUND, "There is no such roadmap.", "notFound");
+    // One text for every kind of absent, so an outsider cannot tell a roadmap from a Proposal.
+    return reply(HttpStatus.NOT_FOUND, "Not found.", "notFound");
+  }
+
+  @ExceptionHandler(Denied.class)
+  ResponseEntity<Body> denied() {
+    return reply(HttpStatus.FORBIDDEN, "You are not permitted to do that.", "denied");
+  }
+
+  @ExceptionHandler(Invalid.class)
+  ResponseEntity<Body> invalid(Invalid e) {
+    return reply(HttpStatus.UNPROCESSABLE_CONTENT, e.getMessage(), "invalid");
+  }
+
+  /** A body that is not JSON of the expected shape is invalid input, not a server fault. */
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  ResponseEntity<Body> unreadable() {
+    return reply(HttpStatus.UNPROCESSABLE_CONTENT, "The request body is not valid.", "invalid");
   }
 
   @ExceptionHandler(NonConforming.class)
