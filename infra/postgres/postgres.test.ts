@@ -103,7 +103,19 @@ test('the app may write proposal tables but never the approved roadmap', () => {
   assert.equal(write("update proposal set name = name where id = '" + id + "'").ok, true, 'app cannot update proposal');
   assert.equal(write(`delete from proposal where id = '${id}'`).ok, false, 'app can delete proposals');
   assert.equal(write(`delete from proposal_change where proposal_id = '${id}'`).ok, false, 'app can delete changes');
-  assert.equal(write("update roadmap set name = name where slug = 'sample'").ok, false, 'app can write roadmap');
+  assert.equal(write("update roadmap set name = name where slug = 'sample'").ok, false, 'app can write roadmap name');
+  assert.equal(write("update roadmap set team = team where slug = 'sample'").ok, false, 'app can write roadmap team');
+  // 005: approval may write exactly document and version.
+  if (
+    must(psql('roadmap_app', 'roadmap', "select has_column_privilege('roadmap_app','roadmap','version','UPDATE')")) ===
+    't'
+  ) {
+    assert.equal(
+      write("update roadmap set version = version, document = document where slug = 'sample'").ok,
+      true,
+      'approval cannot write',
+    );
+  }
   assert.equal(
     write("insert into roadmap (slug, name, document, team) values ('x','x','{}','x')").ok,
     false,
