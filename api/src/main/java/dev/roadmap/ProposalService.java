@@ -175,6 +175,82 @@ public class ProposalService {
   }
 
   /**
+   * Moves the caller's draft onto the current roadmap version (007, FR-004, FR-005). Conflicts need
+   * a pick each, {@code keep} or {@code drop}; dropped changes are marked, never deleted. The
+   * Proposal row is locked, then the roadmap row (the same order as approval), so the version read
+   * here is the one the refresh is recorded against.
+   */
+  @Transactional
+  public ProposalSummary refresh(
+      String slug, String id, Teams teams, Actor actor, java.util.Map<String, String> picks) {
+    var roadmap = visible(slug, teams);
+    var row = ownDraft(roadmap, slug, id, teams, actor);
+    roadmaps.lockDocument(roadmap.id());
+    int head = roadmaps.findHead(slug).orElseThrow().version();
+    var all = changesOf(row.id());
+    var found = conflicts.find(roadmap.id(), row.baseVersion(), head, all);
+    var given = picks == null ? java.util.Map.<String, String>of() : picks;
+    var drop = new java.util.HashSet<Integer>();
+    var wanted = new java.util.HashSet<String>();
+    for (Conflict c : found) {
+      String key = Integer.toString(c.position());
+      wanted.add(key);
+      String pick = given.get(key);
+      if (!"keep".equals(pick) && !"drop".equals(pick)) {
+        throw new ApiErrors.Invalid("change " + key + " conflicts: pick keep or drop");
+      }
+      if (pick.equals("drop")) {
+        drop.add(c.position());
+      }
+    }
+    if (!wanted.containsAll(given.keySet())) {
+      throw new ApiErrors.Invalid("a pick names a change that is not a conflict");
+    }
+    var left = new java.util.ArrayList<ProposalChange>();
+    for (int i = 0; i < all.size(); i++) {
+      if (!drop.contains(i + 1)) {
+        left.add(all.get(i));
+      }
+    }
+    check(slug, left);
+    var seqs = proposals.activeSeqs(row.id());
+    int n = proposals.addRefresh(row.id(), row.baseVersion(), head, actor.subject());
+    proposals.drop(row.id(), n, drop.stream().sorted().map(p -> seqs.get(p - 1)).toList());
+    proposals.rebase(row.id(), head);
+    return proposals.find(roadmap.id(), row.id()).orElseThrow().summary();
+  }
+
+  /** Undoes the latest refresh of the caller's draft (007, FR-006). */
+  @Transactional
+  public ProposalSummary undoRefresh(String slug, String id, Teams teams, Actor actor) {
+    var roadmap = visible(slug, teams);
+    var row = ownDraft(roadmap, slug, id, teams, actor);
+    var last =
+        proposals
+            .lastRefresh(row.id())
+            .orElseThrow(() -> new ApiErrors.Conflict("there is no refresh to undo"));
+    proposals.undo(row.id(), last.n());
+    proposals.rebase(row.id(), last.fromVersion());
+    return proposals.find(roadmap.id(), row.id()).orElseThrow().summary();
+  }
+
+  /** The locked Proposal if the caller is its creator-editor and it is a draft (403, then 409). */
+  private ProposalRepository.Row ownDraft(
+      ProposalRepository.RoadmapRef roadmap, String slug, String id, Teams teams, Actor actor) {
+    var row =
+        proposals
+            .findForUpdate(roadmap.id(), uuid(slug, id))
+            .orElseThrow(() -> new ApiErrors.NotFound(slug));
+    if (!"editor".equals(teams.role(roadmap.team())) || !row.owner().equals(actor.subject())) {
+      throw new ApiErrors.Denied();
+    }
+    if (ProposalState.fromDb(row.state()) != ProposalState.DRAFT) {
+      throw new ApiErrors.Conflict("only a draft can be refreshed; this one is " + row.state());
+    }
+    return row;
+  }
+
+  /**
    * Writes the Proposal's changes into the roadmap (005, research R5). The Proposal row is already
    * locked; the roadmap row is locked next, always in that order. The changes are applied to the
    * document as it is now, so a change that no longer fits is a conflict and nothing is written.

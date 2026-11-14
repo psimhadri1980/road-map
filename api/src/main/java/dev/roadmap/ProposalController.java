@@ -70,6 +70,34 @@ public class ProposalController {
     return service.addChanges(slug, id, teams(token), actor(token), body.changes());
   }
 
+  /** The body of a refresh: for each conflicting position, {@code keep} or {@code drop}. */
+  public record Picks(java.util.Map<String, String> picks) {
+    /** Copies the map so the record cannot be changed after it is checked. */
+    public Picks {
+      picks = picks == null ? java.util.Map.of() : java.util.Map.copyOf(picks);
+    }
+  }
+
+  /** Moves the caller's draft onto the current version. */
+  @PostMapping(path = BASE + "/{id}/refresh", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ProposalSummary refresh(
+      @PathVariable @Pattern(regexp = SLUG) String slug,
+      @PathVariable String id,
+      @RequestBody(required = false) Picks body,
+      @AuthenticationPrincipal Jwt token) {
+    return service.refresh(
+        slug, id, teams(token), actor(token), body == null ? null : body.picks());
+  }
+
+  /** Undoes the latest refresh. */
+  @PostMapping(path = BASE + "/{id}/undo-refresh", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ProposalSummary undoRefresh(
+      @PathVariable @Pattern(regexp = SLUG) String slug,
+      @PathVariable String id,
+      @AuthenticationPrincipal Jwt token) {
+    return service.undoRefresh(slug, id, teams(token), actor(token));
+  }
+
   /** The body of return and reject; the other actions take none. */
   public record Note(String note) {}
 
