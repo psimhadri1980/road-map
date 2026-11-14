@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: road-map service — walking skeleton
-  version: 0.4.0
+  version: 0.5.0
   description: >
     The roadmap service as seen through nginx. Read-only. Every route except health needs a bearer token
-    (spec 002); a roadmap is served only to members of its owning team (spec 003). Proposals can be created and edited, never submitted yet (spec 004). Error bodies follow the gantt library's server: {error, code}.
+    (spec 002); a roadmap is served only to members of its owning team (spec 003). Proposals can be created and edited, never submitted yet (spec 004), submitted, reviewed and approved (spec 005). Error bodies follow the gantt library's server: {error, code}.
 servers:
   - url: https://127.0.0.1:8443/api
 security:
@@ -149,6 +149,35 @@ paths:
         '403': { $ref: '#/components/responses/Denied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Invalid' }
+  /roadmaps/{slug}/proposals/{id}/{action}:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      - {
+          name: action,
+          in: path,
+          required: true,
+          schema: { type: string, enum: [submit, withdraw, discard, return, reject, approve] },
+        }
+    post:
+      operationId: moveProposal
+      summary: Move a Proposal through its lifecycle. return and reject need a note.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '200':
+          description: The updated Proposal.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ProposalSummary' } } }
+        '403': { $ref: '#/components/responses/Denied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Invalid' }
   /actuator/health/readiness:
     servers:
       # Not routed by nginx: only run/run.sh health checks call it, on the service's own port.
@@ -181,6 +210,10 @@ components:
       {
         description: 'No such roadmap or Proposal, or the caller is not in the owning team: the answers are identical.',
       }
+    Conflict:
+      {
+        description: 'The action is not allowed from the current state, or the changes no longer fit the roadmap. Body {error, code: conflict}. Nothing changed.',
+      }
     Invalid: { description: 'A change or limit is invalid; nothing was stored. Body {error, code: invalid}.' }
   schemas:
     Error:
@@ -190,7 +223,7 @@ components:
         error: { type: string, description: A message for people. No internal details. }
         code:
           type: string
-          enum: [invalid, denied, notFound, nonConforming, unavailable, unauthenticated]
+          enum: [invalid, denied, conflict, notFound, nonConforming, unavailable, unauthenticated]
     Change:
       type: object
       required: [entity, op, id]
@@ -211,7 +244,11 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        state: { type: string, enum: [draft] }
+        state: { type: string, enum: [draft, submitted, approved, rejected, discarded] }
+        note: { type: string, nullable: true, description: The latest return or rejection note. }
+        noteBy: { type: string, nullable: true }
+        decidedBy: { type: string, nullable: true, description: The approving reviewer. }
+        decidedAt: { type: string, format: date-time, nullable: true }
         owner: { type: string, description: 'The creator: preferred_username when the token has it, else the subject.' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
