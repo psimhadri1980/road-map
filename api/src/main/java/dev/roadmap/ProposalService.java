@@ -23,6 +23,7 @@ public class ProposalService {
   static final int MAX_CHANGES_PER_REQUEST = 500;
   static final int MAX_OPEN_PER_OWNER = 50;
   static final int MAX_CHANGES_PER_PROPOSAL = 5000;
+  static final int MAX_NOTE = 2000;
 
   /** The caller: the token's subject and the name to show for them. */
   public record Actor(String subject, String name) {}
@@ -99,12 +100,71 @@ public class ProposalService {
     if (row.changeCount() + changes.size() > MAX_CHANGES_PER_PROPOSAL) {
       throw new ApiErrors.Invalid("at most " + MAX_CHANGES_PER_PROPOSAL + " changes per Proposal");
     }
+    if (ProposalState.fromDb(row.state()) != ProposalState.DRAFT) {
+      throw new ApiErrors.Conflict("only a draft takes changes; this one is " + row.state());
+    }
     var all = new java.util.ArrayList<>(changesOf(row.id()));
     all.addAll(changes);
     check(slug, all);
     proposals.addChanges(row.id(), row.changeCount() + 1, stored(changes), actor.subject());
     proposals.setChangeCount(row.id(), all.size());
     return proposals.find(roadmap.id(), uuid).orElseThrow().summary();
+  }
+
+  /**
+   * One lifecycle action (005, research R2 and R3). Checks in this order, so each answer reveals
+   * only what the caller may know: team membership (404), the actor's role and ownership (403), the
+   * state table (409), then the input (422).
+   */
+  @Transactional
+  public ProposalSummary act(
+      String slug, String id, String actionName, Teams teams, Actor actor, String note) {
+    var roadmap = visible(slug, teams);
+    var action =
+        ProposalState.Action.parse(actionName)
+            .filter(a -> a != ProposalState.Action.APPROVE) // shortcut: approval arrives in T003
+            .orElseThrow(() -> new ApiErrors.NotFound(slug));
+    var row =
+        proposals
+            .findForUpdate(roadmap.id(), uuid(slug, id))
+            .orElseThrow(() -> new ApiErrors.NotFound(slug));
+    String role = teams.role(roadmap.team());
+    boolean mine = row.owner().equals(actor.subject());
+    boolean allowed =
+        action.who() == ProposalState.Who.CREATOR
+            ? mine && "editor".equals(role)
+            : !mine && "reviewer".equals(role);
+    if (!allowed) {
+      throw new ApiErrors.Denied();
+    }
+    var from = ProposalState.fromDb(row.state());
+    var to =
+        action
+            .target(from)
+            .orElseThrow(() ->
+                new ApiErrors.Conflict(
+                    action.name().toLowerCase(java.util.Locale.ROOT)
+                        + " is not possible from "
+                        + row.state()));
+    String text = note == null || note.isBlank() ? null : note;
+    if (action.needsNote() && (text == null || text.length() > MAX_NOTE)) {
+      throw new ApiErrors.Invalid("a note of 1 to " + MAX_NOTE + " characters is needed");
+    }
+    if (!action.needsNote()) {
+      text = null;
+    }
+    if (action == ProposalState.Action.SUBMIT && row.changeCount() == 0) {
+      throw new ApiErrors.Invalid("a Proposal with no changes cannot be submitted");
+    }
+    proposals.move(
+        row.id(),
+        action.name().toLowerCase(java.util.Locale.ROOT),
+        from.db(),
+        to.db(),
+        actor.subject(),
+        actor.name(),
+        text);
+    return proposals.find(roadmap.id(), row.id()).orElseThrow().summary();
   }
 
   /** The roadmap's Proposals, newest first, for any member of the owning team. */

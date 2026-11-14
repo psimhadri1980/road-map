@@ -69,6 +69,21 @@ public class ProposalController {
     return service.addChanges(slug, id, teams(token), actor(token), body.changes());
   }
 
+  /** The body of return and reject; the other actions take none. */
+  public record Note(String note) {}
+
+  /** A lifecycle action: submit, withdraw, discard, return, reject (approve follows in T003). */
+  @PostMapping(path = BASE + "/{id}/{action}", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ProposalSummary act(
+      @PathVariable @Pattern(regexp = SLUG) String slug,
+      @PathVariable String id,
+      @PathVariable String action,
+      @RequestBody(required = false) Note body,
+      @AuthenticationPrincipal Jwt token) {
+    return service.act(
+        slug, id, action, teams(token), actor(token), body == null ? null : body.note());
+  }
+
   /** One Proposal. */
   @GetMapping(path = BASE + "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ProposalSummary get(

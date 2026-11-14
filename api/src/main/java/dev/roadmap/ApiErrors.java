@@ -56,6 +56,13 @@ public class ApiErrors {
     }
   }
 
+  /** The action is not allowed from the Proposal's state, or no longer fits (005, FR-009). */
+  public static final class Conflict extends RuntimeException {
+    Conflict(String message) {
+      super(message);
+    }
+  }
+
   /** The request is well-formed but cannot be applied; the message is safe to show (R9). */
   public static final class Invalid extends RuntimeException {
     Invalid(String message) {
@@ -77,6 +84,11 @@ public class ApiErrors {
   @ExceptionHandler(Denied.class)
   ResponseEntity<Body> denied() {
     return reply(HttpStatus.FORBIDDEN, "You are not permitted to do that.", "denied");
+  }
+
+  @ExceptionHandler(Conflict.class)
+  ResponseEntity<Body> conflict(Conflict e) {
+    return reply(HttpStatus.CONFLICT, e.getMessage(), "conflict");
   }
 
   @ExceptionHandler(Invalid.class)

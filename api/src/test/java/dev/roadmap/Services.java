@@ -198,6 +198,10 @@ final class Services {
   /** Removes every Proposal of a fixture roadmap (the service account may not delete them). */
   static void clearProposals(String slug) throws SQLException {
     try (Connection c = migrator();
+        PreparedStatement m =
+            c.prepareStatement(
+                "DELETE FROM proposal_move WHERE proposal_id IN (SELECT p.id FROM proposal p"
+                    + " JOIN roadmap r ON r.id = p.roadmap_id WHERE r.slug = ?)");
         PreparedStatement a =
             c.prepareStatement(
                 "DELETE FROM proposal_change WHERE proposal_id IN (SELECT p.id FROM proposal p"
@@ -205,6 +209,8 @@ final class Services {
         PreparedStatement b =
             c.prepareStatement(
                 "DELETE FROM proposal WHERE roadmap_id IN (SELECT id FROM roadmap WHERE slug = ?)")) {
+      m.setString(1, slug);
+      m.executeUpdate();
       a.setString(1, slug);
       a.executeUpdate();
       b.setString(1, slug);

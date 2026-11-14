@@ -27,10 +27,25 @@ public class ProposalRepository {
       String ownerName,
       int changeCount,
       OffsetDateTime createdAt,
-      OffsetDateTime updatedAt) {
+      OffsetDateTime updatedAt,
+      String note,
+      String noteBy,
+      String decidedBy,
+      OffsetDateTime decidedAt) {
 
     ProposalSummary summary() {
-      return new ProposalSummary(id, name, state, ownerName, createdAt, updatedAt, changeCount);
+      return new ProposalSummary(
+          id,
+          name,
+          state,
+          ownerName,
+          createdAt,
+          updatedAt,
+          changeCount,
+          note,
+          noteBy,
+          decidedBy,
+          decidedAt);
     }
   }
 
@@ -38,7 +53,8 @@ public class ProposalRepository {
   public record Stored(String entity, String op, String id, String fields) {}
 
   private static final String COLUMNS =
-      "id, name, state, owner, owner_name, change_count, created_at, updated_at";
+      "id, name, state, owner, owner_name, change_count, created_at, updated_at, note, note_by,"
+          + " decided_by, decided_at";
 
   private final JdbcClient jdbc;
 
@@ -57,7 +73,7 @@ public class ProposalRepository {
   /** How many open Proposals this owner has on the roadmap (the limit of FR-012). */
   public int countOpen(UUID roadmap, String owner) {
     return jdbc.sql(
-            "SELECT count(*) FROM proposal WHERE roadmap_id = :r AND owner = :o AND state = 'draft'")
+            "SELECT count(*) FROM proposal WHERE roadmap_id = :r AND owner = :o AND state IN ('draft', 'submitted')")
         .param("r", roadmap)
         .param("o", owner)
         .query(Integer.class)
@@ -134,6 +150,40 @@ public class ProposalRepository {
   public void setChangeCount(UUID proposal, int count) {
     jdbc.sql("UPDATE proposal SET change_count = :c, updated_at = now() WHERE id = :p")
         .param("c", count)
+        .param("p", proposal)
+        .update();
+  }
+
+  /**
+   * Moves a Proposal to {@code to} and records the move (005, FR-008). A new note replaces the old
+   * one only when the action carries one.
+   */
+  public void move(
+      UUID proposal, String action, String from, String to, String by, String byName, String note) {
+    int seq =
+        jdbc.sql("SELECT coalesce(max(seq), 0) + 1 FROM proposal_move WHERE proposal_id = :p")
+            .param("p", proposal)
+            .query(Integer.class)
+            .single();
+    jdbc.sql(
+            "INSERT INTO proposal_move (proposal_id, seq, action, from_state, to_state, by_user, note)"
+                + " VALUES (:p, :s, :a, :f, :t, :b, :n)")
+        .param("p", proposal)
+        .param("s", seq)
+        .param("a", action)
+        .param("f", from)
+        .param("t", to)
+        .param("b", by)
+        .param("n", note)
+        .update();
+    jdbc.sql(
+            "UPDATE proposal SET state = :t, updated_at = now(),"
+                + " note = CASE WHEN CAST(:n AS text) IS NULL THEN note ELSE :n END,"
+                + " note_by = CASE WHEN CAST(:n AS text) IS NULL THEN note_by ELSE :nb END"
+                + " WHERE id = :p")
+        .param("t", to)
+        .param("n", note)
+        .param("nb", byName)
         .param("p", proposal)
         .update();
   }
