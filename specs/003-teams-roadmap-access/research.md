@@ -14,7 +14,7 @@
 ## R3 Ownership and refusal
 
 **Decision**: `roadmap.team text NOT NULL` with the same slug pattern as a check; read on every request by a dedicated query, never from the cache. A roadmap that is absent, or whose team the user lacks, throws the same `NotFound` (identical status and body); the slug is validated first, as before.
-**Rationale**: FR-006 and FR-007; reading the owner fresh means a changed owner takes effect at once even with a cached document. Cost: one primary-key read per request, accepted (SC-007).
+**Rationale**: FR-006 and FR-007; reading the owner fresh means a changed owner takes effect at once even with a cached document. Cost: one primary-key read per request, accepted (SC-007); and with the database down nothing is served, not even a cached roadmap (503), a change from spec 001 FR-008. Failing closed is deliberate: without the owner nobody can be authorised.
 **Alternatives**: put the owner inside the cached value: then the cache would decide access; rejected.
 
 ## R4 Where the check lives

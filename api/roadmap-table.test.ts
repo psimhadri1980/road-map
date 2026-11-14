@@ -34,13 +34,13 @@ const GOOD = `'{"contract":"gantt-roadmap/1"}'`;
 const insert = (slug: string, name: string, doc: string) =>
   psql(
     'roadmap_migrator',
-    `begin; insert into roadmap (slug, name, document) values (${slug}, ${name}, ${doc}); rollback`,
+    `begin; insert into roadmap (slug, name, document, team) values (${slug}, ${name}, ${doc}, 'alpha'); rollback`,
   );
 
 test('a valid row is accepted and gets an id and a creation time', () => {
   const r = psql(
     'roadmap_migrator',
-    `begin; insert into roadmap (slug, name, document) values ('ok-1', 'x', ${GOOD}) returning id is not null and created_at is not null; rollback`,
+    `begin; insert into roadmap (slug, name, document, team) values ('ok-1', 'x', ${GOOD}, 'alpha') returning id is not null and created_at is not null; rollback`,
   );
   assert.ok(r.ok, r.err);
   assert.match(r.out, /^t$/m);
@@ -69,7 +69,7 @@ test('each constraint refuses a violating row', () => {
 test('the slug is unique', () => {
   const r = psql(
     'roadmap_migrator',
-    `begin; insert into roadmap (slug, name, document) values ('dup', 'n', ${GOOD}), ('dup', 'n', ${GOOD}); rollback`,
+    `begin; insert into roadmap (slug, name, document, team) values ('dup', 'n', ${GOOD}, 'alpha'), ('dup', 'n', ${GOOD}, 'alpha'); rollback`,
   );
   assert.equal(r.ok, false);
   assert.match(r.err, /roadmap_slug_key/);
@@ -78,7 +78,7 @@ test('the slug is unique', () => {
 test('the service account reads but cannot write', () => {
   assert.ok(psql('roadmap_app', 'select count(*) from roadmap').ok);
   for (const sql of [
-    `insert into roadmap (slug, name, document) values ('w', 'n', ${GOOD})`,
+    `insert into roadmap (slug, name, document, team) values ('w', 'n', ${GOOD}, 'alpha')`,
     "update roadmap set name = 'x'",
     'delete from roadmap',
     'truncate roadmap',
@@ -86,5 +86,23 @@ test('the service account reads but cannot write', () => {
     const r = psql('roadmap_app', sql);
     assert.equal(r.ok, false, sql);
     assert.match(r.err, /permission denied/, sql);
+  }
+});
+
+// 003-T002 (FR-001): every roadmap has exactly one owning team, of the shape a token's group name can have.
+test('a roadmap without a team, or with a malformed one, is refused', () => {
+  const noTeam = psql(
+    'roadmap_migrator',
+    `begin; insert into roadmap (slug, name, document) values ('t1', 'n', ${GOOD}); rollback`,
+  );
+  assert.equal(noTeam.ok, false);
+  assert.match(noTeam.err, /null value in column "team"/);
+  for (const team of ['Alpha', '/alpha', '', 'a b', 'x'.repeat(33)]) {
+    const r = psql(
+      'roadmap_migrator',
+      `begin; insert into roadmap (slug, name, document, team) values ('t2', 'n', ${GOOD}, '${team}'); rollback`,
+    );
+    assert.equal(r.ok, false, `team "${team}" was accepted`);
+    assert.match(r.err, /roadmap_team_shape/);
   }
 });

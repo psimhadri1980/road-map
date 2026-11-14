@@ -2,6 +2,8 @@ package dev.roadmap;
 
 import jakarta.validation.constraints.Pattern;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,7 +24,9 @@ public class RoadmapController {
 
   /** The roadmap in the gantt-roadmap/1 format; the document is passed through as stored. */
   @GetMapping(path = "/api/roadmaps/{slug}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public String get(@PathVariable @Pattern(regexp = "^[a-z0-9][a-z0-9-]{0,62}$") String slug) {
-    return service.document(slug);
+  public String get(
+      @PathVariable @Pattern(regexp = "^[a-z0-9][a-z0-9-]{0,62}$") String slug,
+      @AuthenticationPrincipal Jwt token) {
+    return service.document(slug, Teams.of(token.getClaimAsStringList("groups")));
   }
 }

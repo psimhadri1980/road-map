@@ -95,8 +95,23 @@ class SecurityConfig {
         new DelegatingOAuth2TokenValidator<>(
             new JwtTimestampValidator(CLOCK_SKEW),
             new JwtIssuerValidator(issuer),
-            audienceIs(audience)));
+            audienceIs(audience),
+            groupsNotOversized()));
     return decoder;
+  }
+
+  /**
+   * A token with a huge {@code groups} claim is refused as malformed (003-T002, research R2), so
+   * the claim never reaches the parser and the refusal says nothing more than any other.
+   */
+  private static OAuth2TokenValidator<Jwt> groupsNotOversized() {
+    OAuth2TokenValidatorResult refused =
+        OAuth2TokenValidatorResult.failure(
+            new OAuth2Error("invalid_token", "too many groups", null));
+    return jwt -> {
+      var groups = jwt.getClaimAsStringList("groups");
+      return groups != null && groups.size() > 50 ? refused : OAuth2TokenValidatorResult.success();
+    };
   }
 
   /**

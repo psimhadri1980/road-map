@@ -81,6 +81,11 @@ final class Services {
    * API audience and lives five seconds; {@code road-map-test-other-audience} has no audience.
    */
   static String token(String client) throws Exception {
+    return token(client, "sample");
+  }
+
+  /** The same for another development user (alice, bob, carol, dave, erin; 003-T001). */
+  static String token(String client, String user) throws Exception {
     KeyStore trust = KeyStore.getInstance(KeyStore.getDefaultType());
     trust.load(null);
     try (var in = new ByteArrayInputStream(Files.readAllBytes(Path.of(CA)))) {
@@ -95,7 +100,9 @@ final class Services {
     String form =
         "grant_type=password&client_id="
             + client
-            + "&username=sample&password="
+            + "&username="
+            + user
+            + "&password="
             + URLEncoder.encode(env("SAMPLE_USER_PASSWORD"), StandardCharsets.UTF_8);
     HttpResponse<String> response =
         HttpClient.newBuilder()
@@ -119,7 +126,12 @@ final class Services {
 
   /** The Authorization header value for a fresh token of the default test client. */
   static String bearer() throws Exception {
-    return "Bearer " + token("road-map-test");
+    return bearer("sample");
+  }
+
+  /** The same for another development user. */
+  static String bearer(String user) throws Exception {
+    return "Bearer " + token("road-map-test", user);
   }
 
   private static String jdbcUrl(int port) {
@@ -133,15 +145,21 @@ final class Services {
     }
   }
 
-  /** Stores {@code document} under a new unique slug (as the schema owner) and returns the slug. */
+  /** Stores {@code document} for team alpha under a new unique slug and returns the slug. */
   static String insert(String document) throws SQLException {
+    return insert(document, "alpha");
+  }
+
+  /** Stores {@code document} for {@code team} under a new unique slug (as the schema owner). */
+  static String insert(String document, String team) throws SQLException {
     String slug = "it-" + UUID.randomUUID().toString().substring(0, 8);
     try (Connection c = migrator();
         PreparedStatement s =
             c.prepareStatement(
-                "INSERT INTO roadmap (slug, name, document) VALUES (?, 'fixture', ?::jsonb)")) {
+                "INSERT INTO roadmap (slug, name, document, team) VALUES (?, 'fixture', ?::jsonb, ?)")) {
       s.setString(1, slug);
       s.setString(2, document);
+      s.setString(3, team);
       s.executeUpdate();
     }
     return slug;
@@ -153,6 +171,16 @@ final class Services {
         PreparedStatement s =
             c.prepareStatement("UPDATE roadmap SET document = ?::jsonb WHERE slug = ?")) {
       s.setString(1, document);
+      s.setString(2, slug);
+      s.executeUpdate();
+    }
+  }
+
+  /** Moves a fixture to another owning team directly in the database. */
+  static void setTeam(String slug, String team) throws SQLException {
+    try (Connection c = migrator();
+        PreparedStatement s = c.prepareStatement("UPDATE roadmap SET team = ? WHERE slug = ?")) {
+      s.setString(1, team);
       s.setString(2, slug);
       s.executeUpdate();
     }
