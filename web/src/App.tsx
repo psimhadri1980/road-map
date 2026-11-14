@@ -13,25 +13,34 @@ const VIEW_ONLY: AccessRules = {
   rules: [{ effect: 'allow', permissions: ['view', 'view.fields', 'view.baselines', 'view.resources'] }],
 };
 
+type Entry = { slug: string; name: string };
 type Loaded =
   | { state: 'loading' }
   | { state: 'no-sign-in' }
   | { state: 'error' }
-  | { state: 'ready'; data: React.ComponentProps<typeof Gantt>['data'] };
+  | { state: 'none' }
+  | { state: 'ready'; list: Entry[]; slug: string; data: React.ComponentProps<typeof Gantt>['data'] };
+
+const fetchJson = (path: string) =>
+  apiFetch(path).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))));
 
 /**
- * Signs the user in, then fetches the sample roadmap with the bearer token (spec 002 FR-001, FR-005) and
- * shows it, or one plain message (spec 001 FR-011a). Nothing is requested before sign-in succeeds, so
- * a failed sign-in never leaks a request to the API.
+ * Signs the user in, asks which roadmaps their teams own (spec 003 FR-009), and shows the first, or one
+ * plain message (spec 001 FR-011a). The list is the service's answer, never a guess made here: the
+ * picker offers only what the token allows, and the service refuses anything else regardless. Nothing is
+ * requested before sign-in succeeds, so a failed sign-in never leaks a request to the API.
  */
 export function App() {
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' });
+  const open = (list: Entry[], slug: string) =>
+    fetchJson(`/api/roadmaps/${encodeURIComponent(slug)}`)
+      .then((data) => setLoaded({ state: 'ready', list, slug, data }))
+      .catch(() => setLoaded({ state: 'error' }));
   useEffect(() => {
     signIn().then(
       () =>
-        apiFetch('/api/roadmaps/sample')
-          .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-          .then((data) => setLoaded({ state: 'ready', data }))
+        fetchJson('/api/roadmaps')
+          .then((list: Entry[]) => (list[0] ? open(list, list[0].slug) : setLoaded({ state: 'none' })))
           .catch(() => setLoaded({ state: 'error' })),
       () => setLoaded({ state: 'no-sign-in' }),
     );
@@ -41,11 +50,31 @@ export function App() {
     return <p role="alert">Signing in is not possible right now. Try again in a moment.</p>;
   if (loaded.state === 'error') return <p role="alert">The roadmap could not be loaded. Try again in a moment.</p>;
   if (loaded.state === 'loading') return <p>Loading the roadmap…</p>;
+  const signOutButton = (
+    <button type="button" onClick={() => void signOut()}>
+      Sign out
+    </button>
+  );
+  if (loaded.state === 'none')
+    return (
+      <>
+        {signOutButton}
+        <p>You have no roadmaps yet.</p>
+      </>
+    );
   return (
     <>
-      <button type="button" onClick={() => void signOut()}>
-        Sign out
-      </button>
+      {signOutButton}
+      <label>
+        Roadmap{' '}
+        <select id="roadmap-picker" value={loaded.slug} onChange={(e) => void open(loaded.list, e.target.value)}>
+          {loaded.list.map((r) => (
+            <option key={r.slug} value={r.slug}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <Gantt data={loaded.data} access={VIEW_ONLY} readOnly height={640} />
     </>
   );
