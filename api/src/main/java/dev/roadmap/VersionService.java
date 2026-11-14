@@ -13,6 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class VersionService {
 
+  private static final int MAX_NAME = 100;
+  private static final int MAX_BASELINES = 50;
+
   private final RoadmapRepository roadmaps;
   private final VersionRepository versions;
 
@@ -47,6 +50,44 @@ public class VersionService {
         roadmaps.replaceDocument(
             head.id(), document, actor.subject(), actor.name(), null, "restore of " + number);
     return versions.find(head.id(), created).orElseThrow();
+  }
+
+  /** The roadmap's baselines. */
+  public List<Baseline> baselines(String slug, Teams teams) {
+    return versions.baselines(visible(slug, teams).id());
+  }
+
+  /**
+   * Names a version (006, FR-005, FR-006). Reviewers only. Checked in the usual order: member
+   * (404), reviewer (403), then input (422) and a name already taken (409). The roadmap row is
+   * locked so two simultaneous requests cannot both take the last slot or the same name.
+   */
+  @Transactional
+  public Baseline createBaseline(
+      String slug, String name, Integer version, Teams teams, ProposalService.Actor actor) {
+    var head = visible(slug, teams);
+    if (!"reviewer".equals(teams.role(head.team()))) {
+      throw new ApiErrors.Denied();
+    }
+    if (name == null || name.isBlank() || name.length() > MAX_NAME) {
+      throw new ApiErrors.Invalid("name must be 1 to " + MAX_NAME + " characters");
+    }
+    roadmaps.lockDocument(head.id());
+    int number = version == null ? roadmaps.findHead(slug).orElseThrow().version() : version;
+    if (versions.find(head.id(), number).isEmpty()) {
+      throw new ApiErrors.Invalid("no such version");
+    }
+    if (versions.hasBaseline(head.id(), name)) {
+      throw new ApiErrors.Conflict("a baseline with this name exists");
+    }
+    if (versions.baselines(head.id()).size() >= MAX_BASELINES) {
+      throw new ApiErrors.Invalid("at most " + MAX_BASELINES + " baselines");
+    }
+    versions.addBaseline(head.id(), name, number, actor.subject(), actor.name());
+    return versions.baselines(head.id()).stream()
+        .filter(b -> b.name().equals(name))
+        .findFirst()
+        .orElseThrow();
   }
 
   private static int number(String slug, String v) {

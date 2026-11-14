@@ -122,3 +122,20 @@ test('the app may write proposal tables but never the approved roadmap', () => {
     'app can insert roadmap',
   );
 });
+
+test('the service can add versions and baselines but never change or remove them (006, FR-009)', () => {
+  for (const table of ['roadmap_version', 'baseline']) {
+    for (const op of ['UPDATE', 'DELETE']) {
+      assert.equal(
+        must(psql('roadmap_app', 'roadmap', `select has_table_privilege('${table}', '${op}')`)),
+        'f',
+        `${op} ${table}`,
+      );
+    }
+    assert.equal(
+      must(psql('roadmap_app', 'roadmap', `select has_table_privilege('${table}', 'INSERT')`)),
+      't',
+      `INSERT ${table}`,
+    );
+  }
+});

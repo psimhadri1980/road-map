@@ -2,6 +2,7 @@ package dev.roadmap;
 
 import jakarta.validation.constraints.Pattern;
 import java.util.List;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -9,6 +10,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /** HTTP for versions (006): the request and the response, nothing else. */
@@ -44,6 +47,27 @@ public class VersionController {
       @AuthenticationPrincipal Jwt token) {
     return service.restore(slug, v, teams(token), ProposalController.actor(token));
   }
+
+  /** The roadmap's baselines. */
+  @GetMapping(path = "/api/roadmaps/{slug}/baselines", produces = MediaType.APPLICATION_JSON_VALUE)
+  public List<Baseline> baselines(
+      @PathVariable @Pattern(regexp = SLUG) String slug, @AuthenticationPrincipal Jwt token) {
+    return service.baselines(slug, teams(token));
+  }
+
+  /** Names a version; the current one when none is given. */
+  @PostMapping(path = "/api/roadmaps/{slug}/baselines", produces = MediaType.APPLICATION_JSON_VALUE)
+  @ResponseStatus(HttpStatus.CREATED)
+  public Baseline createBaseline(
+      @PathVariable @Pattern(regexp = SLUG) String slug,
+      @RequestBody NewBaseline body,
+      @AuthenticationPrincipal Jwt token) {
+    return service.createBaseline(
+        slug, body.name(), body.version(), teams(token), ProposalController.actor(token));
+  }
+
+  /** The request body of a new baseline. */
+  public record NewBaseline(String name, Integer version) {}
 
   /** The roadmap as it was in one version. */
   @GetMapping(path = BASE + "/{v}", produces = MediaType.APPLICATION_JSON_VALUE)
