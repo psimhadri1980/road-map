@@ -31,7 +31,9 @@ public class ProposalRepository {
       String note,
       String noteBy,
       String decidedBy,
-      OffsetDateTime decidedAt) {
+      OffsetDateTime decidedAt,
+      int baseVersion,
+      int headVersion) {
 
     ProposalSummary summary() {
       return new ProposalSummary(
@@ -45,7 +47,10 @@ public class ProposalRepository {
           note,
           noteBy,
           decidedBy,
-          decidedAt);
+          decidedAt,
+          baseVersion,
+          headVersion,
+          baseVersion < headVersion);
     }
   }
 
@@ -54,7 +59,8 @@ public class ProposalRepository {
 
   private static final String COLUMNS =
       "id, name, state, owner, owner_name, change_count, created_at, updated_at, note, note_by,"
-          + " decided_by, decided_at";
+          + " decided_by, decided_at, base_version,"
+          + " (SELECT version FROM roadmap WHERE id = proposal.roadmap_id) AS head_version";
 
   private final JdbcClient jdbc;
 
@@ -83,8 +89,9 @@ public class ProposalRepository {
   /** Stores a new draft Proposal; its changes go in with {@link #addChanges}. */
   public Row insert(UUID roadmap, String name, String owner, String ownerName, int changeCount) {
     return jdbc.sql(
-            "INSERT INTO proposal (roadmap_id, name, owner, owner_name, change_count)"
-                + " VALUES (:r, :n, :o, :on, :c) RETURNING "
+            "INSERT INTO proposal (roadmap_id, name, owner, owner_name, change_count, base_version)"
+                + " VALUES (:r, :n, :o, :on, :c, (SELECT version FROM roadmap WHERE id = :r))"
+                + " RETURNING "
                 + COLUMNS)
         .param("r", roadmap)
         .param("n", name)
@@ -194,7 +201,7 @@ public class ProposalRepository {
   public List<Stored> changes(UUID proposal) {
     return jdbc.sql(
             "SELECT entity, op, entity_id AS id, fields::text AS fields"
-                + " FROM proposal_change WHERE proposal_id = :p ORDER BY seq")
+                + " FROM proposal_change WHERE proposal_id = :p AND dropped_in IS NULL ORDER BY seq")
         .param("p", proposal)
         .query(Stored.class)
         .list();

@@ -102,4 +102,13 @@ public class ProposalController {
       @AuthenticationPrincipal Jwt token) {
     return service.document(slug, id, teams(token));
   }
+
+  /** The changes of this Proposal that collide with what changed since it was made. */
+  @GetMapping(path = BASE + "/{id}/conflicts", produces = MediaType.APPLICATION_JSON_VALUE)
+  public List<Conflict> conflicts(
+      @PathVariable @Pattern(regexp = SLUG) String slug,
+      @PathVariable String id,
+      @AuthenticationPrincipal Jwt token) {
+    return service.conflicts(slug, id, teams(token));
+  }
 }

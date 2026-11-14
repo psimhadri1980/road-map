@@ -47,11 +47,17 @@ public class ProposalService {
   private final ProposalRepository proposals;
   private final RoadmapRepository roadmaps;
   private final ObjectMapper json;
+  private final ConflictService conflicts;
 
-  ProposalService(ProposalRepository proposals, RoadmapRepository roadmaps, ObjectMapper json) {
+  ProposalService(
+      ProposalRepository proposals,
+      RoadmapRepository roadmaps,
+      ObjectMapper json,
+      ConflictService conflicts) {
     this.proposals = proposals;
     this.roadmaps = roadmaps;
     this.json = json;
+    this.conflicts = conflicts;
   }
 
   /** A new draft owned by the caller, with its first changes applied in memory before any write. */
@@ -182,6 +188,13 @@ public class ProposalService {
     } catch (ChangeApplier.Refused e) {
       throw new ApiErrors.Conflict("the changes no longer fit the roadmap: " + e.getMessage());
     }
+  }
+
+  /** The Proposal's changes that collide with what changed since its base version (007). */
+  public List<Conflict> conflicts(String slug, String id, Teams teams) {
+    var row = row(slug, id, teams);
+    return conflicts.find(
+        visible(slug, teams).id(), row.baseVersion(), row.headVersion(), changesOf(row.id()));
   }
 
   /** The roadmap's Proposals, newest first, for any member of the owning team. */
