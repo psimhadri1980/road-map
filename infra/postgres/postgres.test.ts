@@ -94,3 +94,19 @@ test('each account has only its stated privileges', () => {
     psql('roadmap_migrator', 'roadmap', 'drop table if exists probe');
   }
 });
+
+// 004-T002: the service account may write Proposals and nothing else (FR-005, research R5).
+test('the app may write proposal tables but never the approved roadmap', () => {
+  if (must(psql('roadmap_app', 'roadmap', "select to_regclass('public.proposal') is not null")) !== 't') return; // before V5
+  const write = (sql: string) => psql('roadmap_app', 'roadmap', `begin; ${sql}; rollback`);
+  const id = '00000000-0000-0000-0000-000000000001';
+  assert.equal(write("update proposal set name = name where id = '" + id + "'").ok, true, 'app cannot update proposal');
+  assert.equal(write(`delete from proposal where id = '${id}'`).ok, false, 'app can delete proposals');
+  assert.equal(write(`delete from proposal_change where proposal_id = '${id}'`).ok, false, 'app can delete changes');
+  assert.equal(write("update roadmap set name = name where slug = 'sample'").ok, false, 'app can write roadmap');
+  assert.equal(
+    write("insert into roadmap (slug, name, document, team) values ('x','x','{}','x')").ok,
+    false,
+    'app can insert roadmap',
+  );
+});

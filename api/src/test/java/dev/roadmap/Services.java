@@ -195,6 +195,23 @@ final class Services {
     }
   }
 
+  /** Removes every Proposal of a fixture roadmap (the service account may not delete them). */
+  static void clearProposals(String slug) throws SQLException {
+    try (Connection c = migrator();
+        PreparedStatement a =
+            c.prepareStatement(
+                "DELETE FROM proposal_change WHERE proposal_id IN (SELECT p.id FROM proposal p"
+                    + " JOIN roadmap r ON r.id = p.roadmap_id WHERE r.slug = ?)");
+        PreparedStatement b =
+            c.prepareStatement(
+                "DELETE FROM proposal WHERE roadmap_id IN (SELECT id FROM roadmap WHERE slug = ?)")) {
+      a.setString(1, slug);
+      a.executeUpdate();
+      b.setString(1, slug);
+      b.executeUpdate();
+    }
+  }
+
   private static Connection migrator() throws SQLException {
     return DriverManager.getConnection(
         jdbcUrl(POSTGRES), "roadmap_migrator", env("ROADMAP_MIGRATOR_PASSWORD"));
