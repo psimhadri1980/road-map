@@ -281,6 +281,26 @@ async function smoke(): Promise<void> {
     links: unknown[];
   };
   const names = sample.tasks.map((t) => t.name);
+  // Spec 003 (T004): the picker offers only the user's roadmaps. beta-plan is the sample under another
+  // name, so the same task names show for both users and the picker's option text tells them apart.
+  for (const [who, offered] of [
+    ['sample', 'Platform migration'],
+    ['carol', 'Beta roadmap'],
+  ] as const) {
+    await smokeAs(url, who, offered, sample, names);
+    // The front door allows a burst of 20 requests per client; a sign-in plus a page load nearly uses it,
+    // so the next user waits for the bucket to refill (10/s) rather than weakening the limit.
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+}
+
+async function smokeAs(
+  url: string,
+  who: string,
+  offered: string,
+  sample: { tasks: { name: string }[]; links: unknown[] },
+  names: string[],
+): Promise<void> {
   const seen = JSON.parse(
     String(
       await browse(
@@ -290,7 +310,7 @@ async function smoke(): Promise<void> {
     const user = document.querySelector('#username');
     if (user && !window.__signedIn) {
       window.__signedIn = true;
-      user.value = 'sample';
+      user.value = ${JSON.stringify(who)};
       document.querySelector('#password').value = ${JSON.stringify(baseEnv()['SAMPLE_USER_PASSWORD'] ?? '')};
       document.querySelector('#kc-login').click();
       return null;
@@ -302,12 +322,14 @@ async function smoke(): Promise<void> {
     document.querySelector('.gx-add-btn')?.click();
     await new Promise((r) => setTimeout(r, 700));
     const stored = JSON.stringify([{ ...localStorage }, { ...sessionStorage }, document.cookie]);
-    return JSON.stringify({ tokenStored: stored.includes('eyJ'), text: grid.innerText, links: document.querySelectorAll('.gx-link').length, before, after: rows() });
+    return JSON.stringify({ options: [...document.querySelectorAll('#roadmap-picker option')].map((o) => o.textContent), tokenStored: stored.includes('eyJ'), text: grid.innerText, links: document.querySelectorAll('.gx-link').length, before, after: rows() });
   })()`,
       ),
     ),
-  ) as { tokenStored: boolean; text: string; links: number; before: number; after: number };
+  ) as { options: string[]; tokenStored: boolean; text: string; links: number; before: number; after: number };
 
+  if (seen.options.join('|') !== offered)
+    throw new RunError(`${who} is offered [${seen.options}], expected [${offered}]`);
   // The grid shows only the rows in view, so the check is on the first names and every link.
   const visible = names.filter((n) => seen.text.includes(n));
   if (visible.length < 5) throw new RunError(`the page shows ${visible.length} of the sample's task names`);
@@ -316,6 +338,6 @@ async function smoke(): Promise<void> {
   if (seen.after !== seen.before) throw new RunError('an edit attempt changed the roadmap');
   if (seen.tokenStored) throw new RunError('a token was found in browser storage or a cookie (FR-004)');
   log.ok(
-    `the browser shows ${visible.length}+ of ${names.length} task names and ${seen.links} links; an edit attempt changes nothing`,
+    `${who}: the picker offers only "${offered}"; the browser shows ${visible.length}+ of ${names.length} task names and ${seen.links} links; an edit attempt changes nothing`,
   );
 }

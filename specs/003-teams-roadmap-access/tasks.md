@@ -26,7 +26,7 @@ description: 'Task list for spec 003, teams and roadmap access'
 
 ## Phase 3: User Story 1 (P1) - the picker
 
-- [ ] T004 [US1] Roadmap picker in the web app. `web/src/App.tsx` fetches `/api/roadmaps` after sign-in, shows a labelled `select` of the user's roadmaps, loads the first and any chosen one through `apiFetch`, and shows "You have no roadmaps yet." when the list is empty (R7). Update `web/src/App.test.tsx`; extend the smoke test in `run/orchestrator/test.ts` so it signs in as `carol` (only `beta-plan` offered, task names shown) and as the sample user (the original sample roadmap shown as before). Serves FR-009. Done when: web unit tests and smoke pass against a freshly deployed stack with the reset realm. Needs T003.
+- [x] T004 [US1] Roadmap picker in the web app. `web/src/App.tsx` fetches `/api/roadmaps` after sign-in, shows a labelled `select` of the user's roadmaps, loads the first and any chosen one through `apiFetch`, and shows "You have no roadmaps yet." when the list is empty (R7). Update `web/src/App.test.tsx`; extend the smoke test in `run/orchestrator/test.ts` so it signs in as `carol` (only `beta-plan` offered, task names shown) and as the sample user (the original sample roadmap shown as before). Serves FR-009. Done when: web unit tests and smoke pass against a freshly deployed stack with the reset realm. Needs T003.
 
 ## Phase 4: Polish
 
