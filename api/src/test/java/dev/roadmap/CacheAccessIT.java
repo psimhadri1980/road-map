@@ -41,7 +41,7 @@ class CacheAccessIT {
     String slug = Services.insert(Services.sample(), "beta");
     try {
       assertEquals(200, status(slug, "carol")); // a member warms the cache
-      assertNotNull(redis.opsForValue().get("roadmap::" + slug));
+      assertNotNull(redis.opsForValue().get("roadmap::" + slug + "@1"));
       assertEquals(404, status(slug, "bob")); // a non-member, cache warm
       assertEquals(404, status(slug, "erin"));
     } finally {
@@ -75,7 +75,8 @@ class CacheAccessIT {
       // the
       // one key roadmap::<slug> is all four readers could have used; its presence is what is
       // checked.
-      assertNotNull(redis.opsForValue().get("roadmap::" + slug)); // EXISTS is not allowed either
+      assertNotNull(
+          redis.opsForValue().get("roadmap::" + slug + "@1")); // EXISTS is not allowed either
     } finally {
       Services.delete(slug);
     }

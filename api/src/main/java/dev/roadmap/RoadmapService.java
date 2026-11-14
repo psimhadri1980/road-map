@@ -23,11 +23,11 @@ public class RoadmapService {
 
   /** The roadmap document as JSON text, for a caller who holds a role in its owning team. */
   public String document(String slug, Teams teams) {
-    String owner = repository.findTeam(slug).orElseThrow(() -> new ApiErrors.NotFound(slug));
-    if (!teams.has(owner)) {
+    var head = repository.findHead(slug).orElseThrow(() -> new ApiErrors.NotFound(slug));
+    if (!teams.has(head.team())) {
       throw new ApiErrors.NotFound(slug);
     }
-    return documents.document(slug);
+    return documents.document(slug, head.version());
   }
 
   /**

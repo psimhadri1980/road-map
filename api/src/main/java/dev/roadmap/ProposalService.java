@@ -121,9 +121,7 @@ public class ProposalService {
       String slug, String id, String actionName, Teams teams, Actor actor, String note) {
     var roadmap = visible(slug, teams);
     var action =
-        ProposalState.Action.parse(actionName)
-            .filter(a -> a != ProposalState.Action.APPROVE) // shortcut: approval arrives in T003
-            .orElseThrow(() -> new ApiErrors.NotFound(slug));
+        ProposalState.Action.parse(actionName).orElseThrow(() -> new ApiErrors.NotFound(slug));
     var row =
         proposals
             .findForUpdate(roadmap.id(), uuid(slug, id))
@@ -156,6 +154,9 @@ public class ProposalService {
     if (action == ProposalState.Action.SUBMIT && row.changeCount() == 0) {
       throw new ApiErrors.Invalid("a Proposal with no changes cannot be submitted");
     }
+    if (action == ProposalState.Action.APPROVE) {
+      apply(roadmap.id(), row);
+    }
     proposals.move(
         row.id(),
         action.name().toLowerCase(java.util.Locale.ROOT),
@@ -165,6 +166,21 @@ public class ProposalService {
         actor.name(),
         text);
     return proposals.find(roadmap.id(), row.id()).orElseThrow().summary();
+  }
+
+  /**
+   * Writes the Proposal's changes into the roadmap (005, research R5). The Proposal row is already
+   * locked; the roadmap row is locked next, always in that order. The changes are applied to the
+   * document as it is now, so a change that no longer fits is a conflict and nothing is written.
+   */
+  private void apply(UUID roadmapId, ProposalRepository.Row row) {
+    String current = roadmaps.lockDocument(roadmapId).orElseThrow();
+    try {
+      var result = ChangeApplier.apply(json.readTree(current), changesOf(row.id()));
+      roadmaps.replaceDocument(roadmapId, result.toString());
+    } catch (ChangeApplier.Refused e) {
+      throw new ApiErrors.Conflict("the changes no longer fit the roadmap: " + e.getMessage());
+    }
   }
 
   /** The roadmap's Proposals, newest first, for any member of the owning team. */

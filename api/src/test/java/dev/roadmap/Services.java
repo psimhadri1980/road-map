@@ -53,6 +53,9 @@ final class Services {
   static void use(DynamicPropertyRegistry registry, int postgres, int redis) {
     String url = jdbcUrl(postgres);
     registry.add("spring.datasource.url", () -> url);
+    // Each cached test context keeps its own pool; small pools keep the many contexts under
+    // PostgreSQL's connection limit.
+    registry.add("spring.datasource.hikari.maximum-pool-size", () -> 3);
     registry.add("spring.flyway.url", () -> url);
     registry.add("spring.flyway.enabled", () -> postgres == POSTGRES);
     registry.add("spring.data.redis.port", () -> redis);

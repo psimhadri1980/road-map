@@ -20,6 +20,7 @@ public class CacheConfig implements CachingConfigurer {
   @Bean
   RedisCacheConfiguration redisCacheConfiguration() {
     return RedisCacheConfiguration.defaultCacheConfig()
+        .entryTtl(java.time.Duration.ofHours(24))
         .serializeValuesWith(SerializationPair.fromSerializer(RedisSerializer.string()))
         .disableCachingNullValues();
   }

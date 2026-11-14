@@ -179,7 +179,9 @@ public class ProposalRepository {
     jdbc.sql(
             "UPDATE proposal SET state = :t, updated_at = now(),"
                 + " note = CASE WHEN CAST(:n AS text) IS NULL THEN note ELSE :n END,"
-                + " note_by = CASE WHEN CAST(:n AS text) IS NULL THEN note_by ELSE :nb END"
+                + " note_by = CASE WHEN CAST(:n AS text) IS NULL THEN note_by ELSE :nb END,"
+                + " decided_by = CASE WHEN :t = 'approved' THEN :nb ELSE decided_by END,"
+                + " decided_at = CASE WHEN :t = 'approved' THEN now() ELSE decided_at END"
                 + " WHERE id = :p")
         .param("t", to)
         .param("n", note)

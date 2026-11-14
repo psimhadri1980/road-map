@@ -63,7 +63,7 @@ class ReadPathIT {
     slug = Services.insert(Services.sample());
     var first = JSON.readTree(body("/api/roadmaps/" + slug));
     // The service wrote the document under roadmap::<slug>.
-    assertNotNull(redis.opsForValue().get("roadmap::" + slug));
+    assertNotNull(redis.opsForValue().get("roadmap::" + slug + "@1"));
     // Change the row directly: only the cache can still answer with the old content.
     Services.update(
         slug, Services.sample().replace("\"Platform migration\"", "\"Changed in the database\""));
@@ -75,7 +75,7 @@ class ReadPathIT {
     slug = Services.insert("{\"contract\":\"gantt-roadmap/1\"}");
     mvc.perform(get("/api/roadmaps/" + slug).header("Authorization", Services.bearer()))
         .andExpect(status().isUnprocessableContent());
-    assertEquals(null, redis.opsForValue().get("roadmap::" + slug));
+    assertEquals(null, redis.opsForValue().get("roadmap::" + slug + "@1"));
   }
 
   @Test
