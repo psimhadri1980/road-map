@@ -1,0 +1,45 @@
+# Delta to specs/001-walking-skeleton/contracts/openapi.yaml (0.4.0 to 0.5.0), merged at close-out (T004).
+paths:
+  /roadmaps/{slug}/proposals/{id}/{action}:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      - {
+          name: action,
+          in: path,
+          required: true,
+          schema: { type: string, enum: [submit, withdraw, discard, return, reject, approve] },
+        }
+    post:
+      operationId: moveProposal
+      summary: Move a Proposal through its lifecycle. return and reject need a note.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '200':
+          description: The updated Proposal.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ProposalSummary' } } }
+        '403': { $ref: '#/components/responses/Denied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Invalid' }
+components:
+  schemas:
+    ProposalSummary:
+      description: 'Adds to spec 004: state is now one of draft, submitted, approved, rejected, discarded.'
+      properties:
+        note: { type: string, nullable: true }
+        noteBy: { type: string, nullable: true }
+        decidedBy: { type: string, nullable: true }
+        decidedAt: { type: string, format: date-time, nullable: true }
+  responses:
+    Conflict:
+      {
+        description: 'The action is not allowed from the current state, or the changes no longer fit the roadmap. Body {error, code: conflict}. Nothing changed.',
+      }
