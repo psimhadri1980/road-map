@@ -139,3 +139,21 @@ test('the service can add versions and baselines but never change or remove them
     );
   }
 });
+
+test('the service cannot delete changes or refresh records, and may only mark them (007, FR-009)', () => {
+  for (const table of ['proposal_change', 'proposal_refresh']) {
+    assert.equal(must(psql('roadmap_app', 'roadmap', `select has_table_privilege('${table}', 'DELETE')`)), 'f', table);
+  }
+  assert.equal(
+    must(psql('roadmap_app', 'roadmap', `select has_column_privilege('proposal_change', 'dropped_in', 'UPDATE')`)),
+    't',
+  );
+  assert.equal(
+    must(psql('roadmap_app', 'roadmap', `select has_column_privilege('proposal_change', 'fields', 'UPDATE')`)),
+    'f',
+  );
+  assert.equal(
+    must(psql('roadmap_app', 'roadmap', `select has_column_privilege('proposal_refresh', 'to_version', 'UPDATE')`)),
+    'f',
+  );
+});

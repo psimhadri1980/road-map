@@ -202,6 +202,10 @@ final class Services {
   static void clearProposals(String slug) throws SQLException {
     clearVersions(slug); // versions point at the Proposals that made them
     try (Connection c = migrator();
+        PreparedStatement r =
+            c.prepareStatement(
+                "DELETE FROM proposal_refresh WHERE proposal_id IN (SELECT p.id FROM proposal p"
+                    + " JOIN roadmap r ON r.id = p.roadmap_id WHERE r.slug = ?)");
         PreparedStatement m =
             c.prepareStatement(
                 "DELETE FROM proposal_move WHERE proposal_id IN (SELECT p.id FROM proposal p"
@@ -213,6 +217,8 @@ final class Services {
         PreparedStatement b =
             c.prepareStatement(
                 "DELETE FROM proposal WHERE roadmap_id IN (SELECT id FROM roadmap WHERE slug = ?)")) {
+      r.setString(1, slug);
+      r.executeUpdate();
       m.setString(1, slug);
       m.executeUpdate();
       a.setString(1, slug);
