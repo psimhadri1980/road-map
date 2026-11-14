@@ -28,6 +28,17 @@ public class VersionRepository {
         .list();
   }
 
+  /** One version's summary; empty when there is no such version. */
+  public Optional<VersionSummary> find(UUID roadmap, int version) {
+    return jdbc.sql(
+            "SELECT version, at, by_name AS by, proposal_id, note FROM roadmap_version"
+                + " WHERE roadmap_id = :r AND version = :v")
+        .param("r", roadmap)
+        .param("v", version)
+        .query(VersionSummary.class)
+        .optional();
+  }
+
   /** The document of one version as JSON text; empty when there is no such version. */
   public Optional<String> document(UUID roadmap, int version) {
     return jdbc.sql(

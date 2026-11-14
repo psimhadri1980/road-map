@@ -35,7 +35,8 @@ public class ProposalController {
     return Teams.of(token.getClaimAsStringList("groups"));
   }
 
-  private static ProposalService.Actor actor(Jwt token) {
+  /** The caller as a stored actor: the token's subject and the name to show for it. */
+  static ProposalService.Actor actor(Jwt token) {
     String subject = token.getSubject();
     String name = token.getClaimAsString("preferred_username");
     String shown = name == null || name.isBlank() ? subject : name;
