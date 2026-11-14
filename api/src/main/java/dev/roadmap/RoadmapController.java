@@ -1,6 +1,7 @@
 package dev.roadmap;
 
 import jakarta.validation.constraints.Pattern;
+import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -20,6 +21,12 @@ public class RoadmapController {
 
   RoadmapController(RoadmapService service) {
     this.service = service;
+  }
+
+  /** The roadmaps the signed-in user's teams own, with the user's role in each. */
+  @GetMapping(path = "/api/roadmaps", produces = MediaType.APPLICATION_JSON_VALUE)
+  public List<RoadmapSummary> list(@AuthenticationPrincipal Jwt token) {
+    return service.list(Teams.of(token.getClaimAsStringList("groups")));
   }
 
   /** The roadmap in the gantt-roadmap/1 format; the document is passed through as stored. */
