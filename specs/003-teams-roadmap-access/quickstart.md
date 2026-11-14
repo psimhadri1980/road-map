@@ -26,7 +26,7 @@ run/run.sh stack:test integration   # every role, no team, both teams, forged he
 
 ## 3. Shared cache (US3)
 
-The same run reads a roadmap as a member, then as a non-member (`404`), and asserts Redis holds one key per roadmap.
+The same run reads a roadmap as a member, then as a non-member (`404`), and asserts the one shared entry serves every member (one key per roadmap by construction: the cached method has no user argument and the service's Redis account cannot list keys).
 
 ## 4. No secrets (US4)
 
