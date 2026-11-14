@@ -200,6 +200,7 @@ final class Services {
 
   /** Removes every Proposal of a fixture roadmap (the service account may not delete them). */
   static void clearProposals(String slug) throws SQLException {
+    clearVersions(slug); // versions point at the Proposals that made them
     try (Connection c = migrator();
         PreparedStatement m =
             c.prepareStatement(
@@ -218,6 +219,34 @@ final class Services {
       a.executeUpdate();
       b.setString(1, slug);
       b.executeUpdate();
+    }
+  }
+
+  /** Gives a fixture roadmap the first version a real one gets from the migration backfill. */
+  static void addFirstVersion(String slug) throws SQLException {
+    try (Connection c = migrator();
+        PreparedStatement s =
+            c.prepareStatement(
+                "INSERT INTO roadmap_version (roadmap_id, version, document, by_name, by_user)"
+                    + " SELECT id, version, document, 'system', 'system' FROM roadmap WHERE slug = ?")) {
+      s.setString(1, slug);
+      s.executeUpdate();
+    }
+  }
+
+  /** Removes a fixture roadmap's baselines and versions (the service may not delete them). */
+  static void clearVersions(String slug) throws SQLException {
+    try (Connection c = migrator();
+        PreparedStatement b =
+            c.prepareStatement(
+                "DELETE FROM baseline WHERE roadmap_id IN (SELECT id FROM roadmap WHERE slug = ?)");
+        PreparedStatement v =
+            c.prepareStatement(
+                "DELETE FROM roadmap_version WHERE roadmap_id IN (SELECT id FROM roadmap WHERE slug = ?)")) {
+      b.setString(1, slug);
+      b.executeUpdate();
+      v.setString(1, slug);
+      v.executeUpdate();
     }
   }
 
