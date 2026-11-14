@@ -206,4 +206,81 @@ public class ProposalRepository {
         .query(Stored.class)
         .list();
   }
+
+  /** The numbers (seq) of the changes that still count, in order. */
+  public List<Integer> activeSeqs(UUID proposal) {
+    return jdbc.sql(
+            "SELECT seq FROM proposal_change WHERE proposal_id = :p AND dropped_in IS NULL"
+                + " ORDER BY seq")
+        .param("p", proposal)
+        .query(Integer.class)
+        .list();
+  }
+
+  /** A refresh that has not been undone: its number and the base version it moved from. */
+  public record Refresh(int n, int fromVersion) {}
+
+  /** The latest refresh not yet undone, if any (007, FR-006). */
+  public Optional<Refresh> lastRefresh(UUID proposal) {
+    return jdbc.sql(
+            "SELECT n, from_version FROM proposal_refresh WHERE proposal_id = :p AND NOT undone"
+                + " ORDER BY n DESC LIMIT 1")
+        .param("p", proposal)
+        .query(Refresh.class)
+        .optional();
+  }
+
+  /** Records a refresh and returns its number; changes are dropped with {@link #drop}. */
+  public int addRefresh(UUID proposal, int from, int to, String by) {
+    int n =
+        jdbc.sql("SELECT coalesce(max(n), 0) + 1 FROM proposal_refresh WHERE proposal_id = :p")
+            .param("p", proposal)
+            .query(Integer.class)
+            .single();
+    jdbc.sql(
+            "INSERT INTO proposal_refresh (proposal_id, n, from_version, to_version, by_user)"
+                + " VALUES (:p, :n, :f, :t, :b)")
+        .param("p", proposal)
+        .param("n", n)
+        .param("f", from)
+        .param("t", to)
+        .param("b", by)
+        .update();
+    return n;
+  }
+
+  /** Marks the changes with these numbers as dropped by refresh {@code n}. */
+  public void drop(UUID proposal, int n, List<Integer> seqs) {
+    for (int seq : seqs) {
+      jdbc.sql("UPDATE proposal_change SET dropped_in = :n WHERE proposal_id = :p AND seq = :s")
+          .param("n", n)
+          .param("p", proposal)
+          .param("s", seq)
+          .update();
+    }
+  }
+
+  /** Undoes refresh {@code n}: its dropped changes count again and the refresh is marked undone. */
+  public void undo(UUID proposal, int n) {
+    jdbc.sql(
+            "UPDATE proposal_change SET dropped_in = NULL WHERE proposal_id = :p AND dropped_in = :n")
+        .param("p", proposal)
+        .param("n", n)
+        .update();
+    jdbc.sql("UPDATE proposal_refresh SET undone = true WHERE proposal_id = :p AND n = :n")
+        .param("p", proposal)
+        .param("n", n)
+        .update();
+  }
+
+  /** Sets the base version and recounts the changes that still count. */
+  public void rebase(UUID proposal, int baseVersion) {
+    jdbc.sql(
+            "UPDATE proposal SET base_version = :v, updated_at = now(), change_count ="
+                + " (SELECT count(*) FROM proposal_change WHERE proposal_id = :p AND dropped_in IS NULL)"
+                + " WHERE id = :p")
+        .param("v", baseVersion)
+        .param("p", proposal)
+        .update();
+  }
 }
