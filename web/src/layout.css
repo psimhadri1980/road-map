@@ -14,8 +14,32 @@ body,
   flex: 1;
   min-height: 0;
 }
-/* Slim scrollbars inside the chart (scrollbar-width is not inherited, so it goes on every descendant). */
-.chart,
+/* Slim, rounded scrollbars inside the chart. Grey with transparency, so one rule suits light and dark. */
 .chart * {
-  scrollbar-width: thin;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(128, 128, 128, 0.5) transparent;
+}
+@supports selector(::-webkit-scrollbar) {
+  /* Chrome and Safari: once scrollbar-width/-color is set they ignore ::-webkit-scrollbar, so reset them. */
+  .chart * {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  .chart *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .chart *::-webkit-scrollbar-track,
+  .chart *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  .chart *::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.45);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .chart *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(128, 128, 128, 0.75);
+  }
 }
