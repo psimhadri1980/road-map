@@ -43,3 +43,29 @@ body,
     background-color: rgba(128, 128, 128, 0.75);
   }
 }
+/* Header (010 T001). Colours follow the theme the page sets on <html>. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  background: #161616;
+  color: #f4f4f4;
+}
+.bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.bar h1 {
+  font-size: 16px;
+  margin: 0;
+}
+.bar .grow {
+  flex: 1;
+}
+.chip {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(128, 128, 128, 0.2);
+  font-size: 13px;
+}

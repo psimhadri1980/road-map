@@ -3,6 +3,8 @@ import '@gantt/react/src/gantt.css';
 import './layout.css';
 import { useEffect, useState } from 'react';
 import { apiFetch, signIn, signOut } from './auth.ts';
+import { Header, type Entry, type Version } from './Header.tsx';
+import { useTheme } from './theme.ts';
 
 /**
  * View-only: the server is the authority (constitution III) and this spec has no editing, so the
@@ -14,13 +16,18 @@ const VIEW_ONLY: AccessRules = {
   rules: [{ effect: 'allow', permissions: ['view', 'view.fields', 'view.baselines', 'view.resources'] }],
 };
 
-type Entry = { slug: string; name: string };
 type Loaded =
   | { state: 'loading' }
   | { state: 'no-sign-in' }
   | { state: 'error' }
   | { state: 'none' }
-  | { state: 'ready'; list: Entry[]; slug: string; data: React.ComponentProps<typeof Gantt>['data'] };
+  | {
+      state: 'ready';
+      list: Entry[];
+      slug: string;
+      versions: Version[];
+      data: React.ComponentProps<typeof Gantt>['data'];
+    };
 
 const fetchJson = (path: string) =>
   apiFetch(path).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))));
@@ -33,9 +40,14 @@ const fetchJson = (path: string) =>
  */
 export function App() {
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' });
+  const [theme, flipTheme] = useTheme();
   const open = (list: Entry[], slug: string) =>
-    fetchJson(`/api/roadmaps/${encodeURIComponent(slug)}`)
-      .then((data) => setLoaded({ state: 'ready', list, slug, data }))
+    Promise.all([
+      fetchJson(`/api/roadmaps/${encodeURIComponent(slug)}`),
+      // The header's version is the newest one; a failed or odd answer only leaves the header without it.
+      fetchJson(`/api/roadmaps/${encodeURIComponent(slug)}/versions`).catch(() => []),
+    ])
+      .then(([data, v]) => setLoaded({ state: 'ready', list, slug, versions: Array.isArray(v) ? v : [], data }))
       .catch(() => setLoaded({ state: 'error' }));
   useEffect(() => {
     signIn().then(
@@ -63,9 +75,16 @@ export function App() {
         <p>You have no roadmaps yet.</p>
       </>
     );
+  const entry = loaded.list.find((r) => r.slug === loaded.slug) ?? { slug: loaded.slug, name: loaded.slug };
   return (
     <div className="page">
-      {signOutButton}
+      <Header
+        entry={entry}
+        current={loaded.versions[0]}
+        theme={theme}
+        onTheme={flipTheme}
+        onSignOut={() => void signOut()}
+      />
       <label>
         Roadmap{' '}
         <select id="roadmap-picker" value={loaded.slug} onChange={(e) => void open(loaded.list, e.target.value)}>
@@ -77,7 +96,7 @@ export function App() {
         </select>
       </label>
       <div className="chart">
-        <Gantt data={loaded.data} access={VIEW_ONLY} readOnly height="100%" />
+        <Gantt data={loaded.data} access={VIEW_ONLY} readOnly theme={theme} height="100%" />
       </div>
     </div>
   );
