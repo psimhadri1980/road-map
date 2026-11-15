@@ -99,3 +99,43 @@ test('the sign-out control signs out', async () => {
   (await screen.findByRole('button', { name: 'Sign out' })).click();
   expect(signOut).toHaveBeenCalledOnce();
 });
+
+const ENTRY = '[{"slug":"sample","name":"S","team":"alpha","role":"viewer"}]';
+const VERSIONS =
+  '[{"version":2,"at":"2026-11-15T10:00:00Z","by":"a"},{"version":1,"at":"2026-11-14T10:00:00Z","by":"b"}]';
+const answer =
+  (extra: Record<string, Response> = {}) =>
+  (p: string) =>
+    Promise.resolve(
+      extra[p] ?? new Response(p === '/api/roadmaps' ? ENTRY : p.endsWith('/versions') ? VERSIONS : STUB),
+    );
+
+// 010 FR-005: an earlier version is read-only with a banner and a way back.
+test('opens an earlier version with a banner and goes back to current', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(answer());
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
+  expect((await screen.findByRole('status')).textContent).toContain('version 1, not the current plan');
+  expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/versions/1');
+  fireEvent.click(screen.getByRole('button', { name: 'Back to current' }));
+  await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+});
+
+// 010 FR-010: not-found and not-allowed look identical, and a failure offers a retry.
+test.each([['404'], ['403']])('shows the same message for a %s', async (status) => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(answer({ '/api/roadmaps/sample': new Response('{}', { status: Number(status) }) }));
+  render(<App />);
+  expect((await screen.findByRole('alert')).textContent).toBe('That roadmap is not available.');
+});
+
+test('a failed load can be retried', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(answer({ '/api/roadmaps/sample': new Response('{}', { status: 503 }) }));
+  render(<App />);
+  await screen.findByRole('alert');
+  apiFetch.mockImplementation(answer());
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(await screen.findByRole('button', { name: /Version 2/ })).toBeTruthy();
+});
