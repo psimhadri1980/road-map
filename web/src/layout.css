@@ -1,0 +1,16 @@
+/* The page is one full-height column: controls on top, the chart takes everything left. */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.page > .chart {
+  flex: 1;
+  min-height: 0;
+}
