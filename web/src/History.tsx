@@ -2,12 +2,12 @@ import type { Version } from './Header.tsx';
 
 /**
  * The version list, newest first (010 FR-005): number, time, who, note. The current version is marked and
- * the one on screen is pressed. Reading only; restoring comes in T003.
+ * the one on screen is pressed.
  */
 export function History(props: { versions: Version[]; shown: number | undefined; onOpen: (v: number) => void }) {
   const current = props.versions[0]?.version;
   return (
-    <section className="side" aria-labelledby="history-title">
+    <section aria-labelledby="history-title">
       <h2 id="history-title">Versions</h2>
       {props.versions.length === 0 && <p>No versions.</p>}
       <ul>

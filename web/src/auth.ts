@@ -29,8 +29,15 @@ export async function signIn(): Promise<void> {
  * by force and retry once; if that still fails, or the renewal itself is refused because the session is
  * over, send the user back to sign-in instead of showing a broken page.
  */
-export async function apiFetch(path: string): Promise<Response> {
-  const call = () => fetch(path, { headers: { authorization: `Bearer ${keycloak.token}` } });
+export async function apiFetch(
+  path: string,
+  init: { method: string; body: string } | undefined = undefined,
+): Promise<Response> {
+  const call = () =>
+    fetch(path, {
+      ...init,
+      headers: { authorization: `Bearer ${keycloak.token}`, ...(init ? { 'content-type': 'application/json' } : {}) },
+    });
   try {
     await keycloak.updateToken(30);
     let r = await call();

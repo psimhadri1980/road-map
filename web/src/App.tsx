@@ -3,7 +3,9 @@ import '@gantt/react/src/gantt.css';
 import './layout.css';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch, signIn, signOut } from './auth.ts';
+import { Baselines, type Baseline } from './Baselines.tsx';
 import { History } from './History.tsx';
+import { Restore } from './Restore.tsx';
 import { Header, type Entry, type Version } from './Header.tsx';
 import { useTheme } from './theme.ts';
 
@@ -28,6 +30,7 @@ type Loaded =
       list: Entry[];
       slug: string;
       versions: Version[];
+      baselines: Baseline[];
       /** An earlier version on screen, read-only (010 FR-005); absent means the current plan. */
       viewing?: { version: number; doc: React.ComponentProps<typeof Gantt>['data'] };
       data: React.ComponentProps<typeof Gantt>['data'];
@@ -58,8 +61,18 @@ export function App() {
       fetchJson(`/api/roadmaps/${encodeURIComponent(slug)}`),
       // The header's version is the newest one; a failed or odd answer only leaves the header without it.
       fetchJson(`/api/roadmaps/${encodeURIComponent(slug)}/versions`).catch(() => []),
+      fetchJson(`/api/roadmaps/${encodeURIComponent(slug)}/baselines`).catch(() => []),
     ])
-      .then(([data, v]) => setLoaded({ state: 'ready', list, slug, versions: Array.isArray(v) ? v : [], data }))
+      .then(([data, v, b]) =>
+        setLoaded({
+          state: 'ready',
+          list,
+          slug,
+          versions: Array.isArray(v) ? v : [],
+          baselines: Array.isArray(b) ? b : [],
+          data,
+        }),
+      )
       .catch(failed);
   };
   useEffect(() => {
@@ -106,6 +119,9 @@ export function App() {
       .catch(failed);
   };
   const entry = loaded.list.find((r) => r.slug === loaded.slug) ?? { slug: loaded.slug, name: loaded.slug };
+  // Only decides what is drawn; the service refuses a non-reviewer's restore or baseline regardless (010 FR-008).
+  const reviewer = entry.role === 'reviewer';
+  const refresh = () => void open(loaded.list, loaded.slug);
   return (
     <div className="page">
       <Header
@@ -131,6 +147,7 @@ export function App() {
           <button type="button" onClick={() => setLoaded({ ...loaded, viewing: undefined })}>
             Back to current
           </button>
+          {reviewer && <Restore slug={loaded.slug} version={loaded.viewing.version} onDone={refresh} />}
         </p>
       )}
       <div className="work">
@@ -145,7 +162,17 @@ export function App() {
             height="100%"
           />
         </div>
-        <History versions={loaded.versions} shown={loaded.viewing?.version} onOpen={openVersion} />
+        <div className="side">
+          <History versions={loaded.versions} shown={loaded.viewing?.version} onOpen={openVersion} />
+          <Baselines
+            slug={loaded.slug}
+            baselines={loaded.baselines}
+            version={loaded.viewing?.version ?? loaded.versions[0]?.version}
+            reviewer={reviewer}
+            onOpen={openVersion}
+            onDone={refresh}
+          />
+        </div>
       </div>
     </div>
   );
