@@ -22,8 +22,8 @@ run/run.sh ls | status | doctor | help [component]
 ## Command forms that apply to road-map (FR-009, SC-008)
 
 Every D4 form below is accepted with D4's meaning; `format` is the one addition (FR-010).
-`run/command-forms.test.ts` runs each of them. `<c>` is a component (`api`, `nginx`, `postgres`,
-`redis`, `keycloak`, `web`), a category, a list, or `stack`.
+`run/command-forms.test.ts` runs each of them. `<c>` is a component (`api`, `gateway`, `database`,
+`cache-provider`, `auth-provider`, `web`), a category, a list, or `stack`.
 
 | Form                                          | Meaning                                                                           |
 | --------------------------------------------- | --------------------------------------------------------------------------------- |

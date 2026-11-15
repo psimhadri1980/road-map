@@ -1,6 +1,6 @@
 -- T015 (FR-003, FR-016): the roadmap table. Integrity lives here, in constraints, not in Java
 -- (data-model.md); the service's account gets SELECT through the default privileges set in
--- infra/postgres/init.sh, so nothing is granted by hand and nothing can write.
+-- infra/database/init.sh, so nothing is granted by hand and nothing can write.
 CREATE TABLE roadmap (
     id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
     slug        text        NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9][a-z0-9-]{0,62}$'),

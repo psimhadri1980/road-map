@@ -1,7 +1,7 @@
 // T014: the running nginx container is healthy, serves TLS 1.3 only with the FR-019 headers and rate
 // limit, redirects the plain port, hides actuator and reaches api and keycloak over verified TLS
 // (FR-001, FR-013, FR-015, FR-019). Needs nginx, api and keycloak deployed (run/run.sh podman:stack:deploy
-// once it exists, or each component). Run: node --test infra/nginx/nginx.test.ts
+// once it exists, or each component). Run: node --test infra/gateway/gateway.test.ts
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -72,8 +72,8 @@ const renew = (refresh: string) =>
 const bearer = async () => ({ authorization: `Bearer ${await token()}` });
 
 test('healthy, as nginx (101) on a read-only filesystem, loopback only', () => {
-  assert.equal(spawnSync('podman', ['exec', 'rm-nginx', 'id', '-u'], { encoding: 'utf8' }).stdout.trim(), '101');
-  assert.notEqual(spawnSync('podman', ['exec', 'rm-nginx', 'touch', '/etc/nginx/probe']).status, 0);
+  assert.equal(spawnSync('podman', ['exec', 'rm-gateway', 'id', '-u'], { encoding: 'utf8' }).stdout.trim(), '101');
+  assert.notEqual(spawnSync('podman', ['exec', 'rm-gateway', 'touch', '/etc/nginx/probe']).status, 0);
   const ss = spawnSync('ss', ['-ltn'], { encoding: 'utf8' })
     .stdout.split('\n')
     .filter((l) => /:(8443|18080)\s/.test(l));

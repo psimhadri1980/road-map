@@ -1,11 +1,11 @@
 # Redis (T010): the roadmap cache, TLS only, one ACL user (FR-001, FR-013, FR-014, FR-016, FR-018).
 apiVersion: road-map/v1
 kind: Component
-name: redis
+name: cache-provider
 category: infra
 description: Redis over TLS; the cache for roadmap documents
 ports:
-  redis: 16379
+  tls: 16379
 health:
   # PONG as the service's own account, over TLS with the certificate verified. The password goes by
   # environment (REDISCLI_AUTH), not on a command line; `$VAR` is read by the container's shell.
@@ -28,8 +28,8 @@ runtimes:
     readOnly: true
     tmpfs: [/tmp]
     mounts:
-      - { src: run/certs/redis.crt, dst: /tls/server.crt, ro: true }
-      - { src: run/certs/redis.key, dst: /tls/server.key, ro: true }
+      - { src: run/certs/cache-provider.crt, dst: /tls/server.crt, ro: true }
+      - { src: run/certs/cache-provider.key, dst: /tls/server.key, ro: true }
       - { src: run/certs/ca.crt, dst: /tls/ca.crt, ro: true }
     memory: 256m
     entrypoint: sh

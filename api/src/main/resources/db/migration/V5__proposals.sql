@@ -1,6 +1,6 @@
 -- 004-T002 (FR-001, FR-010, FR-011, FR-013; data-model.md): Proposals and their changes. Integrity
 -- lives here in constraints, not in Java. The service's account gets SELECT through the default
--- privileges (infra/postgres/init.sh) and, below, the writes Proposals need and nothing more: no
+-- privileges (infra/database/init.sh) and, below, the writes Proposals need and nothing more: no
 -- DELETE, and no new right on roadmap, so the approved roadmap stays unwritable by the service
 -- (FR-005, research R5).
 CREATE TABLE proposal (

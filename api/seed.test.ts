@@ -19,7 +19,7 @@ function query(sql: string): string {
   const conn = 'host=127.0.0.1 port=15432 dbname=roadmap user=roadmap_app sslmode=verify-full sslrootcert=/tls/ca.crt';
   const r = spawnSync(
     'podman',
-    ['exec', '-e', `PGPASSWORD=${secrets['ROADMAP_APP_PASSWORD']}`, 'rm-postgres', 'psql', conn, '-Atc', sql],
+    ['exec', '-e', `PGPASSWORD=${secrets['ROADMAP_APP_PASSWORD']}`, 'rm-database', 'psql', conn, '-Atc', sql],
     { encoding: 'utf8' },
   );
   assert.equal(r.status, 0, r.stderr);

@@ -1,6 +1,6 @@
 // T010: the running Redis container is healthy, TLS-only, and its one account is confined to
 // `roadmap::*` keys and a few commands (FR-013, FR-014, FR-016, FR-018). Needs it deployed:
-// run/run.sh podman:redis:deploy. Run: node --test infra/redis/redis.test.ts
+// run/run.sh podman:cache-provider:deploy. Run: node --test infra/cache-provider/cache-provider.test.ts
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -23,7 +23,7 @@ function cli(
   const base = ['-h', '127.0.0.1', '-p', '16379', ...(tls ? ['--tls', '--cacert', cacert] : []), '--user', user];
   const r = spawnSync(
     'podman',
-    ['exec', '-e', `REDISCLI_AUTH=${password}`, 'rm-redis', 'redis-cli', ...base, ...args],
+    ['exec', '-e', `REDISCLI_AUTH=${password}`, 'rm-cache-provider', 'redis-cli', ...base, ...args],
     { encoding: 'utf8', timeout: 10_000 },
   );
   return {
@@ -33,9 +33,12 @@ function cli(
 }
 
 test('the container is healthy and runs as redis on a read-only filesystem', () => {
-  assert.equal(spawnSync('podman', ['healthcheck', 'run', 'rm-redis']).status, 0);
-  assert.equal(spawnSync('podman', ['exec', 'rm-redis', 'id', '-u'], { encoding: 'utf8' }).stdout.trim(), '999');
-  assert.notEqual(spawnSync('podman', ['exec', 'rm-redis', 'touch', '/etc/probe']).status, 0);
+  assert.equal(spawnSync('podman', ['healthcheck', 'run', 'rm-cache-provider']).status, 0);
+  assert.equal(
+    spawnSync('podman', ['exec', 'rm-cache-provider', 'id', '-u'], { encoding: 'utf8' }).stdout.trim(),
+    '999',
+  );
+  assert.notEqual(spawnSync('podman', ['exec', 'rm-cache-provider', 'touch', '/etc/probe']).status, 0);
 });
 
 test('TLS is used and verified; plain text and an untrusted certificate are refused', () => {

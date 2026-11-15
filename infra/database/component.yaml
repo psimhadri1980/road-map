@@ -1,13 +1,13 @@
 # PostgreSQL (T009): the roadmap database and Keycloak's, TLS only (FR-013, FR-014, FR-016, FR-018).
 apiVersion: road-map/v1
 kind: Component
-name: postgres
+name: database
 category: infra
 description: PostgreSQL over TLS; databases roadmap and keycloak
 ports:
-  postgres: 15432
+  tls: 15432
 health:
-  # pg_isready checks that the server accepts connections; TLS and roles are tested in postgres.test.ts.
+  # pg_isready checks that the server accepts connections; TLS and roles are tested in database.test.ts.
   cmd: pg_isready -h /var/run/postgresql -p 15432
   timeout: 60
 provides:
@@ -34,13 +34,13 @@ runtimes:
     readOnly: true
     tmpfs: [/tmp, /var/run/postgresql]
     mounts:
-      - { src: infra/postgres/pg_hba.conf, dst: /etc/postgresql/pg_hba.conf, ro: true }
-      - { src: infra/postgres/init.sh, dst: /docker-entrypoint-initdb.d/10-init.sh, ro: true }
-      - { src: run/certs/postgres.crt, dst: /tls/server.crt, ro: true }
-      - { src: run/certs/postgres.key, dst: /tls/server.key, ro: true }
+      - { src: infra/database/pg_hba.conf, dst: /etc/postgresql/pg_hba.conf, ro: true }
+      - { src: infra/database/init.sh, dst: /docker-entrypoint-initdb.d/10-init.sh, ro: true }
+      - { src: run/certs/database.crt, dst: /tls/server.crt, ro: true }
+      - { src: run/certs/database.key, dst: /tls/server.key, ro: true }
       - { src: run/certs/ca.crt, dst: /tls/ca.crt, ro: true }
     volumes:
-      - { name: rm-postgres-data, dst: /var/lib/postgresql }
+      - { name: rm-database-data, dst: /var/lib/postgresql }
     memory: 512m
     command:
       - postgres

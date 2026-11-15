@@ -19,7 +19,7 @@ Decisions and the one departure from the spec text (audience is checked by the s
 **Language/Version**: Java 25 / Spring Boot 4.1.2 (api); TypeScript 5.8 / React 19 (web); nginx 1.30.6; Keycloak 26.8.2
 **Primary Dependencies**: new: `spring-boot-starter-security-oauth2-resource-server` (version managed by Boot), `keycloak-js` 26.2.5. Everything else exists.
 **Storage**: none added (Keycloak's own PostgreSQL database holds realm and users)
-**Testing**: JUnit failsafe integration tests against the running Keycloak and service; `infra/nginx/*.test.ts` against the public address; smoke through a real browser; all via `run/run.sh`
+**Testing**: JUnit failsafe integration tests against the running Keycloak and service; `infra/gateway/*.test.ts` against the public address; smoke through a real browser; all via `run/run.sh`
 **Target Platform**: rootless Podman on Linux, as spec 001
 **Project Type**: web application (nginx + service + web app), unchanged
 **Performance Goals**: SC-007: sign-in adds at most 2 s to first display; one Keycloak call per API request is accepted (R1)
@@ -47,15 +47,15 @@ Documentation: `plan.md`, `research.md`, `data-model.md`, `contracts/openapi-del
 Source changes (existing files edited, new ones marked):
 
 ```text
-infra/keycloak/road-map-realm.json      realm: clients, audience mapper, sample user, token and lockout settings
-infra/keycloak/component.yaml           hostname + relative path, SAMPLE_USER_PASSWORD, health path
-infra/nginx/nginx.conf                  auth_request on /api/, /auth/ unchanged-forwarding, headers for /auth/
+infra/auth-provider/road-map-realm.json      realm: clients, audience mapper, sample user, token and lockout settings
+infra/auth-provider/component.yaml           hostname + relative path, SAMPLE_USER_PASSWORD, health path
+infra/gateway/nginx.conf                  auth_request on /api/, /auth/ unchanged-forwarding, headers for /auth/
 run/orchestrator/env.ts (SECRET_KEYS)   generate SAMPLE_USER_PASSWORD
 api/pom.xml, application.yaml           resource-server starter, decoder properties
 api/src/main/java/dev/roadmap/          SecurityConfig (new), ApiErrors (401 code)
 api/src/test/java/dev/roadmap/          TokenIT (new) and the existing ITs get a token
 web/src/                                auth.ts (new, keycloak-js wrapper), App.tsx (token + sign-out)
-infra/nginx/*.test.ts, run/orchestrator/test.ts   token refusal tests; smoke signs in
+infra/gateway/*.test.ts, run/orchestrator/test.ts   token refusal tests; smoke signs in
 ```
 
 **Structure Decision**: no new component or container; the work spreads over the five existing ones.

@@ -13,7 +13,7 @@ Keycloak groups are the teams: each team is a top-level group with one subgroup 
 **Language/Version**: Java 25 / Spring Boot 4.1.2 (api); TypeScript 5.8 / React 19 (web); Keycloak 26.8.2; PostgreSQL and Redis as spec 001
 **Primary Dependencies**: none new
 **Storage**: `roadmap.team` column (Flyway V3), a second seeded roadmap (Flyway V4)
-**Testing**: JUnit failsafe ITs against real Keycloak, PostgreSQL and Redis; `infra/keycloak/keycloak.test.ts` for the claim; smoke through a real browser
+**Testing**: JUnit failsafe ITs against real Keycloak, PostgreSQL and Redis; `infra/auth-provider/auth-provider.test.ts` for the claim; smoke through a real browser
 **Target Platform**: rootless Podman on Linux, as before
 **Project Type**: web application, unchanged
 **Performance Goals**: SC-007: at most 1 s more than spec 002's measurement; the ownership lookup is one indexed read
@@ -37,7 +37,7 @@ No unjustified departure. Post-design re-check: unchanged.
 ## Project Structure
 
 ```text
-infra/keycloak/road-map-realm.json            groups, users, group-membership mapper on both clients
+infra/auth-provider/road-map-realm.json            groups, users, group-membership mapper on both clients
 api/src/main/resources/db/migration/V3__roadmap_team.sql   owning team column (new)
 api/src/main/java/db/migration/V4__seed_second_roadmap.java  Beta's roadmap (new)
 api/src/main/java/dev/roadmap/Teams.java      claim -> team/role map (new)

@@ -1,7 +1,7 @@
 # Quickstart: Teams and Roadmap Access
 
 Prerequisites: spec 002 running. Realm import happens only on first start, so an existing development stack needs
-`run/run.sh podman:keycloak:reset` before the new users exist. All development users share the password
+`run/run.sh podman:auth-provider:reset` before the new users exist. All development users share the password
 `SAMPLE_USER_PASSWORD` in `run/secrets/dev.env` (never printed by the tooling).
 
 | User   | Teams and roles           | Sees in the picker |

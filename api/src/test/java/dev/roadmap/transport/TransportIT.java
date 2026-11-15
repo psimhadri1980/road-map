@@ -33,8 +33,8 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class TransportIT {
 
-  private static final int POSTGRES = Integer.parseInt(env("PORT_POSTGRES"));
-  private static final int REDIS = Integer.parseInt(env("PORT_REDIS"));
+  private static final int POSTGRES = Integer.parseInt(env("PORT_DATABASE"));
+  private static final int REDIS = Integer.parseInt(env("PORT_CACHE_PROVIDER"));
   private static final String CA = env("RM_TEST_CA_FILE");
 
   /** A certificate authority that did not issue the stack's certificates. */
