@@ -8,7 +8,7 @@ const apiFetch = vi.fn();
 const signOut = vi.fn();
 vi.mock('./auth.ts', () => ({
   signIn: () => signIn(),
-  apiFetch: (p: string) => apiFetch(p),
+  apiFetch: (...a: unknown[]) => apiFetch(...a),
   signOut: () => signOut(),
 }));
 const { App } = await import('./App.tsx');
@@ -138,4 +138,73 @@ test('a failed load can be retried', async () => {
   apiFetch.mockImplementation(answer());
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByRole('button', { name: /Version 2/ })).toBeTruthy();
+});
+
+const BASELINES = '[{"name":"Kickoff","version":1,"at":"2026-11-14T10:00:00Z","by":"b"}]';
+const asRole = (role: string, extra: Record<string, Response> = {}) =>
+  answer({
+    '/api/roadmaps': new Response(`[{"slug":"sample","name":"S","team":"alpha","role":"${role}"}]`),
+    '/api/roadmaps/sample/baselines': new Response(BASELINES),
+    ...extra,
+  });
+
+// 010 FR-008: a viewer or editor has no restore or baseline control in the page at all.
+test.each([['viewer'], ['editor']])('a %s has no restore or baseline controls', async (role) => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole(role));
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
+  await screen.findByRole('status');
+  expect(screen.queryByRole('button', { name: /Restore/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Create baseline/ })).toBeNull();
+  // any member can list baselines and open the version one points to
+  expect(screen.getByRole('button', { name: /Kickoff/ })).toBeTruthy();
+});
+
+// 010 FR-006: restore asks first, says it makes a new version, then refreshes.
+test('a reviewer restores after a confirmation', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('reviewer'));
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Restore this version' }));
+  expect(screen.getByText(/creates a new version/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/versions/1/restore', {
+      method: 'POST',
+      body: '{}',
+    }),
+  );
+  await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+});
+
+test('a refused restore shows the service text and changes nothing', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    asRole('reviewer', {
+      '/api/roadmaps/sample/versions/1/restore': new Response('{"error":"No can do","code":"x"}', { status: 409 }),
+    }),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Restore this version' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+  expect((await screen.findByRole('alert')).textContent).toContain('No can do');
+  expect(screen.getByRole('status')).toBeTruthy(); // still on the old version
+});
+
+// 010 FR-007: a reviewer names the version on screen.
+test('a reviewer creates a baseline at the open version', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('reviewer'));
+  render(<App />);
+  fireEvent.change(await screen.findByLabelText(/Baseline name/), { target: { value: ' Q4 ' } });
+  fireEvent.click(screen.getByRole('button', { name: /Create baseline at version 2/ }));
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/baselines', {
+      method: 'POST',
+      body: '{"name":"Q4","version":2}',
+    }),
+  );
 });
