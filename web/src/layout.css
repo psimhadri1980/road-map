@@ -14,3 +14,8 @@ body,
   flex: 1;
   min-height: 0;
 }
+/* Slim scrollbars inside the chart (scrollbar-width is not inherited, so it goes on every descendant). */
+.chart,
+.chart * {
+  scrollbar-width: thin;
+}
