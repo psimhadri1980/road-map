@@ -1,0 +1,40 @@
+# Spec 011 delta to the 001 contract (0.7.0 -> 0.8.0 at close-out). Read-only; members only; others get the 404 of spec 003.
+paths:
+  /api/roadmaps/{slug}/diff:
+    get:
+      summary: Differences between two versions of the roadmap
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string } }
+        - { name: from, in: query, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: to, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          {
+            description: The differences,
+            possibly empty,
+            content:
+              { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Difference' } } } },
+          }
+        '404': { description: Not a member, or no such roadmap or version }
+  /api/roadmaps/{slug}/proposals/{id}/diff:
+    get:
+      summary: The Proposal's document against the roadmap's current version
+      responses:
+        '200':
+          {
+            description: The differences,
+            content:
+              { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Difference' } } } },
+          }
+        '404': { description: Not a member, or no such Proposal }
+components:
+  schemas:
+    Difference:
+      type: object
+      required: [entity, id, kind]
+      properties:
+        entity: { type: string, enum: [task, link] }
+        id: { type: string }
+        kind: { type: string, enum: [added, removed, moved, changed] }
+        old: { type: object }
+        new: { type: object }
