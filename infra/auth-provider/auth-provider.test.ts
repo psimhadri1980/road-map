@@ -1,6 +1,6 @@
 // T011: the running Keycloak container is healthy, HTTPS only, serves the road-map realm, and
 // reaches its own database over TLS (FR-001, FR-013, FR-016). Needs it deployed:
-// run/run.sh podman:keycloak:deploy. Run: node --test infra/keycloak/keycloak.test.ts
+// run/run.sh podman:auth-provider:deploy. Run: node --test infra/auth-provider/auth-provider.test.ts
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -33,8 +33,11 @@ const get = (port: number, path: string, trust: Buffer | undefined = ca) =>
 
 test('the container is healthy and runs as keycloak on a read-only filesystem', async () => {
   assert.equal((await get(19000, '/auth/health/ready')).status, 200);
-  assert.equal(spawnSync('podman', ['exec', 'rm-keycloak', 'id', '-u'], { encoding: 'utf8' }).stdout.trim(), '1000');
-  assert.notEqual(spawnSync('podman', ['exec', 'rm-keycloak', 'touch', '/opt/keycloak/probe']).status, 0);
+  assert.equal(
+    spawnSync('podman', ['exec', 'rm-auth-provider', 'id', '-u'], { encoding: 'utf8' }).stdout.trim(),
+    '1000',
+  );
+  assert.notEqual(spawnSync('podman', ['exec', 'rm-auth-provider', 'touch', '/opt/keycloak/probe']).status, 0);
 });
 
 test('the road-map realm is served over HTTPS with the project certificate', async () => {
@@ -70,7 +73,7 @@ test('Keycloak talks to its database over TLS as its own role', () => {
       'exec',
       '-e',
       `PGPASSWORD=${secrets['KEYCLOAK_DB_PASSWORD']}`,
-      'rm-postgres',
+      'rm-database',
       'psql',
       'host=127.0.0.1 port=15432 dbname=keycloak user=keycloak sslmode=verify-full sslrootcert=/tls/ca.crt',
       '-Atc',
@@ -204,7 +207,7 @@ test('five wrong passwords lock the account, even for the right one afterwards (
 });
 
 test('the realm file in git holds the placeholder, never the generated password (FR-014)', () => {
-  const realm = readFileSync(join(root, 'infra/keycloak/road-map-realm.json'), 'utf8');
+  const realm = readFileSync(join(root, 'infra/auth-provider/road-map-realm.json'), 'utf8');
   assert.ok(realm.includes('${SAMPLE_USER_PASSWORD}'));
   assert.ok(!realm.includes(secrets['SAMPLE_USER_PASSWORD']!));
 });

@@ -105,7 +105,7 @@ run/run.sh ls | status | doctor | help [component]
 - Same runtimes (`local`, `podman`), same commands (`build`, `deploy`, `start`, `stop`, `reset`, `status`,
   `logs`, `test`, `exec`, `shell`), same test kinds (`unit`, `integration`, `static`, `e2e`, `smoke`), same
   folder layout (`run/env/`, `run/certs/`, `run/secrets/`, `run/schema/component.schema.json`, git-ignored `run/.run/`).
-- Components: `nginx`, `api`, `web`, `postgres`, `redis`, `keycloak`. CI calls the same commands a developer does.
+- Components: `gateway`, `api`, `web`, `database`, `cache-provider`, `auth-provider`. CI calls the same commands a developer does.
 - The copy records the D4 commit it came from, so later fixes can be carried across.
 - There is no compose file; the orchestrator starts the containers, as it does in D4.
 

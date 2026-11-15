@@ -4,7 +4,7 @@
 // throwaway container on spare ports in front of three throwaway upstreams. Keycloak's database
 // connection is configured for the same check. The service's side is
 // api/src/test/java/dev/roadmap/transport. Manual: needs Podman and openssl.
-// Run: node --test infra/nginx/transport.test.ts
+// Run: node --test infra/gateway/transport.test.ts
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -54,7 +54,7 @@ before(async () => {
   await listen(29003, join(certs, 'api.crt'), join(certs, 'api.key'));
 
   // The real configuration with its ports moved, plus one location per upstream.
-  const conf = readFileSync(join(root, 'infra/nginx/nginx.conf'), 'utf8')
+  const conf = readFileSync(join(root, 'infra/gateway/nginx.conf'), 'utf8')
     .replaceAll('127.0.0.1:18080', '127.0.0.1:28080')
     .replaceAll('127.0.0.1:8443', `127.0.0.1:${PORT}`)
     .replace(
@@ -135,7 +135,7 @@ test('nginx rejects an upstream certificate for the wrong host name', async () =
 
 test('Keycloak verifies the database certificate against the project CA and the host name', () => {
   assert.match(
-    readFileSync(join(root, 'infra/keycloak/component.yaml'), 'utf8'),
+    readFileSync(join(root, 'infra/auth-provider/component.yaml'), 'utf8'),
     /sslmode=verify-full&sslrootcert=\/tls\/ca\.crt/,
   );
 });

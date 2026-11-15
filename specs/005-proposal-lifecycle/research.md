@@ -20,7 +20,7 @@ Migration V6: widen `proposal.state` check to the five states; add `note`, `note
 
 ## R5 Writing the roadmap
 
-Approval is the only write to `roadmap`. Grant `UPDATE (document, version) ON roadmap` to the service account (column-level, so name, slug and team stay unwritable; postgres.test.ts keeps asserting that). In one transaction: lock the Proposal row, check state, lock the roadmap row, apply stored changes with `ChangeApplier` to the fresh document (a `Refused` becomes 409 `conflict`, nothing written), update document and `version = version + 1`, move the Proposal, record the move. Locks are taken in the same order everywhere, so two approvals take turns and the second sees `approved` and gets 409.
+Approval is the only write to `roadmap`. Grant `UPDATE (document, version) ON roadmap` to the service account (column-level, so name, slug and team stay unwritable; database.test.ts keeps asserting that). In one transaction: lock the Proposal row, check state, lock the roadmap row, apply stored changes with `ChangeApplier` to the fresh document (a `Refused` becomes 409 `conflict`, nothing written), update document and `version = version + 1`, move the Proposal, record the move. Locks are taken in the same order everywhere, so two approvals take turns and the second sees `approved` and gets 409.
 
 ## R6 Cache after an approval
 

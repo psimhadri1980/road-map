@@ -104,7 +104,7 @@ on `ubuntu-24.04` (slowest job `static`, 2m46s; limit 15 minutes).
 | Comment standard  | class without Javadoc                | `static`                       | Checkstyle `MissingJavadocType`, `ProbeDoc.java:3:1`          |
 | Layering          | repository referencing a controller  | `unit`                         | ArchUnit `ArchitectureTest.layers` violation                  |
 | Tests             | changed an expected message          | `unit`, `integration`          | Vitest "shows a plain message when the service answers 503"   |
-| Image scanning    | removed the accepted-finding entry   | `static`                       | Trivy CVE-2026-102554 (guava) in `localhost/rm-keycloak`      |
+| Image scanning    | removed the accepted-finding entry   | `static`                       | Trivy CVE-2026-102554 (guava) in `localhost/rm-auth-provider` |
 | Secret scanning   | a random `api_key` in a JSON file    | `static`                       | gitleaks `generic-api-key`, `run/zz-proof.json`, commit named |
 | Dependency review | `log4j-core` 2.14.1 in `api/pom.xml` | `review` (and `static`, Trivy) | "api/pom.xml » log4j-core@2.14.1 (high severity)"             |
 

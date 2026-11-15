@@ -5,7 +5,7 @@ kind: Component
 name: api
 category: service
 description: Spring Boot service that serves roadmaps from PostgreSQL through Redis
-dependsOn: [postgres, redis, keycloak]
+dependsOn: [database, cache-provider, auth-provider]
 ports:
   https: 18443
 health:
@@ -20,7 +20,7 @@ env:
 test:
   maven: true
   integration:
-    needs: [postgres, redis, keycloak]
+    needs: [database, cache-provider, auth-provider]
 runtimes:
   default: podman
   podman:

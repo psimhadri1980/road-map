@@ -1,6 +1,6 @@
 # Quickstart: spec 005
 
-Prerequisite: the stack is deployed (`run/run.sh podman:api:deploy`, `podman:postgres:deploy`, `podman:nginx:deploy`). Users: alice (alpha editor), carol (beta reviewer, so use roadmap `beta-plan`), dave (beta editor). Passwords are in `run/secrets/dev.env`.
+Prerequisite: the stack is deployed (`run/run.sh podman:api:deploy`, `podman:database:deploy`, `podman:gateway:deploy`). Users: alice (alpha editor), carol (beta reviewer, so use roadmap `beta-plan`), dave (beta editor). Passwords are in `run/secrets/dev.env`.
 
 ## 1. Approve (US1, SC-001, SC-004)
 

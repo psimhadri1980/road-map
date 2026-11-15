@@ -12,5 +12,5 @@ updates:
     schedule: { interval: weekly }
   # The images are pinned in run/env/images.env, which Dependabot cannot read; it watches the Containerfiles' base FROMs.
   - package-ecosystem: docker
-    directories: [/api, /infra/nginx, /infra/keycloak]
+    directories: [/api, /infra/gateway, /infra/auth-provider]
     schedule: { interval: weekly }

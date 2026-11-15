@@ -2,10 +2,10 @@
 # The road-map realm (spec 002): the web client, a development client for tests, one sample user.
 apiVersion: road-map/v1
 kind: Component
-name: keycloak
+name: auth-provider
 category: infra
 description: Keycloak over HTTPS; the road-map realm with its web client and sample user
-dependsOn: [postgres]
+dependsOn: [database]
 ports:
   https: 18444
   management: 19000
@@ -37,9 +37,9 @@ runtimes:
     # data/ holds the realm import and the process's scratch files; none of it outlives the container.
     tmpfs: [/tmp, /opt/keycloak/data]
     mounts:
-      - { src: infra/keycloak/road-map-realm.json, dst: /opt/keycloak/data/import/road-map.json, ro: true }
-      - { src: run/certs/keycloak.crt, dst: /tls/server.crt, ro: true }
-      - { src: run/certs/keycloak.key, dst: /tls/server.key, ro: true }
+      - { src: infra/auth-provider/road-map-realm.json, dst: /opt/keycloak/data/import/road-map.json, ro: true }
+      - { src: run/certs/auth-provider.crt, dst: /tls/server.crt, ro: true }
+      - { src: run/certs/auth-provider.key, dst: /tls/server.key, ro: true }
       - { src: run/certs/ca.crt, dst: /tls/ca.crt, ro: true }
     memory: 1g
     entrypoint: sh

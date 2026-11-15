@@ -25,7 +25,7 @@
 
 ## R5. The service account's grant
 
-**Decision**: `V5` runs as the migration role, which owns the tables, and issues `GRANT INSERT, UPDATE ON proposal` and `GRANT INSERT ON proposal_change TO roadmap_app`; SELECT already arrives by default privileges. No grant on `roadmap` changes. `infra/postgres/postgres.test.ts` gains a case: the service account can write the two tables and still cannot write `roadmap`.
+**Decision**: `V5` runs as the migration role, which owns the tables, and issues `GRANT INSERT, UPDATE ON proposal` and `GRANT INSERT ON proposal_change TO roadmap_app`; SELECT already arrives by default privileges. No grant on `roadmap` changes. `infra/database/database.test.ts` gains a case: the service account can write the two tables and still cannot write `roadmap`.
 **Rationale**: least privilege (spec 001 FR-016): the approved roadmap stays unwritable by the service, which makes FR-005 true by construction. No DELETE: Proposals are not deleted in this spec.
 
 ## R6. Who may do what, and 404 versus 403

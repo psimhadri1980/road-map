@@ -1,6 +1,6 @@
 // T009: the running PostgreSQL container is healthy, TLS-only, and every account has only its stated
-// privileges (FR-013, FR-014, FR-016, FR-018). Needs it deployed: run/run.sh podman:postgres:deploy.
-// Run: node --test infra/postgres/postgres.test.ts
+// privileges (FR-013, FR-014, FR-016, FR-018). Needs it deployed: run/run.sh podman:database:deploy.
+// Run: node --test infra/database/database.test.ts
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -26,7 +26,7 @@ function psql(user: string, db: string, sql: string, sslmode = 'verify-full', ro
   const conn = `host=127.0.0.1 port=15432 dbname=${db} user=${user} sslmode=${sslmode} sslrootcert=${rootcert}`;
   const r = spawnSync(
     'podman',
-    ['exec', '-e', `PGPASSWORD=${PASSWORD[user]}`, 'rm-postgres', 'psql', conn, '-Atc', sql],
+    ['exec', '-e', `PGPASSWORD=${PASSWORD[user]}`, 'rm-database', 'psql', conn, '-Atc', sql],
     { encoding: 'utf8' },
   );
   return { ok: r.status === 0, out: r.stdout.trim(), err: r.stderr.trim() };
@@ -37,9 +37,9 @@ const must = (r: ReturnType<typeof psql>) => {
 };
 
 test('the container is healthy and runs as postgres on a read-only filesystem', () => {
-  assert.equal(spawnSync('podman', ['healthcheck', 'run', 'rm-postgres']).status, 0);
-  assert.equal(spawnSync('podman', ['exec', 'rm-postgres', 'id', '-u'], { encoding: 'utf8' }).stdout.trim(), '70');
-  assert.notEqual(spawnSync('podman', ['exec', 'rm-postgres', 'touch', '/etc/probe']).status, 0);
+  assert.equal(spawnSync('podman', ['healthcheck', 'run', 'rm-database']).status, 0);
+  assert.equal(spawnSync('podman', ['exec', 'rm-database', 'id', '-u'], { encoding: 'utf8' }).stdout.trim(), '70');
+  assert.notEqual(spawnSync('podman', ['exec', 'rm-database', 'touch', '/etc/probe']).status, 0);
 });
 
 test('TLS is used and verified; plain text is refused for every account', () => {

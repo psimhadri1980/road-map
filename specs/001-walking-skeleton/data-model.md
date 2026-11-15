@@ -35,11 +35,11 @@ service's read path.
 
 ## Database roles
 
-| Role               | Database   | Privileges                                        |
-| ------------------ | ---------- | ------------------------------------------------- |
-| `roadmap_migrator` | `roadmap`  | Owns the schema; used only by Flyway at startup   |
-| `roadmap_app`      | `roadmap`  | `SELECT` on `roadmap` (no write in this feature)  |
-| `keycloak`         | `keycloak` | Owner of its own database; no access to `roadmap` |
+| Role               | Database        | Privileges                                        |
+| ------------------ | --------------- | ------------------------------------------------- |
+| `roadmap_migrator` | `roadmap`       | Owns the schema; used only by Flyway at startup   |
+| `roadmap_app`      | `roadmap`       | `SELECT` on `roadmap` (no write in this feature)  |
+| `auth-provider`    | `auth-provider` | Owner of its own database; no access to `roadmap` |
 
 All three authenticate with SCRAM over TLS only. The superuser password exists only in
 `run/secrets/dev.env` (generated, git-ignored) for container initialisation.

@@ -3,7 +3,7 @@
 No table is added and no Flyway migration is needed: the service stores nothing about users in this feature. The
 user is the token's `sub`, read per request. All state lives in Keycloak's own database (spec 001).
 
-## Realm objects (Keycloak, `infra/keycloak/road-map-realm.json`)
+## Realm objects (Keycloak, `infra/auth-provider/road-map-realm.json`)
 
 | Object                 | Fields that matter                                                                                                                                                        | Rule                                    |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |

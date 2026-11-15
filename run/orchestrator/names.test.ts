@@ -13,6 +13,6 @@ for (const args of [['ls'], ['help']]) {
   test(`run.sh ${args.join(' ')} names no D4 component`, () => {
     const r = run(...args);
     assert.equal(r.status, 0, r.stderr);
-    assert.doesNotMatch(r.stdout, /d4|neo4j|tenant|keycloak:exec|ops|observability|web-plan/i);
+    assert.doesNotMatch(r.stdout, /d4|neo4j|tenant|auth-provider:exec|ops|observability|web-plan/i);
   });
 }

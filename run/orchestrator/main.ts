@@ -41,9 +41,9 @@ const USAGE = `${c.bold('usage:')} run/run.sh [<runtime>:]<component>:<command> 
        run/run.sh ls | status | doctor | help [component]
 
 ${c.bold('runtime')}    local (local Node 24) | podman (containers on the host network). Optional: each
-           component has a default; infra and nginx always run on podman.
-${c.bold('component')}  a name (api, nginx, postgres), a category (${CATEGORIES.join(', ')}), a group,
-           stack (everything but tools and optional parts) or a list (api,nginx)
+           component has a default; infra and the gateway always run on podman.
+${c.bold('component')}  a name (api, gateway, database), a category (${CATEGORIES.join(', ')}), a group,
+           stack (everything but tools and optional parts) or a list (api,gateway)
 ${c.bold('command')}    build    compile (turbo, cached) and, for podman, package the image if inputs changed
            deploy   build, stop it on the other runtime, start it here, wait until healthy
            start    start without building (builds only what was never built)

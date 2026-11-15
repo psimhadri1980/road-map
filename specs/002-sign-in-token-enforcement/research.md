@@ -77,7 +77,7 @@ no gantt change or submodule bump is made in this spec.
 
 ## R5. Realm content (FR-014, FR-017)
 
-Defined in `infra/keycloak/road-map-realm.json`, imported on first start (`--import-realm`):
+Defined in `infra/auth-provider/road-map-realm.json`, imported on first start (`--import-realm`):
 
 | Item                   | Setting                                                                                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -88,7 +88,7 @@ Defined in `infra/keycloak/road-map-realm.json`, imported on first start (`--imp
 | Sample user `sample`   | enabled; password from the environment (R6)                                                                                                                         |
 | Client `road-map-test` | direct-access grant only, same audience mapper, **development realm only**: lets tests obtain real tokens without driving a browser. A comment in the file says so. |
 
-`shortcut: realm changes apply only on first import, upgrade with a Keycloak realm-sync step when the realm outgrows one file. A developer with an existing keycloak database runs run/run.sh podman:keycloak:reset once.`
+`shortcut: realm changes apply only on first import, upgrade with a Keycloak realm-sync step when the realm outgrows one file. A developer with an existing keycloak database runs run/run.sh podman:auth-provider:reset once.`
 
 ## R6. Sample user password (FR-014)
 
@@ -101,7 +101,7 @@ file in git holds the placeholder only. The component passes the variable by nam
 Real Keycloak, no mocks. A token is obtained from `road-map-test` with the sample user. Cases: missing, expired
 (`road-map-test` issues access tokens that live 5 s; the test waits them out), tampered signature (flip a
 character), wrong audience (a token from a second test client without the mapper), wrong issuer (a self-signed
-token), signed-out (logout, then reuse). Run at nginx (`infra/nginx/*.test.ts`, through the public address, plus a check
+token), signed-out (logout, then reuse). Run at nginx (`infra/gateway/*.test.ts`, through the public address, plus a check
 that the service's log has no entry) and at the service (Maven integration tests against its own port).
 Smoke now signs in through a real browser with the sample user.
 

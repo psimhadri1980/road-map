@@ -1,5 +1,5 @@
 // T025: the entry point's failure and repeat behaviour (FR-002, FR-009). Manual: needs Podman and
-// the stack deployed. It stops and redeploys redis, and creates a throwaway component folder.
+// the stack deployed. It stops and redeploys the cache-provider, and creates a throwaway component folder.
 // Run: node --test run/edge-cases.test.ts
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -20,16 +20,16 @@ const running = () =>
   podman('ps', '--filter', 'name=^rm-', '--format', '{{.Names}} {{.ID}} {{.StartedAt}} {{.Image}}').split('\n').sort();
 
 test('a port already in use stops deploy and names the port and the component', async () => {
-  assert.equal(run(['redis:stop']).status, 0);
+  assert.equal(run(['cache-provider:stop']).status, 0);
   const squatter = createServer();
   await new Promise<void>((ok) => squatter.listen(16379, '127.0.0.1', ok));
   try {
-    const r = run(['podman:redis:deploy']);
+    const r = run(['podman:cache-provider:deploy']);
     assert.notEqual(r.status, 0);
-    assert.match(r.out, /redis: port 16379 is already in use/);
+    assert.match(r.out, /cache-provider: port 16379 is already in use/);
   } finally {
     await new Promise((ok) => squatter.close(ok));
-    assert.equal(run(['podman:redis:deploy']).status, 0, 'redis comes back once the port is free');
+    assert.equal(run(['podman:cache-provider:deploy']).status, 0, 'cache-provider comes back once the port is free');
   }
 });
 
@@ -66,7 +66,7 @@ test('a component that is not healthy in its time limit fails deploy, names it a
 
 test('reset without --yes does not reset: it asks, and with no terminal to ask it refuses', () => {
   const before = running();
-  const r = run(['redis:reset']);
+  const r = run(['cache-provider:reset']);
   assert.equal(r.status, 2);
   assert.match(r.out, /pass --yes to confirm/);
   assert.deepEqual(running(), before, 'nothing was removed');

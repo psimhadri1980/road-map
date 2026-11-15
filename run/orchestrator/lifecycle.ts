@@ -114,7 +114,7 @@ export async function build(targets: Target[]): Promise<Map<string, string>> {
   return images;
 }
 
-/** Makes sure nginx and every dependency of the targets run (started, not rebuilt). */
+/** Makes sure the gateway and every dependency of the targets run (started, not rebuilt). */
 function withDependencies(targets: Target[]): { targets: Target[]; added: string[] } {
   const named = new Set(targets.map((x) => x.comp.name));
   const cons = containers();
@@ -126,9 +126,9 @@ function withDependencies(targets: Target[]): { targets: Target[]; added: string
   for (const { comp, rt } of targets) {
     if (!isProcess(comp)) continue;
     for (const d of dependencies(comp)) need.set(d.name, d);
-    // The front door runs with every service; until nginx exists (T014) there is none to start.
-    if (comp.name !== 'nginx' && comp.category !== 'infra' && loadComponents().has('nginx'))
-      need.set('nginx', component('nginx'));
+    // The front door runs with every service; until the gateway exists (T014) there is none to start.
+    if (comp.name !== 'gateway' && comp.category !== 'infra' && loadComponents().has('gateway'))
+      need.set('gateway', component('gateway'));
     const via = comp.runtimes.podman?.via;
     if (via) (rt === 'podman' ? servers : need).set(via, component(via));
   }
@@ -150,7 +150,7 @@ function withDependencies(targets: Target[]): { targets: Target[]; added: string
 const hookState = (name: string) => join(STATE_DIR, 'hooks', `${name}.json`);
 
 /**
- * postStart hooks (for example the migration after postgres): run when the
+ * postStart hooks (for example the migration after the database): run when the
  * component was (re)started or the hook's image changed since they last ran.
  */
 async function runHooks(comp: Component, restarted: boolean): Promise<void> {

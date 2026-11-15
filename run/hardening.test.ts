@@ -1,6 +1,6 @@
 // T028: every road-map container runs as a non-root user, on a read-only root filesystem, with every
 // Linux capability dropped and privilege escalation off (FR-018). The front door's headers and
-// rate limit are in infra/nginx/nginx.test.ts. Manual: needs Podman and the stack up.
+// rate limit are in infra/gateway/gateway.test.ts. Manual: needs Podman and the stack up.
 // Run: node --test run/hardening.test.ts
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';

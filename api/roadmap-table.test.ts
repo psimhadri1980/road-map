@@ -18,12 +18,12 @@ const PASSWORD: Record<string, string> = {
   roadmap_app: secrets['ROADMAP_APP_PASSWORD']!,
 };
 
-/** psql in the postgres container as `user` over verified TLS; the password goes by environment. */
+/** psql in the database container as `user` over verified TLS; the password goes by environment. */
 function psql(user: string, sql: string) {
   const conn = `host=127.0.0.1 port=15432 dbname=roadmap user=${user} sslmode=verify-full sslrootcert=/tls/ca.crt`;
   const r = spawnSync(
     'podman',
-    ['exec', '-e', `PGPASSWORD=${PASSWORD[user]}`, 'rm-postgres', 'psql', conn, '-v', 'ON_ERROR_STOP=1', '-Atc', sql],
+    ['exec', '-e', `PGPASSWORD=${PASSWORD[user]}`, 'rm-database', 'psql', conn, '-v', 'ON_ERROR_STOP=1', '-Atc', sql],
     { encoding: 'utf8' },
   );
   return { ok: r.status === 0, out: r.stdout.trim(), err: r.stderr.trim() };

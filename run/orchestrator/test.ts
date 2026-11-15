@@ -109,7 +109,7 @@ function selectPackages(scope: Set<string> | undefined, all: boolean, base: stri
   };
 }
 
-const SERVICES = ['postgres', 'redis', 'keycloak'];
+const SERVICES = ['database', 'cache-provider', 'auth-provider'];
 
 /** What integration suites need to reach the dev services (addresses, accounts and the CA); passwords by name only. */
 function serviceEnv(): Record<string, string> {
@@ -117,9 +117,9 @@ function serviceEnv(): Record<string, string> {
   const pick = (...keys: string[]) => Object.fromEntries(keys.map((k) => [k, env[k] ?? '']));
   return {
     ...pick(
-      'PORT_POSTGRES',
-      'PORT_REDIS',
-      'PORT_KEYCLOAK_HTTPS',
+      'PORT_DATABASE',
+      'PORT_CACHE_PROVIDER',
+      'PORT_AUTH_PROVIDER_HTTPS',
       'SAMPLE_USER_PASSWORD',
       'ROADMAP_MIGRATOR_PASSWORD',
       'ROADMAP_APP_PASSWORD',
@@ -273,7 +273,7 @@ async function mavenSuite(comp: Component, suite: keyof typeof MAVEN_GOALS, t: n
  * sample user (002-T002, FR-001), then checks that no token reached storage or a cookie (FR-004).
  */
 async function smoke(): Promise<void> {
-  const url = `https://127.0.0.1:${component('nginx').ports['https']}`;
+  const url = `https://127.0.0.1:${component('gateway').ports['https']}`;
   log.phase(`Smoke test through ${url}`);
 
   const sample = JSON.parse(readFileSync(join(ROOT, 'vendor/gantt/packages/mock/src/samples/small.json'), 'utf8')) as {
@@ -305,7 +305,7 @@ async function smokeAs(
     String(
       await browse(
         `${url}/`,
-        join(CERT_DIR, 'nginx.crt'),
+        join(CERT_DIR, 'gateway.crt'),
         `(async () => {
     const user = document.querySelector('#username');
     // Act only once the whole form is there: a half-loaded page made this throw on a slow runner, and a

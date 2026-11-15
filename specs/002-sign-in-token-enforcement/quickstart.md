@@ -1,7 +1,7 @@
 # Quickstart: Sign-in and Token Enforcement
 
 Prerequisite: spec 001's quickstart works (`run/run.sh podman:stack:deploy`). An existing development
-database needs `run/run.sh podman:keycloak:reset` once so the new realm is imported (R5).
+database needs `run/run.sh podman:auth-provider:reset` once so the new realm is imported (R5).
 
 ## 1. Sign in (US1, SC-001)
 
@@ -30,7 +30,7 @@ curl --cacert run/certs/ca.crt -i -H 'Authorization: Bearer x.y.z' https://127.0
 ## 3. Renewal and sign-out (US3, SC-004, SC-005)
 
 Stay on the page past 5 minutes: roadmap requests keep succeeding. Use "Sign out"; reopening the page asks
-for sign-in again. `run/run.sh stack:test smoke` signs in with a real browser; renewal and sign-out are exercised against the real Keycloak in `infra/nginx/nginx.test.ts` (the button click itself is not driven by a browser test).
+for sign-in again. `run/run.sh stack:test smoke` signs in with a real browser; renewal and sign-out are exercised against the real Keycloak in `infra/gateway/gateway.test.ts` (the button click itself is not driven by a browser test).
 
 ## 4. No secrets (US4, SC-006)
 

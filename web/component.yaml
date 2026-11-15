@@ -1,4 +1,4 @@
-# The web app (T019): a thin React host for the gantt component, served by nginx (FR-004, FR-005).
+# The web app (T019): a thin React host for the gantt component, served by the gateway (nginx) (FR-004, FR-005).
 apiVersion: road-map/v1
 kind: Component
 name: web
@@ -13,6 +13,6 @@ runtimes:
   # Vite with hot reload, for working on the page alone; the API still comes from the stack.
   local:
     command: pnpm --filter @road-map/web exec vite --host 127.0.0.1 --port 15173 --strictPort
-  # Not a container of its own: nginx serves the built files (T020).
+  # Not a container of its own: the gateway serves the built files (T020).
   podman:
-    via: nginx
+    via: gateway

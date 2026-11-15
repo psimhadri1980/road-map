@@ -31,8 +31,8 @@ final class Services {
   /** A port nothing listens on: a service that is down. */
   static final int DOWN = 1;
 
-  static final int POSTGRES = Integer.parseInt(env("PORT_POSTGRES"));
-  static final int REDIS = Integer.parseInt(env("PORT_REDIS"));
+  static final int POSTGRES = Integer.parseInt(env("PORT_DATABASE"));
+  static final int REDIS = Integer.parseInt(env("PORT_CACHE_PROVIDER"));
   private static final String CA = env("RM_TEST_CA_FILE");
   private static final String CERTS = env("RM_TEST_CERT_DIR");
 
@@ -71,7 +71,7 @@ final class Services {
   /**
    * The running Keycloak's port; the service's key fetch goes straight to it, not through nginx.
    */
-  static final int KEYCLOAK = Integer.parseInt(env("PORT_KEYCLOAK_HTTPS"));
+  static final int KEYCLOAK = Integer.parseInt(env("PORT_AUTH_PROVIDER_HTTPS"));
 
   /** Keycloak's signing keys on this port (a closed one makes Keycloak "down" for the service). */
   static String keys(int keycloak) {

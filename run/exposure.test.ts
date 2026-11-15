@@ -31,13 +31,13 @@ test('every listening socket of every road-map container is on 127.0.0.1 or ::1'
       const owner = [...pids].find(([, set]) => [...line.matchAll(/pid=(\d+)/g)].some((m) => set.has(m[1]!)))?.[0];
       return owner ? [{ owner, local: local! }] : [];
     });
-  // Not vacuous: each container is seen listening, and nginx has both its ports.
+  // Not vacuous: each container is seen listening, and the gateway has both its ports.
   for (const c of containers)
     assert.ok(
       listeners.some((l) => l.owner === c),
       `${c} has no listening socket`,
     );
-  assert.ok(listeners.filter((l) => l.owner === 'rm-nginx').length >= 2);
+  assert.ok(listeners.filter((l) => l.owner === 'rm-gateway').length >= 2);
   const exposed = listeners.filter((l) => !/^(127\.0\.0\.1|\[::1\]|\[::ffff:127\.0\.0\.1\]):/.test(l.local));
   assert.deepEqual(exposed, [], 'these listen beyond the loopback address');
 });

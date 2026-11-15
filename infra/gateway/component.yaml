@@ -2,7 +2,7 @@
 # (FR-001, FR-013, FR-015, FR-019).
 apiVersion: road-map/v1
 kind: Component
-name: nginx
+name: gateway
 category: infra
 description: The front door; serves the web app and proxies /api and /auth over verified TLS
 ports:
@@ -25,8 +25,8 @@ runtimes:
     readOnly: true
     tmpfs: [/tmp]
     mounts:
-      - { src: infra/nginx/nginx.conf, dst: /etc/nginx/nginx.conf, ro: true }
-      - { src: run/certs/nginx.crt, dst: /tls/server.crt, ro: true }
-      - { src: run/certs/nginx.key, dst: /tls/server.key, ro: true }
+      - { src: infra/gateway/nginx.conf, dst: /etc/nginx/nginx.conf, ro: true }
+      - { src: run/certs/gateway.crt, dst: /tls/server.crt, ro: true }
+      - { src: run/certs/gateway.key, dst: /tls/server.key, ro: true }
       - { src: run/certs/ca.crt, dst: /tls/ca.crt, ro: true }
     memory: 128m
