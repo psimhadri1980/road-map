@@ -1,5 +1,6 @@
 import { Gantt, type AccessRules } from '@gantt/react';
 import '@gantt/react/src/gantt.css';
+import './layout.css';
 import { useEffect, useState } from 'react';
 import { apiFetch, signIn, signOut } from './auth.ts';
 
@@ -63,7 +64,7 @@ export function App() {
       </>
     );
   return (
-    <>
+    <div className="page">
       {signOutButton}
       <label>
         Roadmap{' '}
@@ -75,7 +76,9 @@ export function App() {
           ))}
         </select>
       </label>
-      <Gantt data={loaded.data} access={VIEW_ONLY} readOnly height={640} />
-    </>
+      <div className="chart">
+        <Gantt data={loaded.data} access={VIEW_ONLY} readOnly height="100%" />
+      </div>
+    </div>
   );
 }
