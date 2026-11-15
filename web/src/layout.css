@@ -10,9 +10,47 @@ body,
   flex-direction: column;
   height: 100%;
 }
-.page > .chart {
+.page > .work {
   flex: 1;
   min-height: 0;
+  display: flex;
+  gap: 12px;
+}
+.work > .chart {
+  flex: 1;
+  min-width: 0;
+}
+.side {
+  width: 260px;
+  overflow: auto;
+  padding: 0 8px;
+}
+.side ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.side button {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 4px;
+}
+.note {
+  overflow-wrap: anywhere;
+}
+.banner {
+  margin: 0;
+  padding: 6px 12px;
+  background: rgba(241, 194, 27, 0.25);
+}
+@media (max-width: 800px) {
+  .page > .work {
+    flex-direction: column;
+  }
+  .side {
+    width: auto;
+    max-height: 30%;
+  }
 }
 /* Slim, rounded scrollbars inside the chart. Grey with transparency, so one rule suits light and dark. */
 .chart * {
