@@ -1,0 +1,27 @@
+# Spec 012 delta to the 001 contract (0.8.0 -> 0.9.0 at close-out).
+paths:
+  /api/roadmaps:
+    post:
+      summary: Create an empty roadmap owned by one of the caller's teams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, team, timeZone, start]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                team: { type: string }
+                timeZone: { type: string, description: IANA zone name }
+                start: { type: string, format: date }
+      responses:
+        '201':
+          {
+            description: Created,
+            content: { application/json: { schema: { $ref: '#/components/schemas/RoadmapSummary' } } },
+          }
+        '403': { description: Caller is a viewer in that team }
+        '404': { description: Caller is not in that team }
+        '409': { description: A roadmap with that address exists }
+        '422': { description: Name, zone or date invalid }

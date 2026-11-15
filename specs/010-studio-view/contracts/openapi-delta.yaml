@@ -1,0 +1,3 @@
+# Spec 010 changes no endpoint. The page uses, unchanged: GET /api/roadmaps, GET /api/roadmaps/{slug}/versions,
+# GET /api/roadmaps/{slug}/versions/{v}, POST /api/roadmaps/{slug}/versions/{v}/restore,
+# GET and POST /api/roadmaps/{slug}/baselines (contract 0.7.0).
