@@ -3,6 +3,7 @@ import '@gantt/react/src/gantt.css';
 import './layout.css';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch, signIn, signOut } from './auth.ts';
+import { Compare, type Difference } from './Compare.tsx';
 import { Baselines, type Baseline } from './Baselines.tsx';
 import { History } from './History.tsx';
 import { Restore } from './Restore.tsx';
@@ -48,11 +49,13 @@ const fetchJson = (path: string) =>
 export function App() {
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' });
   const [theme, flipTheme] = useTheme();
+  const [compare, setCompare] = useState<{ against: string; diffs: Difference[] } | null>(null);
   // A 404 and a 403 look the same to the user (spec 003: the answers are identical, so is the message).
   const failed = (e: unknown) =>
     setLoaded({ state: e instanceof Error && /^40[34]$/.test(e.message) ? 'denied' : 'error' });
   const retry = useRef<() => void>(() => undefined);
   const open = (list: Entry[], slug: string): Promise<void> => {
+    setCompare(null);
     retry.current = () => {
       setLoaded({ state: 'loading' });
       void open(list, slug);
@@ -118,6 +121,10 @@ export function App() {
       .then((doc) => setLoaded({ ...loaded, viewing: { version: v, doc } }))
       .catch(failed);
   };
+  const compareWith = (v: number, against: string) =>
+    fetchJson(`/api/roadmaps/${encodeURIComponent(loaded.slug)}/diff?from=${v}&to=${loaded.versions[0]?.version}`)
+      .then((diffs: Difference[]) => setCompare({ against, diffs }))
+      .catch(failed);
   const entry = loaded.list.find((r) => r.slug === loaded.slug) ?? { slug: loaded.slug, name: loaded.slug };
   // Only decides what is drawn; the service refuses a non-reviewer's restore or baseline regardless (010 FR-008).
   const reviewer = entry.role === 'reviewer';
@@ -163,13 +170,20 @@ export function App() {
           />
         </div>
         <div className="side">
-          <History versions={loaded.versions} shown={loaded.viewing?.version} onOpen={openVersion} />
+          <History
+            versions={loaded.versions}
+            shown={loaded.viewing?.version}
+            onOpen={openVersion}
+            onCompare={(v) => void compareWith(v, `version ${v}`)}
+          />
+          {compare && <Compare against={compare.against} diffs={compare.diffs} onClose={() => setCompare(null)} />}
           <Baselines
             slug={loaded.slug}
             baselines={loaded.baselines}
             version={loaded.viewing?.version ?? loaded.versions[0]?.version}
             reviewer={reviewer}
             onOpen={openVersion}
+            onCompare={(v, name) => void compareWith(v, `baseline ${name}`)}
             onDone={refresh}
           />
         </div>

@@ -159,7 +159,7 @@ test.each([['viewer'], ['editor']])('a %s has no restore or baseline controls', 
   expect(screen.queryByRole('button', { name: /Restore/ })).toBeNull();
   expect(screen.queryByRole('button', { name: /Create baseline/ })).toBeNull();
   // any member can list baselines and open the version one points to
-  expect(screen.getByRole('button', { name: /Kickoff/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^Kickoff ·/ })).toBeTruthy();
 });
 
 // 010 FR-006: restore asks first, says it makes a new version, then refreshes.
@@ -224,4 +224,21 @@ test.each([['light'], ['dark']])('the page has no accessibility violations in th
     { rules: { 'color-contrast': { enabled: false } } },
   );
   expect(r.violations.map((v) => v.id)).toEqual([]);
+});
+
+// 011 FR-002: comparing an earlier version asks the service for the differences and lists them.
+test('compares a version with the current plan', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    asRole('viewer', {
+      '/api/roadmaps/sample/diff?from=1&to=2': new Response(
+        '[{"entity":"task","id":"t9","kind":"added","new":{"name":"New one"}}]',
+      ),
+    }),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Compare with current' }));
+  expect(await screen.findByText('New one')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Close comparison' }));
+  expect(screen.queryByText('New one')).toBeNull();
 });

@@ -14,6 +14,7 @@ export function Baselines(props: {
   version: number | undefined;
   reviewer: boolean;
   onOpen: (v: number) => void;
+  onCompare?: (v: number, name: string) => void;
   onDone: () => void;
 }) {
   const [name, setName] = useState('');
@@ -42,6 +43,11 @@ export function Baselines(props: {
             <button type="button" onClick={() => props.onOpen(b.version)}>
               <strong>{b.name}</strong> · version {b.version}
             </button>
+            {props.onCompare && (
+              <button type="button" onClick={() => props.onCompare!(b.version, b.name)}>
+                Compare {b.name} with current
+              </button>
+            )}
           </li>
         ))}
       </ul>
