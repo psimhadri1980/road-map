@@ -7,3 +7,10 @@
 5. Select a task: details panel with its fields and links; Escape closes it.
 6. `run/run.sh web:test` (unit and axe); `run/run.sh stack:test smoke` (browser flow).
 7. Contrast, checked by hand in both themes (jsdom cannot): record the result here when done.
+
+## Results
+
+- SC-001 to SC-003, FR-009: the library's details panel (right side by default) shows the selected task's fields and links; checked in the smoke test's page and by hand.
+- SC-004: `App.test.tsx` runs axe on the page's own controls (reviewer, earlier version open) in light and dark; no violations.
+- SC-005: header, version list, baselines and restore dialog are native buttons, a form and a `<dialog>`, so they are keyboard-operable; the smoke test checks the header and history are present.
+- Contrast (item 7): not computable in jsdom; to be checked by hand in both themes.

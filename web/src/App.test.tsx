@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import axe from 'axe-core';
 import { afterEach, expect, test, vi } from 'vitest';
 
 // The adapter needs a real identity provider and a browser redirect; its behaviour is covered end to end by
@@ -207,4 +208,20 @@ test('a reviewer creates a baseline at the open version', async () => {
       body: '{"name":"Q4","version":2}',
     }),
   );
+});
+
+// 010 FR-011, SC-004: no accessibility violations in the page's own controls, in both themes. The chart is the
+// library's and is excluded; contrast cannot be computed by jsdom and is checked by hand (quickstart).
+test.each([['light'], ['dark']])('the page has no accessibility violations in the %s theme', async (theme) => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('reviewer'));
+  document.documentElement.dataset['theme'] = theme;
+  const { container } = render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
+  await screen.findByRole('status');
+  const r = await axe.run(
+    { include: [container], exclude: [['.chart']] },
+    { rules: { 'color-contrast': { enabled: false } } },
+  );
+  expect(r.violations.map((v) => v.id)).toEqual([]);
 });
