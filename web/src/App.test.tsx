@@ -439,3 +439,56 @@ test('a refused undo shows the reason', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Undo last refresh' }));
   expect((await screen.findByRole('alert')).textContent).toBe('there is no refresh to undo');
 });
+
+// 012 FR-006: the create form is drawn for an editor or reviewer, never for a viewer.
+test.each([
+  ['editor', true],
+  ['reviewer', true],
+  ['viewer', false],
+])('a %s gets the new-roadmap form: %s', async (role, shown) => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole(role));
+  render(<App />);
+  await screen.findByRole('button', { name: /Version 2/ });
+  expect(!!screen.queryByRole('button', { name: 'Create roadmap' })).toBe(shown);
+});
+
+// 012 FR-006: the service's refusal is shown as it is and nothing is opened.
+test('a refused create shows the service message', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('editor'));
+  render(<App />);
+  fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Plan' } });
+  apiFetch.mockImplementation(() =>
+    Promise.resolve(new Response('{"error":"The time zone must be an IANA zone name."}', { status: 422 })),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Create roadmap' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('The time zone must be an IANA zone name.');
+});
+
+// 012 FR-006: on success the list is read again and the new roadmap is opened.
+test('a created roadmap is opened', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('editor'));
+  render(<App />);
+  fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Plan' } });
+  apiFetch.mockImplementation((p: string, i?: unknown) =>
+    Promise.resolve(
+      i
+        ? new Response('{"slug":"plan","name":"Plan","team":"alpha","role":"editor"}', { status: 201 })
+        : new Response(
+            p === '/api/roadmaps'
+              ? '[{"slug":"plan","name":"Plan","team":"alpha","role":"editor"}]'
+              : p.endsWith('/versions') || p.endsWith('/baselines') || p.endsWith('/proposals')
+                ? '[]'
+                : STUB,
+          ),
+    ),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Create roadmap' }));
+  await waitFor(() => expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/plan'));
+  expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps', {
+    method: 'POST',
+    body: expect.stringContaining('"team":"alpha"'),
+  });
+});
