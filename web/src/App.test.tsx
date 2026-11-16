@@ -11,6 +11,7 @@ vi.mock('./auth.ts', () => ({
   signIn: () => signIn(),
   apiFetch: (...a: unknown[]) => apiFetch(...a),
   signOut: () => signOut(),
+  userName: () => 'dave',
 }));
 const { App } = await import('./App.tsx');
 
@@ -241,4 +242,80 @@ test('compares a version with the current plan', async () => {
   expect(await screen.findByText('New one')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Close comparison' }));
   expect(screen.queryByText('New one')).toBeNull();
+});
+
+const DRAFTS =
+  '[{"id":"d1","name":"Mine","state":"draft","owner":"dave","changeCount":2,"baseVersion":2,"headVersion":2,"stale":false},' +
+  '{"id":"d2","name":"Theirs","state":"draft","owner":"erin","changeCount":0,"baseVersion":2,"headVersion":2,"stale":false},' +
+  '{"id":"d3","name":"Sent","state":"submitted","owner":"dave","changeCount":1,"baseVersion":2,"headVersion":2,"stale":false}]';
+const withDrafts = (role: string, extra: Record<string, Response> = {}) =>
+  asRole(role, { '/api/roadmaps/sample/proposals': new Response(DRAFTS), ...extra });
+
+// 011 FR-004, FR-010: only an editor gets the start control; only the user's own drafts are listed.
+test('an editor sees own drafts and the start form; a viewer sees neither', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(withDrafts('editor'));
+  render(<App />);
+  expect(await screen.findByRole('button', { name: 'Edit Mine' })).toBeTruthy();
+  expect(screen.queryByText('Theirs')).toBeNull();
+  expect(screen.queryByText('Sent')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Edit as draft' })).toBeTruthy();
+  cleanup();
+  apiFetch.mockImplementation(withDrafts('viewer'));
+  render(<App />);
+  await screen.findByRole('button', { name: /Version 2/ });
+  expect(screen.queryByRole('button', { name: 'Edit as draft' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Edit Mine/ })).toBeNull();
+});
+
+test('resuming a draft loads its document and shows the draft banner', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withDrafts('editor', { '/api/roadmaps/sample/proposals/d1/document': new Response(STUB) }),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
+  expect((await screen.findByRole('status')).textContent).toContain('Editing draft “Mine”');
+  fireEvent.click(screen.getByRole('button', { name: 'Leave draft' }));
+  await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+});
+
+test('starting a draft creates a Proposal with no changes', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withDrafts('editor', {
+      '/api/roadmaps/sample/proposals/d1/document': new Response(STUB),
+    }),
+  );
+  render(<App />);
+  fireEvent.change(await screen.findByLabelText(/Draft name/), { target: { value: 'Plan B' } });
+  apiFetch.mockImplementation((p: string, i?: unknown) =>
+    Promise.resolve(
+      i
+        ? new Response(JSON.parse(DRAFTS)[0] ? JSON.stringify(JSON.parse(DRAFTS)[0]) : '{}', { status: 201 })
+        : p.endsWith('/document')
+          ? new Response(STUB)
+          : new Response(DRAFTS),
+    ),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Edit as draft' }));
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals', {
+      method: 'POST',
+      body: '{"name":"Plan B","changes":[]}',
+    }),
+  );
+  expect((await screen.findByRole('status')).textContent).toContain('Editing draft');
+});
+
+test('discarding asks first, then calls discard', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(withDrafts('editor'));
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Discard Mine' }));
+  expect(screen.getByText(/The draft and its changes are dropped/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals/d1/discard', { method: 'POST', body: '{}' }),
+  );
 });
