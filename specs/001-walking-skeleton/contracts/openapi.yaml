@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: road-map service — walking skeleton
-  version: 0.7.0
+  version: 0.8.0
   description: >
     The roadmap service as seen through nginx. Read-only. Every route except health needs a bearer token
     (spec 002); a roadmap is served only to members of its owning team (spec 003). Proposals can be created and edited, never submitted yet (spec 004), submitted, reviewed and approved (spec 005). Error bodies follow the gantt library's server: {error, code}.
@@ -306,6 +306,33 @@ paths:
         '403': { $ref: '#/components/responses/Denied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /roadmaps/{slug}/diff:
+    get:
+      summary: Differences between two versions of the roadmap
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string } }
+        - { name: from, in: query, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: to, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          {
+            description: The differences,
+            possibly empty,
+            content:
+              { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Difference' } } } },
+          }
+        '404': { description: Not a member, or no such roadmap or version }
+  /roadmaps/{slug}/proposals/{id}/diff:
+    get:
+      summary: The Proposal's document against the roadmap's current version
+      responses:
+        '200':
+          {
+            description: The differences,
+            content:
+              { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Difference' } } } },
+          }
+        '404': { description: Not a member, or no such Proposal }
 components:
   securitySchemes:
     bearer:
@@ -333,6 +360,15 @@ components:
       }
     Invalid: { description: 'A change or limit is invalid; nothing was stored. Body {error, code: invalid}.' }
   schemas:
+    Difference:
+      type: object
+      required: [entity, id, kind]
+      properties:
+        entity: { type: string, enum: [task, link] }
+        id: { type: string }
+        kind: { type: string, enum: [added, removed, moved, changed] }
+        old: { type: object }
+        new: { type: object }
     Error:
       type: object
       required: [error, code]
