@@ -4,7 +4,12 @@ import type { Version } from './Header.tsx';
  * The version list, newest first (010 FR-005): number, time, who, note. The current version is marked and
  * the one on screen is pressed.
  */
-export function History(props: { versions: Version[]; shown: number | undefined; onOpen: (v: number) => void }) {
+export function History(props: {
+  versions: Version[];
+  shown: number | undefined;
+  onOpen: (v: number) => void;
+  onCompare?: (v: number) => void;
+}) {
   const current = props.versions[0]?.version;
   return (
     <section aria-labelledby="history-title">
@@ -25,6 +30,11 @@ export function History(props: { versions: Version[]; shown: number | undefined;
               <time dateTime={v.at}>{new Date(v.at).toLocaleString()}</time> · {v.by}
               {v.note && <span className="note"> · {v.note}</span>}
             </button>
+            {props.onCompare && v.version !== current && (
+              <button type="button" onClick={() => props.onCompare!(v.version)}>
+                Compare with current
+              </button>
+            )}
           </li>
         ))}
       </ul>
