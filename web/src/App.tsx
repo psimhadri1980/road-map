@@ -4,6 +4,7 @@ import './layout.css';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch, signIn, signOut, userName } from './auth.ts';
 import { documentToChanges, type Doc } from './changes.ts';
+import { Conflicts } from './Conflicts.tsx';
 import { Drafts, type Proposal } from './Drafts.tsx';
 import { Review } from './Review.tsx';
 import { send } from './send.ts';
@@ -85,6 +86,7 @@ export function App() {
   const [draft, setDraft] = useState<{ id: string; name: string; rev: number; notice?: string; error?: string } | null>(
     null,
   );
+  const [resolving, setResolving] = useState<Proposal | null>(null);
   const saved = useRef<Doc | null>(null);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   // A 404 and a 403 look the same to the user (spec 003: the answers are identical, so is the message).
@@ -94,6 +96,7 @@ export function App() {
   const open = (list: Entry[], slug: string): Promise<void> => {
     setCompare(null);
     setDraft(null);
+    setResolving(null);
     retry.current = () => {
       setLoaded({ state: 'loading' });
       void open(list, slug);
@@ -273,11 +276,23 @@ export function App() {
             editing={editing?.id}
             onStart={start}
             onResume={(p) => void resume(p)}
+            onResolve={setResolving}
             onChanged={() => {
               setDraft(null);
               void reloadProposals();
             }}
           />
+          {resolving && (
+            <Conflicts
+              slug={loaded.slug}
+              draft={resolving}
+              onDone={() => {
+                setResolving(null);
+                refresh();
+              }}
+              onClose={() => setResolving(null)}
+            />
+          )}
           <Review
             slug={loaded.slug}
             proposals={loaded.proposals}

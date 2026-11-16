@@ -392,3 +392,50 @@ test('submit is disabled for a draft without changes', async () => {
   render(<App />);
   expect(((await screen.findByRole('button', { name: 'Submit Empty' })) as HTMLButtonElement).disabled).toBe(true);
 });
+
+const STALE =
+  '[{"id":"d5","name":"Old","state":"draft","owner":"dave","changeCount":2,"baseVersion":1,"headVersion":2,"stale":true}]';
+
+// 011 FR-008: a stale draft says so, lists its conflicts, refreshes with picks, and can undo.
+test('brings a stale draft up to date with picks, and undoes', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    asRole('editor', {
+      '/api/roadmaps/sample/proposals': new Response(STALE),
+      '/api/roadmaps/sample/proposals/d5/conflicts': new Response('[{"position":1,"entity":"task","id":"t2"}]'),
+    }),
+  );
+  render(<App />);
+  expect(await screen.findByText('Out of date')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Bring Old up to date' }));
+  expect(await screen.findByText(/Change 1: task t2/)).toBeTruthy();
+  fireEvent.click(screen.getByLabelText(/Drop mine/));
+  apiFetch.mockImplementation(asRole('editor'));
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh draft' }));
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals/d5/refresh', {
+      method: 'POST',
+      body: '{"picks":{"1":"drop"}}',
+    }),
+  );
+});
+
+test('a refused undo shows the reason', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    asRole('editor', {
+      '/api/roadmaps/sample/proposals': new Response(STALE),
+      '/api/roadmaps/sample/proposals/d5/conflicts': new Response('[]'),
+      '/api/roadmaps/sample/proposals/d5/undo-refresh': new Response(
+        '{"error":"there is no refresh to undo","code":"x"}',
+        {
+          status: 409,
+        },
+      ),
+    }),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Bring Old up to date' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Undo last refresh' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('there is no refresh to undo');
+});
