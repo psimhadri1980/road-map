@@ -26,6 +26,7 @@ export function Drafts(props: {
   editing: string | undefined;
   onStart: (name: string) => Promise<void>;
   onResume: (p: Proposal) => void;
+  onResolve: (p: Proposal) => void;
   onChanged: () => void;
 }) {
   const [name, setName] = useState('');
@@ -75,6 +76,14 @@ export function Drafts(props: {
             <button type="button" aria-pressed={props.editing === p.id} onClick={() => props.onResume(p)}>
               {props.editing === p.id ? 'Editing' : 'Edit'} {p.name}
             </button>{' '}
+            {p.stale && (
+              <>
+                <span className="chip">Out of date</span>{' '}
+                <button type="button" onClick={() => props.onResolve(p)}>
+                  Bring {p.name} up to date
+                </button>{' '}
+              </>
+            )}
             <button type="button" disabled={p.changeCount === 0} onClick={() => void act(p, 'submit')}>
               Submit {p.name}
             </button>{' '}
