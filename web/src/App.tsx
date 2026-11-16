@@ -4,6 +4,7 @@ import './layout.css';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch, signIn, signOut, userName } from './auth.ts';
 import { documentToChanges, type Doc } from './changes.ts';
+import { Checklist } from './Checklist.tsx';
 import { Conflicts } from './Conflicts.tsx';
 import { Drafts, type Proposal } from './Drafts.tsx';
 import { NewRoadmap } from './NewRoadmap.tsx';
@@ -276,6 +277,10 @@ export function App() {
         </div>
         <div className="side">
           <NewRoadmap teams={ownTeams} onCreated={(slug) => void created(slug)} />
+          {(editing ||
+            (editor && !loaded.viewing && Array.isArray(loaded.data?.tasks) && loaded.data.tasks.length === 0)) && (
+            <Checklist doc={(editing ? saved.current : loaded.data) as unknown as Doc} draft={!!editing} />
+          )}
           <Drafts
             slug={loaded.slug}
             drafts={drafts}

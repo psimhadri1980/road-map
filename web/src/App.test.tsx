@@ -492,3 +492,20 @@ test('a created roadmap is opened', async () => {
     body: expect.stringContaining('"team":"alpha"'),
   });
 });
+
+// 012 FR-007: an editor of an empty roadmap sees the checklist; a draft's checklist names an undated task.
+test('the checklist shows on an empty roadmap and flags a draft task without a start', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withDrafts('editor', {
+      '/api/roadmaps/sample/proposals/d1/document': new Response(
+        '{"roadmap":{"id":"r"},"tasks":[{"id":"t","name":"Build","type":"task","parent":null}],"links":[]}',
+      ),
+    }),
+  );
+  render(<App />);
+  expect((await screen.findByText(/This roadmap is empty/)).textContent).toBeTruthy();
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
+  expect((await screen.findByText(/No start: Build\./)).textContent).toBeTruthy();
+  expect(screen.queryByText(/This roadmap is empty/)).toBeNull();
+});
