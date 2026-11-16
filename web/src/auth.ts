@@ -57,3 +57,6 @@ export async function apiFetch(
 export function signOut(): Promise<void> {
   return keycloak.logout({ redirectUri: location.origin });
 }
+
+/** The signed-in user's name as Proposals record it (`owner`). */
+export const userName = (): string => String(keycloak.tokenParsed?.['preferred_username'] ?? '');

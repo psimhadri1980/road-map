@@ -2,7 +2,10 @@ import { Gantt, type AccessRules } from '@gantt/react';
 import '@gantt/react/src/gantt.css';
 import './layout.css';
 import { useEffect, useRef, useState } from 'react';
-import { apiFetch, signIn, signOut } from './auth.ts';
+import { apiFetch, signIn, signOut, userName } from './auth.ts';
+import { documentToChanges, type Doc } from './changes.ts';
+import { Drafts, type Proposal } from './Drafts.tsx';
+import { send } from './send.ts';
 import { Compare, type Difference } from './Compare.tsx';
 import { Baselines, type Baseline } from './Baselines.tsx';
 import { History } from './History.tsx';
@@ -20,6 +23,31 @@ const VIEW_ONLY: AccessRules = {
   rules: [{ effect: 'allow', permissions: ['view', 'view.fields', 'view.baselines', 'view.resources'] }],
 };
 
+/** The chart on a draft the user owns: the editing permissions, still only a hint; the service checks every change. */
+const EDITING: AccessRules = {
+  subject: { id: 'anonymous' },
+  rules: [
+    {
+      effect: 'allow',
+      permissions: [
+        'view',
+        'view.fields',
+        'view.baselines',
+        'view.resources',
+        'task.create',
+        'task.modify.dates',
+        'task.modify.progress',
+        'task.modify.fields',
+        'task.reorder',
+        'task.delete',
+        'link.create',
+        'link.modify',
+        'link.delete',
+      ],
+    },
+  ],
+};
+
 type Loaded =
   | { state: 'loading' }
   | { state: 'no-sign-in' }
@@ -32,6 +60,7 @@ type Loaded =
       slug: string;
       versions: Version[];
       baselines: Baseline[];
+      proposals: Proposal[];
       /** An earlier version on screen, read-only (010 FR-005); absent means the current plan. */
       viewing?: { version: number; doc: React.ComponentProps<typeof Gantt>['data'] };
       data: React.ComponentProps<typeof Gantt>['data'];
@@ -50,12 +79,20 @@ export function App() {
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' });
   const [theme, flipTheme] = useTheme();
   const [compare, setCompare] = useState<{ against: string; diffs: Difference[] } | null>(null);
+  // The draft being edited (011 FR-003). `saved` is the document the service has; a refused change puts the
+  // chart back to it by changing `rev`, which remounts the chart. Saves go one at a time, in order.
+  const [draft, setDraft] = useState<{ id: string; name: string; rev: number; notice?: string; error?: string } | null>(
+    null,
+  );
+  const saved = useRef<Doc | null>(null);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
   // A 404 and a 403 look the same to the user (spec 003: the answers are identical, so is the message).
   const failed = (e: unknown) =>
     setLoaded({ state: e instanceof Error && /^40[34]$/.test(e.message) ? 'denied' : 'error' });
   const retry = useRef<() => void>(() => undefined);
   const open = (list: Entry[], slug: string): Promise<void> => {
     setCompare(null);
+    setDraft(null);
     retry.current = () => {
       setLoaded({ state: 'loading' });
       void open(list, slug);
@@ -65,14 +102,16 @@ export function App() {
       // The header's version is the newest one; a failed or odd answer only leaves the header without it.
       fetchJson(`/api/roadmaps/${encodeURIComponent(slug)}/versions`).catch(() => []),
       fetchJson(`/api/roadmaps/${encodeURIComponent(slug)}/baselines`).catch(() => []),
+      fetchJson(`/api/roadmaps/${encodeURIComponent(slug)}/proposals`).catch(() => []),
     ])
-      .then(([data, v, b]) =>
+      .then(([data, v, b, p]) =>
         setLoaded({
           state: 'ready',
           list,
           slug,
           versions: Array.isArray(v) ? v : [],
           baselines: Array.isArray(b) ? b : [],
+          proposals: Array.isArray(p) ? p : [],
           data,
         }),
       )
@@ -125,9 +164,48 @@ export function App() {
     fetchJson(`/api/roadmaps/${encodeURIComponent(loaded.slug)}/diff?from=${v}&to=${loaded.versions[0]?.version}`)
       .then((diffs: Difference[]) => setCompare({ against, diffs }))
       .catch(failed);
+  const api = `/api/roadmaps/${encodeURIComponent(loaded.slug)}`;
+  const reloadProposals = () =>
+    fetchJson(`${api}/proposals`).then(
+      (proposals: Proposal[]) => setLoaded((l) => (l.state === 'ready' ? { ...l, proposals } : l)),
+      () => undefined,
+    );
+  const resume = (p: Proposal) =>
+    fetchJson(`${api}/proposals/${p.id}/document`)
+      .then((doc) => {
+        saved.current = doc;
+        setDraft({ id: p.id, name: p.name, rev: 0 });
+        setLoaded((l) => (l.state === 'ready' ? { ...l, viewing: undefined } : l));
+      })
+      .catch(failed);
+  const start = (name: string) =>
+    send(`${api}/proposals`, { name, changes: [] }).then((p) => {
+      void reloadProposals();
+      return resume(p as Proposal);
+    });
+  const save = (doc: Doc) => {
+    const before = saved.current!;
+    const { changes, unsupported } = documentToChanges(before, doc);
+    if (unsupported.length)
+      setDraft((d) => d && { ...d, notice: `Not saved, drafts cannot carry: ${unsupported.join(', ')}.` });
+    if (!changes.length) return;
+    saved.current = doc;
+    queue.current = queue.current
+      .then(() => send(`${api}/proposals/${draft!.id}/changes`, { changes }))
+      .then(
+        () => void reloadProposals(),
+        (e: Error) => {
+          saved.current = before;
+          setDraft((d) => d && { ...d, rev: d.rev + 1, error: e.message });
+        },
+      );
+  };
   const entry = loaded.list.find((r) => r.slug === loaded.slug) ?? { slug: loaded.slug, name: loaded.slug };
   // Only decides what is drawn; the service refuses a non-reviewer's restore or baseline regardless (010 FR-008).
   const reviewer = entry.role === 'reviewer';
+  const editor = entry.role === 'editor';
+  const drafts = loaded.proposals.filter((p) => p.state === 'draft' && p.owner === userName());
+  const editing = draft && !loaded.viewing ? draft : null;
   const refresh = () => void open(loaded.list, loaded.slug);
   return (
     <div className="page">
@@ -157,19 +235,48 @@ export function App() {
           {reviewer && <Restore slug={loaded.slug} version={loaded.viewing.version} onDone={refresh} />}
         </p>
       )}
+      {editing && (
+        <p role="status" className="banner">
+          Editing draft “{editing.name}”. Each edit is saved as a change; edits a draft cannot carry are not sent.
+          {editing.notice && <> {editing.notice}</>}{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(null);
+              void reloadProposals();
+            }}
+          >
+            Leave draft
+          </button>
+          {editing.error && <span role="alert"> {editing.error}</span>}
+        </p>
+      )}
       <div className="work">
         <div className="chart">
           {/* key: a different document is a different chart, never a patched one */}
           <Gantt
-            key={loaded.viewing?.version ?? 'current'}
-            data={loaded.viewing?.doc ?? loaded.data}
-            access={VIEW_ONLY}
-            readOnly
+            key={loaded.viewing ? loaded.viewing.version : editing ? `draft-${editing.id}-${editing.rev}` : 'current'}
+            data={loaded.viewing?.doc ?? (editing ? (saved.current as unknown as typeof loaded.data) : loaded.data)}
+            access={editing ? EDITING : VIEW_ONLY}
+            readOnly={!editing}
+            onDataChanged={editing ? (doc) => save(doc as unknown as Doc) : undefined}
             theme={theme}
             height="100%"
           />
         </div>
         <div className="side">
+          <Drafts
+            slug={loaded.slug}
+            drafts={drafts}
+            editor={editor}
+            editing={editing?.id}
+            onStart={start}
+            onResume={(p) => void resume(p)}
+            onChanged={() => {
+              setDraft(null);
+              void reloadProposals();
+            }}
+          />
           <History
             versions={loaded.versions}
             shown={loaded.viewing?.version}
