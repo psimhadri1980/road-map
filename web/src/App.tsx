@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { apiFetch, signIn, signOut, userName } from './auth.ts';
 import { documentToChanges, type Doc } from './changes.ts';
 import { Drafts, type Proposal } from './Drafts.tsx';
+import { Review } from './Review.tsx';
 import { send } from './send.ts';
 import { Compare, type Difference } from './Compare.tsx';
 import { Baselines, type Baseline } from './Baselines.tsx';
@@ -276,6 +277,13 @@ export function App() {
               setDraft(null);
               void reloadProposals();
             }}
+          />
+          <Review
+            slug={loaded.slug}
+            proposals={loaded.proposals}
+            me={userName()}
+            role={entry.role}
+            onChanged={refresh}
           />
           <History
             versions={loaded.versions}
