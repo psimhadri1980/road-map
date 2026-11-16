@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: road-map service — walking skeleton
-  version: 0.8.0
+  version: 0.9.0
   description: >
     The roadmap service as seen through nginx. Read-only. Every route except health needs a bearer token
     (spec 002); a roadmap is served only to members of its owning team (spec 003). Proposals can be created and edited, never submitted yet (spec 004), submitted, reviewed and approved (spec 005). Error bodies follow the gantt library's server: {error, code}.
@@ -30,6 +30,39 @@ paths:
                     team: { type: string }
                     role: { type: string, enum: [viewer, editor, reviewer] }
         '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      operationId: createRoadmap
+      summary: Create an empty roadmap (version 1) owned by one of the caller's teams. Editors and reviewers only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, team, timeZone, start]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                team: { type: string }
+                timeZone: { type: string, description: IANA zone name }
+                start: { type: string, format: date }
+      responses:
+        '201':
+          description: Created; the entry as the list shows it.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [slug, name, team, role]
+                properties:
+                  slug: { type: string }
+                  name: { type: string }
+                  team: { type: string }
+                  role: { type: string, enum: [viewer, editor, reviewer] }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { description: The caller is a viewer in that team. }
+        '404': { description: The caller is not in that team. }
+        '409': { description: A roadmap with that address exists. }
+        '422': { description: Name, zone or date invalid. }
   /roadmaps/{slug}:
     get:
       operationId: getRoadmap

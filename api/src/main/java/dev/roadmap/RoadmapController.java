@@ -8,6 +8,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -27,6 +30,15 @@ public class RoadmapController {
   @GetMapping(path = "/api/roadmaps", produces = MediaType.APPLICATION_JSON_VALUE)
   public List<RoadmapSummary> list(@AuthenticationPrincipal Jwt token) {
     return service.list(Teams.of(token.getClaimAsStringList("groups")));
+  }
+
+  /** A new, empty roadmap for one of the caller's teams (012-T001). */
+  @PostMapping(path = "/api/roadmaps", produces = MediaType.APPLICATION_JSON_VALUE)
+  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+  public RoadmapSummary create(
+      @RequestBody RoadmapService.NewRoadmap body, @AuthenticationPrincipal Jwt token) {
+    return service.create(
+        body, Teams.of(token.getClaimAsStringList("groups")), ProposalController.actor(token));
   }
 
   /** The roadmap in the gantt-roadmap/1 format; the document is passed through as stored. */
