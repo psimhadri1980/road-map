@@ -1,6 +1,7 @@
 import { scheduleOffThread } from '@gantt/react';
 import { useEffect, useState } from 'react';
 import type { Doc } from './changes.ts';
+import { effects } from './scenario.ts';
 
 type Schedule = Awaited<ReturnType<typeof scheduleOffThread>>['result'];
 
@@ -42,6 +43,38 @@ export function Insights(props: { doc: Doc }) {
         {other.map((i, n) => (
           <li key={`other-${n}`}>
             <strong>Problem</strong> · {i.message}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** The what-if of an open draft against the live plan (013 FR-004): lateness that the draft changes, in words. */
+export function WhatIf(props: { live: Doc; draft: Doc; name: string }) {
+  const [list, setList] = useState<ReturnType<typeof effects> | null>(null);
+  useEffect(() => {
+    let current = true;
+    const run = (d: Doc) => scheduleOffThread(d as unknown as Parameters<typeof scheduleOffThread>[0]);
+    Promise.all([run(props.live), run(props.draft)]).then(
+      ([a, b]) => current && setList(effects(a.result.issues, b.result.issues)),
+      () => current && setList(null),
+    );
+    return () => {
+      current = false;
+    };
+  }, [props.live, props.draft]);
+  if (!list) return null;
+  const name = (id: string) =>
+    String(props.draft.tasks.find((t) => t.id === id)?.name ?? props.live.tasks.find((t) => t.id === id)?.name ?? id);
+  return (
+    <section aria-labelledby="whatif-title">
+      <h2 id="whatif-title">What if: {props.name}</h2>
+      {list.length === 0 && <p>This draft does not change what is late.</p>}
+      <ul>
+        {list.map((e) => (
+          <li key={e.id}>
+            <strong>{e.change}</strong> · {name(e.id)} ({e.from} d → {e.to} d)
           </li>
         ))}
       </ul>

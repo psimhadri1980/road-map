@@ -12,7 +12,7 @@ import { Review } from './Review.tsx';
 import { send } from './send.ts';
 import { Compare, type Difference } from './Compare.tsx';
 import { Baselines, type Baseline } from './Baselines.tsx';
-import { Insights } from './Insights.tsx';
+import { Insights, WhatIf } from './Insights.tsx';
 import { History } from './History.tsx';
 import { Restore } from './Restore.tsx';
 import { Header, type Entry, type Version } from './Header.tsx';
@@ -305,6 +305,9 @@ export function App() {
               }}
               onClose={() => setResolving(null)}
             />
+          )}
+          {editing && (
+            <WhatIf live={loaded.data as unknown as Doc} draft={saved.current as unknown as Doc} name={editing.name} />
           )}
           <Insights doc={(editing ? saved.current : (loaded.viewing?.doc ?? loaded.data)) as unknown as Doc} />
           <Review
