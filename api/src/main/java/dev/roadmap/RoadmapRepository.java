@@ -7,8 +7,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * Data access for roadmaps (T017, 003-T002): reads only. The service's database account can only
- * read.
+ * Data access for roadmaps (T017, 003-T002): reads, plus adding a roadmap (012-T001). The service's
+ * database account cannot delete one.
  */
 @Repository
 public class RoadmapRepository {
@@ -96,5 +96,36 @@ public class RoadmapRepository {
         .param("teams", teams)
         .query(Row.class)
         .list();
+  }
+
+  /**
+   * Adds a roadmap at version 1 together with that version's history row, in the caller's
+   * transaction (012-T001, 006 FR-001). Returns false when the slug is taken.
+   */
+  public boolean create(
+      String slug, String name, String team, String document, String byUser, String byName) {
+    java.util.UUID id =
+        jdbc.sql(
+                "INSERT INTO roadmap (slug, name, document, team) VALUES (:s, :n, CAST(:d AS jsonb),"
+                    + " :t) ON CONFLICT (slug) DO NOTHING RETURNING id")
+            .param("s", slug)
+            .param("n", name)
+            .param("d", document)
+            .param("t", team)
+            .query(java.util.UUID.class)
+            .optional()
+            .orElse(null);
+    if (id == null) {
+      return false;
+    }
+    jdbc.sql(
+            "INSERT INTO roadmap_version (roadmap_id, version, document, by_name, by_user)"
+                + " VALUES (:id, 1, CAST(:d AS jsonb), :bn, :bu)")
+        .param("id", id)
+        .param("d", document)
+        .param("bn", byName)
+        .param("bu", byUser)
+        .update();
+    return true;
   }
 }
