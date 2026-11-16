@@ -12,6 +12,7 @@ import { Review } from './Review.tsx';
 import { send } from './send.ts';
 import { Compare, type Difference } from './Compare.tsx';
 import { Baselines, type Baseline } from './Baselines.tsx';
+import { Insights } from './Insights.tsx';
 import { History } from './History.tsx';
 import { Restore } from './Restore.tsx';
 import { Header, type Entry, type Version } from './Header.tsx';
@@ -305,6 +306,7 @@ export function App() {
               onClose={() => setResolving(null)}
             />
           )}
+          <Insights doc={(editing ? saved.current : (loaded.viewing?.doc ?? loaded.data)) as unknown as Doc} />
           <Review
             slug={loaded.slug}
             proposals={loaded.proposals}
