@@ -1,6 +1,7 @@
 import { scheduleOffThread } from '@gantt/react';
 import { useEffect, useState } from 'react';
 import type { Doc } from './changes.ts';
+import { checks } from './checks.ts';
 import { effects } from './scenario.ts';
 
 type Schedule = Awaited<ReturnType<typeof scheduleOffThread>>['result'];
@@ -40,6 +41,13 @@ export function Insights(props: { doc: Doc }) {
             <strong>Late {i.by ?? 0} d</strong> · {name(i.taskId)}
           </li>
         ))}
+        {checks(props.doc)
+          .filter((c) => c.result === 'fix')
+          .map((c) => (
+            <li key={c.id}>
+              <strong>Risk</strong> · {c.reason}
+            </li>
+          ))}
         {other.map((i, n) => (
           <li key={`other-${n}`}>
             <strong>Problem</strong> · {i.message}
