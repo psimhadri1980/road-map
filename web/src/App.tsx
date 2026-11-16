@@ -6,6 +6,7 @@ import { apiFetch, signIn, signOut, userName } from './auth.ts';
 import { documentToChanges, type Doc } from './changes.ts';
 import { Conflicts } from './Conflicts.tsx';
 import { Drafts, type Proposal } from './Drafts.tsx';
+import { NewRoadmap } from './NewRoadmap.tsx';
 import { Review } from './Review.tsx';
 import { send } from './send.ts';
 import { Compare, type Difference } from './Compare.tsx';
@@ -211,6 +212,11 @@ export function App() {
   const drafts = loaded.proposals.filter((p) => p.state === 'draft' && p.owner === userName());
   const editing = draft && !loaded.viewing ? draft : null;
   const refresh = () => void open(loaded.list, loaded.slug);
+  // Only decides whether the form is drawn; the service refuses a viewer's create regardless (012 FR-006).
+  const ownTeams = [
+    ...new Set(loaded.list.filter((r) => (r.role === 'editor' || r.role === 'reviewer') && r.team).map((r) => r.team!)),
+  ];
+  const created = (slug: string) => fetchJson('/api/roadmaps').then((list: Entry[]) => open(list, slug), failed);
   return (
     <div className="page">
       <Header
@@ -269,6 +275,7 @@ export function App() {
           />
         </div>
         <div className="side">
+          <NewRoadmap teams={ownTeams} onCreated={(slug) => void created(slug)} />
           <Drafts
             slug={loaded.slug}
             drafts={drafts}
