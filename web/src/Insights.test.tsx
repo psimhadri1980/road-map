@@ -39,3 +39,12 @@ test('a plan with nothing late says so', async () => {
   );
   expect(await screen.findByText(/0 late/)).toBeTruthy();
 });
+
+// 013 FR-004: a draft that removes a deadline problem shows the task as no longer late.
+test('the what-if names a task the draft makes no longer late', async () => {
+  const task = { id: 'a', name: 'Build', type: 'task', parent: null, start: '2026-11-02', duration: 10 };
+  const { WhatIf } = await import('./Insights.tsx');
+  render(<WhatIf live={doc([{ ...task, deadline: '2026-11-05' }])} draft={doc([task])} name="Plan B" />);
+  expect((await screen.findByText(/no longer late/)).parentElement!.textContent).toContain('Build');
+  expect(screen.getByRole('heading', { name: /What if: Plan B/ })).toBeTruthy();
+});
