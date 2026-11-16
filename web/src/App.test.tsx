@@ -258,7 +258,6 @@ test('an editor sees own drafts and the start form; a viewer sees neither', asyn
   render(<App />);
   expect(await screen.findByRole('button', { name: 'Edit Mine' })).toBeTruthy();
   expect(screen.queryByText('Theirs')).toBeNull();
-  expect(screen.queryByText('Sent')).toBeNull();
   expect(screen.getByRole('button', { name: 'Edit as draft' })).toBeTruthy();
   cleanup();
   apiFetch.mockImplementation(withDrafts('viewer'));
@@ -318,4 +317,78 @@ test('discarding asks first, then calls discard', async () => {
   await waitFor(() =>
     expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals/d1/discard', { method: 'POST', body: '{}' }),
   );
+});
+
+const SUBMITTED =
+  '[{"id":"s1","name":"Theirs","state":"submitted","owner":"erin","changeCount":1,"baseVersion":2,"headVersion":2,"stale":false},' +
+  '{"id":"s2","name":"Mine","state":"submitted","owner":"dave","changeCount":1,"baseVersion":2,"headVersion":2,"stale":false}]';
+const withSubmitted = (role: string, extra: Record<string, Response> = {}) =>
+  asRole(role, { '/api/roadmaps/sample/proposals': new Response(SUBMITTED), ...extra });
+
+// 011 FR-005, FR-009: decisions only for a reviewer and never on one's own Proposal; withdraw only on one's own.
+test('a reviewer decides on others, never on own; return and reject need a note', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(withSubmitted('reviewer'));
+  render(<App />);
+  expect(await screen.findByRole('button', { name: 'Approve Theirs' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Approve Mine' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Withdraw Mine' })).toBeTruthy();
+  expect((screen.getByRole('button', { name: 'Return Theirs' }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText('Note for Theirs'), { target: { value: 'Too big' } });
+  expect((screen.getByRole('button', { name: 'Reject Theirs' }) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Return Theirs' }));
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals/s1/return', {
+      method: 'POST',
+      body: '{"note":"Too big"}',
+    }),
+  );
+});
+
+test('an editor has no decision controls', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(withSubmitted('editor'));
+  render(<App />);
+  await screen.findByRole('button', { name: 'Withdraw Mine' });
+  expect(screen.queryByRole('button', { name: /^Approve/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^Reject/ })).toBeNull();
+});
+
+test('a refused decision shows the reason', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withSubmitted('reviewer', {
+      '/api/roadmaps/sample/proposals/s1/approve': new Response('{"error":"out of date","code":"x"}', { status: 409 }),
+    }),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Approve Theirs' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('out of date');
+});
+
+test('shows the changes of a waiting Proposal', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withSubmitted('reviewer', {
+      '/api/roadmaps/sample/proposals/s1/diff': new Response(
+        '[{"entity":"task","id":"t9","kind":"added","new":{"name":"New one"}}]',
+      ),
+    }),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Show changes of Theirs' }));
+  expect(await screen.findByText('New one')).toBeTruthy();
+});
+
+test('submit is disabled for a draft without changes', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    asRole('editor', {
+      '/api/roadmaps/sample/proposals': new Response(
+        '[{"id":"d9","name":"Empty","state":"draft","owner":"dave","changeCount":0,"baseVersion":2,"headVersion":2,"stale":false}]',
+      ),
+    }),
+  );
+  render(<App />);
+  expect(((await screen.findByRole('button', { name: 'Submit Empty' })) as HTMLButtonElement).disabled).toBe(true);
 });

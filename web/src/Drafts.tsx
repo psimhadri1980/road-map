@@ -46,6 +46,11 @@ export function Drafts(props: {
       (err: Error) => setError(err.message),
     );
   };
+  const act = (p: Proposal, action: string) =>
+    send(`/api/roadmaps/${encodeURIComponent(props.slug)}/proposals/${p.id}/${action}`).then(
+      props.onChanged,
+      (err: Error) => setError(err.message),
+    );
   const discard = (p: Proposal) =>
     send(`/api/roadmaps/${encodeURIComponent(props.slug)}/proposals/${p.id}/discard`).then(
       () => {
@@ -69,6 +74,9 @@ export function Drafts(props: {
             {p.note && <span className="note"> · Returned: {p.note}</span>}{' '}
             <button type="button" aria-pressed={props.editing === p.id} onClick={() => props.onResume(p)}>
               {props.editing === p.id ? 'Editing' : 'Edit'} {p.name}
+            </button>{' '}
+            <button type="button" disabled={p.changeCount === 0} onClick={() => void act(p, 'submit')}>
+              Submit {p.name}
             </button>{' '}
             <button type="button" onClick={() => setDiscarding(p)}>
               Discard {p.name}

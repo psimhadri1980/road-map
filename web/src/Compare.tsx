@@ -19,10 +19,10 @@ const fieldsChanged = (d: Difference) =>
  * What changed from an earlier version (or a baseline) to the current plan, as a list (011 FR-002). Reading
  * only. An empty answer says so in words.
  */
-export function Compare(props: { against: string; diffs: Difference[]; onClose: () => void }) {
+export function Compare(props: { against: string; diffs: Difference[]; onClose: () => void; title?: string }) {
   return (
     <section aria-labelledby="compare-title">
-      <h2 id="compare-title">Changes since {props.against}</h2>
+      <h2 id="compare-title">{props.title ?? `Changes since ${props.against}`}</h2>
       {props.diffs.length === 0 && <p>No changes.</p>}
       <ul>
         {props.diffs.map((d) => (
