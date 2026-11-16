@@ -26,9 +26,11 @@ public class ProposalController {
   private static final String BASE = "/api/roadmaps/{slug}/proposals";
 
   private final ProposalService service;
+  private final DiffService diff;
 
-  ProposalController(ProposalService service) {
+  ProposalController(ProposalService service, DiffService diff) {
     this.service = service;
+    this.diff = diff;
   }
 
   private static Teams teams(Jwt token) {
@@ -129,6 +131,15 @@ public class ProposalController {
       @PathVariable String id,
       @AuthenticationPrincipal Jwt token) {
     return service.document(slug, id, teams(token));
+  }
+
+  /** What this Proposal would change against the current version (011, FR-001). */
+  @GetMapping(path = BASE + "/{id}/diff", produces = MediaType.APPLICATION_JSON_VALUE)
+  public List<DiffService.Difference> diff(
+      @PathVariable @Pattern(regexp = SLUG) String slug,
+      @PathVariable String id,
+      @AuthenticationPrincipal Jwt token) {
+    return diff.proposal(slug, id, teams(token));
   }
 
   /** The changes of this Proposal that collide with what changed since it was made. */

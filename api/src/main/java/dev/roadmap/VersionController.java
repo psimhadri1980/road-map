@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,9 +24,11 @@ public class VersionController {
   private static final String BASE = "/api/roadmaps/{slug}/versions";
 
   private final VersionService service;
+  private final DiffService diff;
 
-  VersionController(VersionService service) {
+  VersionController(VersionService service, DiffService diff) {
     this.service = service;
+    this.diff = diff;
   }
 
   private static Teams teams(Jwt token) {
@@ -46,6 +49,16 @@ public class VersionController {
       @PathVariable String v,
       @AuthenticationPrincipal Jwt token) {
     return service.restore(slug, v, teams(token), ProposalController.actor(token));
+  }
+
+  /** What differs between two versions (011, FR-001). */
+  @GetMapping(path = "/api/roadmaps/{slug}/diff", produces = MediaType.APPLICATION_JSON_VALUE)
+  public List<DiffService.Difference> diff(
+      @PathVariable @Pattern(regexp = SLUG) String slug,
+      @RequestParam String from,
+      @RequestParam String to,
+      @AuthenticationPrincipal Jwt token) {
+    return diff.versions(slug, from, to, teams(token));
   }
 
   /** The roadmap's baselines. */
