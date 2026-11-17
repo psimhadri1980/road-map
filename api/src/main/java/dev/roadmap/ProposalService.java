@@ -48,12 +48,15 @@ public class ProposalService {
   private final RoadmapRepository roadmaps;
   private final ObjectMapper json;
   private final ConflictService conflicts;
+  private final LiveEvents live;
 
   ProposalService(
       ProposalRepository proposals,
       RoadmapRepository roadmaps,
       ObjectMapper json,
-      ConflictService conflicts) {
+      ConflictService conflicts,
+      LiveEvents live) {
+    this.live = live;
     this.proposals = proposals;
     this.roadmaps = roadmaps;
     this.json = json;
@@ -81,6 +84,7 @@ public class ProposalService {
     check(slug, changes);
     var row = proposals.insert(roadmap.id(), name, actor.subject(), actor.name(), changes.size());
     proposals.addChanges(row.id(), 1, stored(changes), actor.subject());
+    tell(slug, "proposalCreated", row.id(), null, actor);
     return row.summary();
   }
 
@@ -114,6 +118,7 @@ public class ProposalService {
     check(slug, all);
     proposals.addChanges(row.id(), row.changeCount() + 1, stored(changes), actor.subject());
     proposals.setChangeCount(row.id(), all.size());
+    tell(slug, "proposalChanged", row.id(), null, actor);
     return proposals.find(roadmap.id(), uuid).orElseThrow().summary();
   }
 
@@ -171,7 +176,21 @@ public class ProposalService {
         actor.subject(),
         actor.name(),
         text);
-    return proposals.find(roadmap.id(), row.id()).orElseThrow().summary();
+    var result = proposals.find(roadmap.id(), row.id()).orElseThrow().summary();
+    String kind =
+        switch (action) {
+          case SUBMIT -> "proposalSubmitted";
+          case WITHDRAW -> "proposalWithdrawn";
+          case DISCARD -> "proposalDiscarded";
+          case RETURN -> "proposalReturned";
+          case REJECT -> "proposalRejected";
+          case APPROVE -> "proposalApproved";
+        };
+    tell(slug, kind, row.id(), null, actor);
+    if (action == ProposalState.Action.APPROVE) {
+      tell(slug, "currentChanged", null, result.headVersion(), actor);
+    }
+    return result;
   }
 
   /**
@@ -217,6 +236,7 @@ public class ProposalService {
     int n = proposals.addRefresh(row.id(), row.baseVersion(), head, actor.subject());
     proposals.drop(row.id(), n, drop.stream().sorted().map(p -> seqs.get(p - 1)).toList());
     proposals.rebase(row.id(), head);
+    tell(slug, "proposalRefreshed", row.id(), null, actor);
     return proposals.find(roadmap.id(), row.id()).orElseThrow().summary();
   }
 
@@ -231,7 +251,16 @@ public class ProposalService {
             .orElseThrow(() -> new ApiErrors.Conflict("there is no refresh to undo"));
     proposals.undo(row.id(), last.n());
     proposals.rebase(row.id(), last.fromVersion());
+    tell(slug, "proposalRefreshed", row.id(), null, actor);
     return proposals.find(roadmap.id(), row.id()).orElseThrow().summary();
+  }
+
+  /** Tells the roadmap's open streams (008, FR-003); sent after the commit. */
+  private void tell(String slug, String kind, UUID proposal, Integer version, Actor actor) {
+    live.publish(
+        slug,
+        LiveEvents.Event.of(
+            kind, proposal == null ? null : proposal.toString(), version, null, actor.name()));
   }
 
   /** The locked Proposal if the caller is its creator-editor and it is a draft (403, then 409). */

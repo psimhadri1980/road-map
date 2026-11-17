@@ -18,10 +18,12 @@ public class VersionService {
 
   private final RoadmapRepository roadmaps;
   private final VersionRepository versions;
+  private final LiveEvents live;
 
-  VersionService(RoadmapRepository roadmaps, VersionRepository versions) {
+  VersionService(RoadmapRepository roadmaps, VersionRepository versions, LiveEvents live) {
     this.roadmaps = roadmaps;
     this.versions = versions;
+    this.live = live;
   }
 
   private RoadmapRepository.Head visible(String slug, Teams teams) {
@@ -49,6 +51,7 @@ public class VersionService {
     int created =
         roadmaps.replaceDocument(
             head.id(), document, actor.subject(), actor.name(), null, "restore of " + number);
+    live.publish(slug, LiveEvents.Event.of("currentChanged", null, created, null, actor.name()));
     return versions.find(head.id(), created).orElseThrow();
   }
 
@@ -84,6 +87,7 @@ public class VersionService {
       throw new ApiErrors.Invalid("at most " + MAX_BASELINES + " baselines");
     }
     versions.addBaseline(head.id(), name, number, actor.subject(), actor.name());
+    live.publish(slug, LiveEvents.Event.of("baselineSaved", null, number, name, actor.name()));
     return versions.baselines(head.id()).stream()
         .filter(b -> b.name().equals(name))
         .findFirst()
