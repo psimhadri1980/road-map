@@ -207,3 +207,35 @@ test('after sign-out the refresh token fails and the access token is refused at 
   assert.notEqual((await renew(refresh)).status, 200);
   refusedByNginx(await get('/api/roadmaps/sample', { headers: { authorization: `Bearer ${access}` } }));
 });
+
+// 008-T003 (FR-007): the event stream starts at once (the first line is not held back by buffering), and
+// without a token nginx refuses it like any other /api/ call.
+test('the live event stream is unbuffered and needs a token', async () => {
+  refusedByNginx(await get('/api/roadmaps/sample/events'));
+  const first = await new Promise<{ status: number; type: string; chunk: string }>((resolve, reject) => {
+    bearer().then((headers) => {
+      const req = request(
+        {
+          host: '127.0.0.1',
+          port: 8443,
+          path: '/api/roadmaps/sample/events',
+          ca,
+          timeout: 5000,
+          headers: { ...headers, accept: 'text/event-stream, application/json' },
+        },
+        (res) =>
+          res.once('data', (d) => {
+            resolve({ status: res.statusCode ?? 0, type: String(res.headers['content-type']), chunk: String(d) });
+            req.destroy();
+          }),
+      );
+      req
+        .on('error', () => {})
+        .on('timeout', () => reject(new Error('no first line in 5 s: buffered?')))
+        .end();
+    }, reject);
+  });
+  assert.equal(first.status, 200);
+  assert.match(first.type, /text\/event-stream/);
+  assert.match(first.chunk, /: ?open/);
+});
