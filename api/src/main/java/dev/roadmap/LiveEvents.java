@@ -42,6 +42,7 @@ class LiveEvents {
     }
   }
 
+  /** One open connection of one person. */
   private record Stream(String subject, SseEmitter emitter) {}
 
   private final Map<String, Set<Stream>> streams = new ConcurrentHashMap<>();
@@ -110,6 +111,7 @@ class LiveEvents {
         .forEach(slug -> each(slug, s -> s.emitter().send(SseEmitter.event().comment("ping"))));
   }
 
+  /** One send to one stream. */
   private interface Send {
     void to(Stream s) throws IOException;
   }
