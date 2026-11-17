@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: road-map service — walking skeleton
-  version: 0.9.0
+  version: 0.10.0
   description: >
     The roadmap service as seen through nginx. Read-only. Every route except health needs a bearer token
     (spec 002); a roadmap is served only to members of its owning team (spec 003). Proposals can be created and edited, never submitted yet (spec 004), submitted, reviewed and approved (spec 005). Error bodies follow the gantt library's server: {error, code}.
@@ -257,6 +257,23 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/VersionSummary' } } }
         '403': { $ref: '#/components/responses/Denied' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /roadmaps/{slug}/events:
+    parameters:
+      - { name: slug, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: roadmapEvents
+      summary: >-
+        Live events (spec 008). A server-sent-events stream of what changed on this roadmap, for members of the
+        owning team. Each `data:` line is JSON with `kind`, optional `proposal`, `version`, `baseline`, `actor`
+        and `at`; ids and names only, never a document. A `: ping` comment comes every 25 s. The stream ends when
+        the token expires. Send `Accept: text/event-stream, application/json` so a refusal can be JSON.
+      responses:
+        '200':
+          description: The event stream.
+          content: { text/event-stream: { schema: { type: string } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429':
+          description: The person already has 5 streams open.
   /roadmaps/{slug}/baselines:
     parameters:
       - { name: slug, in: path, required: true, schema: { type: string } }
