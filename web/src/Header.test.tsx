@@ -43,3 +43,20 @@ test('has no accessibility violations', async () => {
   const r = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
   expect(r.violations.map((v) => v.id)).toEqual([]);
 });
+
+// 008 FR-009: the live state is text and a mark, announced politely, and quiet while connecting.
+test('says whether the page is live, reconnecting or off, and nothing while connecting', async () => {
+  const draw = (live: 'connecting' | 'live' | 'reconnecting' | 'off') =>
+    render(<Header entry={entry} theme="light" live={live} onTheme={() => undefined} onSignOut={() => undefined} />);
+  const connecting = draw('connecting');
+  expect(screen.queryByRole('status')).toBeNull();
+  connecting.unmount();
+  const live = draw('live');
+  expect(screen.getByRole('status').textContent).toContain('Live');
+  live.unmount();
+  draw('reconnecting').unmount();
+  const off = draw('off');
+  expect(screen.getByRole('status').textContent).toContain('off');
+  const results = await axe.run(off.container, { rules: { 'color-contrast': { enabled: false } } });
+  expect(results.violations).toEqual([]);
+});

@@ -31,12 +31,17 @@ export async function signIn(): Promise<void> {
  */
 export async function apiFetch(
   path: string,
-  init: { method: string; body: string } | undefined = undefined,
+  init:
+    { method: string; body?: string; headers?: Record<string, string>; signal?: AbortSignal } | undefined = undefined,
 ): Promise<Response> {
   const call = () =>
     fetch(path, {
       ...init,
-      headers: { authorization: `Bearer ${keycloak.token}`, ...(init ? { 'content-type': 'application/json' } : {}) },
+      headers: {
+        authorization: `Bearer ${keycloak.token}`,
+        ...(init?.body ? { 'content-type': 'application/json' } : {}),
+        ...init?.headers,
+      },
     });
   try {
     await keycloak.updateToken(30);
