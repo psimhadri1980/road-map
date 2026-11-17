@@ -1,5 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axe from 'axe-core';
+
+// The live stream has its own tests (live.test.ts); here it is switched off.
+vi.mock('./live.ts', () => ({ watch: () => () => undefined }));
 import { afterEach, expect, test, vi } from 'vitest';
 
 // The adapter needs a real identity provider and a browser redirect; its behaviour is covered end to end by

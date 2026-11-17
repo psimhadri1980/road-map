@@ -2,6 +2,7 @@ import { Gantt, type AccessRules } from '@gantt/react';
 import '@gantt/react/src/gantt.css';
 import './layout.css';
 import { useEffect, useRef, useState } from 'react';
+import { watch, type LiveState } from './live.ts';
 import { apiFetch, signIn, signOut, userName } from './auth.ts';
 import { documentToChanges, type Doc } from './changes.ts';
 import { Checklist } from './Checklist.tsx';
@@ -96,6 +97,40 @@ export function App() {
   const failed = (e: unknown) =>
     setLoaded({ state: e instanceof Error && /^40[34]$/.test(e.message) ? 'denied' : 'error' });
   const retry = useRef<() => void>(() => undefined);
+  // 008 (FR-009): one live stream per open roadmap. An event or a reconnect re-reads what the page shows, without
+  // touching a draft being edited, a version being viewed or the comparison.
+  const [live, setLive] = useState<LiveState>('connecting');
+  const editingNow = useRef(false);
+  useEffect(() => {
+    editingNow.current = draft !== null;
+  }, [draft]);
+  const watching = loaded.state === 'ready' ? loaded.slug : null;
+  useEffect(() => {
+    if (!watching) return;
+    const api = `/api/roadmaps/${encodeURIComponent(watching)}`;
+    const reread = () =>
+      Promise.all([
+        fetchJson(api),
+        fetchJson(`${api}/versions`),
+        fetchJson(`${api}/baselines`),
+        fetchJson(`${api}/proposals`),
+      ]).then(
+        ([data, versions, baselines, proposals]) =>
+          setLoaded((l) =>
+            l.state === 'ready' && l.slug === watching
+              ? {
+                  ...l,
+                  data: editingNow.current ? l.data : data,
+                  versions: Array.isArray(versions) ? versions : l.versions,
+                  baselines: Array.isArray(baselines) ? baselines : l.baselines,
+                  proposals: Array.isArray(proposals) ? proposals : l.proposals,
+                }
+              : l,
+          ),
+        () => undefined, // the next event or reconnect tries again
+      );
+    return watch(watching, () => void reread(), setLive);
+  }, [watching]);
   const open = (list: Entry[], slug: string): Promise<void> => {
     setCompare(null);
     setDraft(null);
@@ -225,6 +260,7 @@ export function App() {
         entry={entry}
         current={loaded.versions[0]}
         theme={theme}
+        live={live}
         onTheme={flipTheme}
         onSignOut={() => void signOut()}
       />
