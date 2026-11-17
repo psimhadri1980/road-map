@@ -48,6 +48,7 @@ class LiveEvents {
   private final Map<String, Set<Stream>> streams = new ConcurrentHashMap<>();
   private final ObjectMapper json;
 
+  @SuppressWarnings("FutureReturnValueIgnored") // ping() handles its own failures
   LiveEvents(ObjectMapper json) {
     this.json = json;
     ScheduledExecutorService beat =
@@ -57,7 +58,7 @@ class LiveEvents {
           return t;
         });
     // A comment line keeps proxies from closing a quiet stream (FR-007).
-    var _ = beat.scheduleAtFixedRate(this::ping, 25, 25, TimeUnit.SECONDS);
+    beat.scheduleAtFixedRate(this::ping, 25, 25, TimeUnit.SECONDS);
   }
 
   /** A new stream that ends after {@code life} (the token's remaining life, FR-008). */
