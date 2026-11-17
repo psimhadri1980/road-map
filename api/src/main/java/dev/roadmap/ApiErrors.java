@@ -70,6 +70,13 @@ public class ApiErrors {
     }
   }
 
+  /** The person already holds the most open event streams (008, FR-008). */
+  public static final class TooManyStreams extends RuntimeException {
+    TooManyStreams() {
+      super("too many open streams");
+    }
+  }
+
   @ExceptionHandler({HandlerMethodValidationException.class, ConstraintViolationException.class})
   ResponseEntity<Body> invalid() {
     return reply(HttpStatus.BAD_REQUEST, "The roadmap name is not valid.", "invalid");
@@ -79,6 +86,12 @@ public class ApiErrors {
   ResponseEntity<Body> notFound() {
     // One text for every kind of absent, so an outsider cannot tell a roadmap from a Proposal.
     return reply(HttpStatus.NOT_FOUND, "Not found.", "notFound");
+  }
+
+  @ExceptionHandler(TooManyStreams.class)
+  ResponseEntity<Body> tooManyStreams() {
+    return reply(
+        HttpStatus.TOO_MANY_REQUESTS, "Too many live connections are open.", "tooManyStreams");
   }
 
   @ExceptionHandler(Denied.class)
