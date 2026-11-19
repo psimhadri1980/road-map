@@ -67,7 +67,7 @@ public class ProposalService {
   @Transactional
   public ProposalSummary create(String slug, Teams teams, Actor actor, NewProposal request) {
     var roadmap = visible(slug, teams);
-    if (!"editor".equals(teams.role(roadmap.team()))) {
+    if (!writes(teams.role(roadmap.team()))) {
       throw new ApiErrors.Denied();
     }
     String name = request == null ? null : request.name();
@@ -100,7 +100,7 @@ public class ProposalService {
     UUID uuid = uuid(slug, id);
     var row =
         proposals.findForUpdate(roadmap.id(), uuid).orElseThrow(() -> new ApiErrors.NotFound(slug));
-    if (!"editor".equals(teams.role(roadmap.team())) || !row.owner().equals(actor.subject())) {
+    if (!writes(teams.role(roadmap.team())) || !row.owner().equals(actor.subject())) {
       throw new ApiErrors.Denied();
     }
     List<ProposalChange> changes = added == null ? List.of() : List.copyOf(added);
@@ -141,7 +141,7 @@ public class ProposalService {
     boolean mine = row.owner().equals(actor.subject());
     boolean allowed =
         action.who() == ProposalState.Who.CREATOR
-            ? mine && "editor".equals(role)
+            ? mine && writes(role)
             : !mine && "reviewer".equals(role);
     if (!allowed) {
       throw new ApiErrors.Denied();
@@ -263,14 +263,22 @@ public class ProposalService {
             kind, proposal == null ? null : proposal.toString(), version, null, actor.name()));
   }
 
-  /** The locked Proposal if the caller is its creator-editor and it is a draft (403, then 409). */
+  /**
+   * Who may write their own drafts: editors and reviewers (014 FR-001). A reviewer still never
+   * reviews their own Proposal, because reviewer actions require {@code !mine} in {@link #act}.
+   */
+  private static boolean writes(String role) {
+    return "editor".equals(role) || "reviewer".equals(role);
+  }
+
+  /** The locked Proposal if the caller is its creator and it is a draft (403, then 409). */
   private ProposalRepository.Row ownDraft(
       ProposalRepository.RoadmapRef roadmap, String slug, String id, Teams teams, Actor actor) {
     var row =
         proposals
             .findForUpdate(roadmap.id(), uuid(slug, id))
             .orElseThrow(() -> new ApiErrors.NotFound(slug));
-    if (!"editor".equals(teams.role(roadmap.team())) || !row.owner().equals(actor.subject())) {
+    if (!writes(teams.role(roadmap.team())) || !row.owner().equals(actor.subject())) {
       throw new ApiErrors.Denied();
     }
     if (ProposalState.fromDb(row.state()) != ProposalState.DRAFT) {
