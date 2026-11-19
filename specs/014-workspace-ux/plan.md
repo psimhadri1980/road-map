@@ -42,7 +42,7 @@ Under 720 px the menu becomes a row of links above the page.
 | Screen           | Shows                                                                                                    |
 | ---------------- | -------------------------------------------------------------------------------------------------------- |
 | Plan, editing    | Switcher open (grouped by team, All roadmaps, New roadmap), editing mode bar, checklist count            |
-| Plan, empty      | "No tasks yet", "Start editing", how-to line; mode bar with a secondary "Edit"                           |
+| Plan, empty      | "No tasks yet", "Start editing"; mode bar with a secondary "Edit". In a draft: the "First task" form     |
 | Roadmaps         | Name, team, your role; "New roadmap"; account menu open (name, roles, theme, sign out)                   |
 | New roadmap      | Dialog: name, team (editor or reviewer teams only), time zone, start                                     |
 | Teams and access | Your teams and roles; what each role may do                                                              |
@@ -59,7 +59,7 @@ Under 720 px the menu becomes a row of links above the page.
 | `Nav.tsx` (new)                                                             | The menu of User Story 3, `aria-current="page"`, review count, collapse in `localStorage` (try/catch, like `theme.ts`).                                            |
 | `Header.tsx`                                                                | Roadmap switcher (listbox grouped by team, All roadmaps, New roadmap), context chips, account menu with theme and sign out.                                        |
 | `ModeBar.tsx` (new)                                                         | The modes of User Story 2, the checklist count with `<details>` around the existing `Checklist`.                                                                   |
-| `EmptyState.tsx` (new)                                                      | Story 1, per role.                                                                                                                                                 |
+| `EmptyState.tsx` (new)                                                      | Story 1, per role; the chart's `emptyState`; "First task" form in a draft (the library draws no grid at zero tasks).                                               |
 | `Drafts.tsx`                                                                | Becomes the Drafts page. The discard confirmation is kept.                                                                                                         |
 | `Review.tsx`, `History.tsx`, `Baselines.tsx`, `Compare.tsx`, `Insights.tsx` | Rendered as pages. Review gains "Show on plan" (the existing Proposal document read, shown read-only); Insights items pass the task to the chart's `selection`.    |
 | `Roadmaps.tsx` (new)                                                        | The list from `GET /api/roadmaps` (slug, name, team, role) and "New roadmap".                                                                                      |

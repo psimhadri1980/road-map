@@ -19,22 +19,28 @@
 - Q: How is a draft started? → A: One "Edit" button above the chart. With no open draft, it starts one named "Draft <date>". With exactly one open draft, it resumes it. With several, it opens Drafts to pick one. Nobody has to type a name before seeing the chart become editable.
 - Q: What does the header hold? → A: The product name, the roadmap switcher (which also offers "All roadmaps" and "New roadmap"), the open roadmap's context (team, role, version, live) and an account menu (name, roles, theme, sign out).
 
+### Session 2026-11-20
+
+- Q: Inside a draft, how is the first task added to an empty roadmap? → A: The page adds it. Checked in the running app: with zero tasks the gantt library draws no grid, so there is no last row to type in, no Insert and no empty row to drag across; it shows only its empty message, or what the host passes as `emptyState`. While editing an empty roadmap, the empty state therefore holds a "First task" form (name, start defaulting to the roadmap's start, "Add task"). The task goes into the draft as an ordinary change, and from then on the library's own grid takes over.
+
 ## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Fill a new roadmap (Priority: P1)
 
-A person who has just created a roadmap lands on its Plan page and sees an empty-state message over the chart that says what to do: "No tasks yet", a primary "Start editing" button, and one line on how to add tasks (type in the last row, press Insert, or drag across an empty row). One click makes the chart editable.
+A person who has just created a roadmap lands on its Plan page and sees an empty-state message over the chart that says what to do: "No tasks yet", and a primary "Start editing" button. One click starts a draft, and the empty state turns into a "First task" form (name, start, "Add task"), because the chart has no rows to type in until a task exists. After the first task, the chart's own grid is used (type in the last row, press Insert, or drag across an empty row).
 
 **Why this priority**: This is the reported dead end, and without it a new roadmap is useless.
 
-**Independent Test**: As a reviewer, create roadmap "XYZ"; Plan opens with the empty state; click "Start editing"; type a task name in the last row; the task appears and the change count goes to 1.
+**Independent Test**: As a reviewer, create roadmap "XYZ"; Plan opens with the empty state; click "Start editing"; type a task name and press "Add task"; the task appears on the chart and the change count goes to 1.
 
 **Acceptance Scenarios**:
 
-1. **Given** an editor or reviewer opens an empty roadmap, **When** it loads, **Then** the chart area shows the empty state with "Start editing" and the how-to line.
+1. **Given** an editor or reviewer opens an empty roadmap, **When** it loads, **Then** the chart area shows the empty state with "Start editing".
 2. **Given** a viewer opens an empty roadmap, **When** it loads, **Then** the empty state says the roadmap has no tasks and who can add them, with no button.
-3. **Given** a reviewer clicks "Start editing", **When** the draft is created, **Then** the chart is editable and the service accepts their changes.
-4. **Given** a reviewer submits their own draft, **When** they open Review, **Then** approve is not offered on it, and the service refuses it if tried.
+3. **Given** a reviewer clicks "Start editing", **When** the draft is created, **Then** the chart area shows the "First task" form, with start set to the roadmap's start, and the service accepts their changes.
+4. **Given** the "First task" form, **When** a name is typed and "Add task" pressed, **Then** the task is saved to the draft, the chart grid appears with it, and the how-to line for adding more is shown once. An empty name is refused at the field.
+5. **Given** a draft whose changes delete every task, **When** the chart becomes empty, **Then** the "First task" form shows again.
+6. **Given** a reviewer submits their own draft, **When** they open Review, **Then** approve is not offered on it, and the service refuses it if tried.
 
 ---
 
@@ -139,7 +145,7 @@ The colours sit with the chart's own theme, so the page and the chart look like 
 ### Functional Requirements
 
 - **FR-001**: The service MUST let a team's reviewers create, change, submit, withdraw, discard and refresh their own drafts, as editors can. A Proposal's creator MUST still never approve, return or reject it (005).
-- **FR-002**: An empty roadmap MUST show an empty state in the chart area: for editors and reviewers, "Start editing" and the how-to line; for viewers, who can add tasks.
+- **FR-002**: An empty roadmap MUST show an empty state in the chart area: for editors and reviewers, "Start editing"; for viewers, who can add tasks. Inside a draft with no tasks, it MUST show a "First task" form (name required, start defaulting to the roadmap's start) that saves the task to the draft as an ordinary change.
 - **FR-003**: A mode bar above the chart MUST show the current mode and its actions, as in User Story 2. "Edit" starts or resumes a draft, or opens Drafts when there are several, with no name typed first. Renaming a draft is not offered (there is no rename in the service; see Out of scope).
 - **FR-004**: The checklist (012) MUST show in the mode bar as a count ("2 of 4 done") that expands into the list. It is no longer a side section.
 - **FR-005**: A left navigation MUST list the pages of User Story 3 and show one page at a time. The open roadmap and page are kept in the address, so reload, back and links work. The menu can collapse to icons, and that choice is remembered per browser.
@@ -162,7 +168,7 @@ No new data. A draft's default name is "Draft <yyyy-mm-dd>", which the existing 
 
 ## Assumptions
 
-- The gantt library's own editing UI is good enough: its quick-entry last row, Insert, drag-to-create, details panel and context menu. This spec uses only its existing props (`theme`, `readOnly`, `access`, `selection`) and does not change the library (it is a pinned submodule).
+- The gantt library's own editing UI is good enough: its quick-entry last row, Insert, drag-to-create, details panel and context menu. The exception is a roadmap with no tasks, where it draws no grid at all (Clarifications, 2026-11-20). This spec uses only its existing props (`theme`, `readOnly`, `access`, `selection`, `emptyState`) and does not change the library (it is a pinned submodule).
 - Roles come from the sign-in token, one per team (003). Teams and access explains them; it does not change them.
 - Remembered menu state is a browser-only convenience, like the theme (010).
 - The single-instance limit and other operational topics stay in spec 009.
