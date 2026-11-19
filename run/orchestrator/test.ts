@@ -324,7 +324,7 @@ async function smokeAs(
     document.querySelector('.gx-add-btn')?.click();
     await new Promise((r) => setTimeout(r, 700));
     const stored = JSON.stringify([{ ...localStorage }, { ...sessionStorage }, document.cookie]);
-    return JSON.stringify({ options: [...document.querySelectorAll('#roadmap-picker option')].map((o) => o.textContent), tokenStored: stored.includes('eyJ'), text: grid.innerText, links: document.querySelectorAll('.gx-link').length, before, after: rows(), header: !!document.querySelector('header h1'), versions: document.querySelectorAll('[aria-labelledby=history-title] li').length });
+    return JSON.stringify({ options: [...document.querySelectorAll('header select[aria-label=Roadmap] optgroup option')].map((o) => o.textContent), tokenStored: stored.includes('eyJ'), text: grid.innerText, links: document.querySelectorAll('.gx-link').length, before, after: rows(), header: !!document.querySelector('header h1'), versions: /Version \\d+/.test(document.querySelector('header').innerText) ? 1 : 0 });
   })()`,
       ),
     ),
@@ -347,7 +347,7 @@ async function smokeAs(
   if (seen.links !== sample.links.length)
     throw new RunError(`the page draws ${seen.links} links; the sample has ${sample.links.length}`);
   if (seen.after !== seen.before) throw new RunError('an edit attempt changed the roadmap');
-  if (!seen.header || seen.versions < 1) throw new RunError('the header or the version history is missing (010)');
+  if (!seen.header || seen.versions < 1) throw new RunError('the header or its current version is missing (010, 014)');
   if (seen.tokenStored) throw new RunError('a token was found in browser storage or a cookie (FR-004)');
   log.ok(
     `${who}: the picker offers only "${offered}"; the browser shows ${visible.length}+ of ${names.length} task names and ${seen.links} links; an edit attempt changes nothing`,
