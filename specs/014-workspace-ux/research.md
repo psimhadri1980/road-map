@@ -12,11 +12,14 @@
   - Stop reviewers creating roadmaps: rejected, because it would break 012 and leave a reviewer-only team unable to start a roadmap at all.
   - Give a person two roles: rejected, because roles are one per team in the token (003).
 
-## R2: Tabs versus stacked sections
+## R2: Pages in a left menu versus stacked sections or tabs
 
-- **Decision**: One tabbed, collapsible panel (spec FR-005).
-- **Rationale**: Ten stacked sections in 260 px make every section hard to find. Tabs show one task's tools at a time and let the chart take the width.
-- **Alternatives**: Accordions, rejected because they still stack and need many clicks. A router with separate pages, rejected because it is a new dependency and the chart must stay in view while reviewing.
+- **Decision**: A left menu with one page per job (spec FR-005), the page kept in the address hash.
+- **Rationale**: Ten stacked sections in 260 px make every section hard to find. A tabbed side panel would repeat the narrow column. Pages give each job the full width, and "Show on plan" brings the chart back when a page points at a task, a version or a Proposal.
+- **Alternatives**:
+  - Accordions: rejected, because they still stack and need many clicks.
+  - A tabbed side panel next to the chart: rejected, as above.
+  - A router library: rejected, because the page state is two values (roadmap and page) that `location.hash` and `hashchange` already hold.
 
 ## R3: Styling without a framework
 
@@ -27,3 +30,8 @@
 
 - **Decision**: A token contrast unit test (plan, "Decisions").
 - **Rationale**: axe's `color-contrast` rule needs layout and computed colours, which jsdom does not provide. That is why the existing tests disable it.
+
+## R5: What Roadmaps and Teams and access can show
+
+- **Decision**: Name, team and role only.
+- **Evidence**: `RoadmapSummary` is `(slug, name, team, role)`. Current version, waiting count and last approved would each need a new query per roadmap, and no requirement needs them.
