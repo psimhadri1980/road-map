@@ -7,7 +7,7 @@
 (git-ignored; staged into every image build context as `certs/`, without keys). With the settings empty, files you place here
 yourself under those names are used. Everything below refers to those copies.
 
-Put your internal CA chain in `org-ca.crt` (PEM text, one or more certificates; the same file you import into browsers and the OS trust store). When the file exists,
+Put your internal CA chain in `org-ca.crt` (PEM text, one or more certificates). When the file exists,
 every build and run trusts it in addition to the public CAs, so npm registries, proxies, OIDC,
 webhooks and Git sources behind your CA work. Without it nothing changes. The file is git-ignored.
 
@@ -15,13 +15,27 @@ webhooks and Git sources behind your CA work. Without it nothing changes. The fi
 - Final images (api, worker, ops, renderer): the same cert is appended to the system store (git, curl) and set as `NODE_EXTRA_CA_CERTS`; the renderer also adds each certificate to Chromium's NSS database. Images rebuild by themselves after it changes (it is part of their input hash): `run/run.sh podman:stack:deploy`.
 - Keycloak: `KC_TRUSTSTORE_PATHS` points at it.
 - Local runs (`run/run.sh local:...`, tests on local Node): `NODE_EXTRA_CA_CERTS` is set.
-- Browsers: import `org-ca.crt` as a trusted authority (Chrome/Edge: Settings > Privacy and security > Manage certificates > Authorities; Firefox: Settings > Privacy & Security > View Certificates > Authorities; Linux system store: copy to `/usr/local/share/ca-certificates/` and run `sudo update-ca-certificates`).
 
-## Gateway HTTPS (server certificate)
+`org-ca.crt` is for reaching services behind your organization's CA. It does not make browsers trust
+the road-map gateway; that needs the project CA below.
 
-`gateway.crt` and `gateway.key` (PEM) make the gateway serve HTTPS on `RM_TLS_PORT` (host.conf,
-default 5443) next to plain HTTP on `RM_PORT` (5173). They are the gateway's own identity,
-usually issued by your organization CA, and are mounted read-only at `/run/rm-certs`; the key is
-never copied into image builds. The key must be readable by the container user
-(`chmod 644 run/certs/gateway.key` for rootless Podman). Without both files the gateway stays plain HTTP.
-`GATEWAY_TLS_CERT` and `GATEWAY_TLS_KEY` in `local.env` override the paths. Run `run/run.sh gateway:deploy` after changing them.
+## Project CA and the gateway (what your browser must trust)
+
+On first deploy `run/run.sh` creates a project CA (`ca.crt`, `ca.key`, CN "road-map development CA")
+and one server certificate per component signed by it, valid 365 days, naming `localhost` and
+`127.0.0.1`. The gateway serves `https://127.0.0.1:8443` with `gateway.crt` (use that address, not
+`localhost`: sign-in only redirects back to it); port 18080 only redirects there. Deploy refuses a `gateway.crt` that the project CA did not issue, so a certificate supplied
+through `GATEWAY_TLS_CERT_FILE` must be signed by `ca.crt` too.
+
+To open the application without a certificate error, trust `ca.crt` (not `org-ca.crt`) as an authority:
+
+- Chrome, Chromium, Edge and Chromium-based apps on Linux (including the Claude desktop app's
+  browser pane) read the NSS database. With `libnss3-tools` installed:
+  `certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "road-map development CA" -i run/certs/ca.crt`,
+  then restart the browser.
+- Firefox: Settings > Privacy & Security > View Certificates > Authorities > Import.
+- curl and other OpenSSL tools: `--cacert run/certs/ca.crt`, or the Linux system store (copy to
+  `/usr/local/share/ca-certificates/road-map-dev-ca.crt` and run `sudo update-ca-certificates`).
+
+Deleting `run/certs/*.crt` and `*.key` and deploying again creates a new CA, which must then be
+trusted again. `run/run.sh status` warns 30 days before a certificate expires.
