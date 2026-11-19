@@ -297,7 +297,7 @@ test('resuming a draft loads its document and shows the draft banner', async () 
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
   expect((await screen.findByRole('status')).textContent).toContain('Editing draft “Mine”');
-  fireEvent.click(screen.getByRole('button', { name: 'Leave draft' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Stop editing' }));
   await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
 });
 
@@ -527,8 +527,8 @@ test('a created roadmap is opened', async () => {
   });
 });
 
-// 012 FR-007: an editor of an empty roadmap sees the checklist; a draft's checklist names an undated task.
-test('the checklist shows on an empty roadmap and flags a draft task without a start', async () => {
+// 012 FR-007, 014 FR-004: the checklist belongs to a draft, as a count in the mode bar; it names an undated task.
+test('a draft shows its checklist as a count; the current plan has none', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(
     withDrafts('editor', {
@@ -537,12 +537,76 @@ test('the checklist shows on an empty roadmap and flags a draft task without a s
       ),
     }),
   );
-  render(<App />);
-  expect((await screen.findByText(/This roadmap is empty/)).textContent).toBeTruthy();
   at('drafts');
+  render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
-  expect((await screen.findByText(/No start: Build\./)).textContent).toBeTruthy();
-  expect(screen.queryByText(/This roadmap is empty/)).toBeNull();
+  expect((await screen.findByText(/^Checklist: \d+ of \d+ done$/)).textContent).toBeTruthy();
+  expect(screen.getByText(/No start: Build\./)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Stop editing' }));
+  await waitFor(() => expect(screen.queryByText(/^Checklist:/)).toBeNull());
+});
+
+// 014 FR-003: one click from the current plan to an editable draft named after the day.
+test('Edit on the current plan starts a dated draft and shows the editing bar', async () => {
+  signIn.mockResolvedValue(undefined);
+  const made =
+    '{"id":"n1","name":"x","state":"draft","owner":"dave","changeCount":0,"baseVersion":2,"headVersion":2,"stale":false}';
+  apiFetch.mockImplementation((p: string, i?: unknown) =>
+    i
+      ? Promise.resolve(new Response(made, { status: 201 }))
+      : asRole('editor', { '/api/roadmaps/sample/proposals': new Response('[]') })(p),
+  );
+  render(<App />);
+  expect(await screen.findByText('Current plan')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+  const name = `Draft ${new Date().toLocaleDateString('en-CA')}`;
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals', {
+      method: 'POST',
+      body: JSON.stringify({ name, changes: [] }),
+    }),
+  );
+  expect((await screen.findByRole('status')).textContent).toContain('Editing draft');
+  // 0 changes: Submit is off, and says why in words.
+  const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Submit for review' });
+  expect(submit.disabled).toBe(true);
+  expect(submit.getAttribute('aria-describedby')).toBe('submit-why');
+  expect(screen.getByText('Make a change first.')).toBeTruthy();
+});
+
+// 014 FR-003: with more than one own draft, Edit asks which, on Drafts; a viewer has no Edit.
+test('Edit with two own drafts opens Drafts; a viewer has no Edit', async () => {
+  signIn.mockResolvedValue(undefined);
+  const two =
+    '[{"id":"d1","name":"Mine","state":"draft","owner":"dave","changeCount":2,"baseVersion":2,"headVersion":2,"stale":false},' +
+    '{"id":"d4","name":"Also mine","state":"draft","owner":"dave","changeCount":0,"baseVersion":2,"headVersion":2,"stale":false}]';
+  apiFetch.mockImplementation(asRole('editor', { '/api/roadmaps/sample/proposals': new Response(two) }));
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+  expect(await screen.findByRole('button', { name: 'Edit Also mine' })).toBeTruthy();
+  expect(location.hash).toBe('#/sample/drafts');
+  cleanup();
+  location.hash = '';
+  apiFetch.mockImplementation(asRole('viewer'));
+  render(<App />);
+  await screen.findByText('Current plan');
+  expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+});
+
+// 014 FR-003: Submit from the bar sends the draft and says who can approve it.
+test('Submit for review from the bar sends the draft', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withDrafts('editor', { '/api/roadmaps/sample/proposals/d1/document': new Response(STUB) }),
+  );
+  at('drafts');
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Submit for review' }));
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals/d1/submit', { method: 'POST', body: '{}' }),
+  );
+  expect((await screen.findByRole('status')).textContent).toContain('A reviewer other than you can approve it.');
 });
 
 // 014 FR-005, User Story 3 scenario 1: one page at a time, and the menu marks it.

@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import { watch, type LiveState } from './live.ts';
 import { apiFetch, signIn, signOut, userName } from './auth.ts';
 import { documentToChanges, type Doc } from './changes.ts';
-import { Checklist } from './Checklist.tsx';
 import { Conflicts } from './Conflicts.tsx';
 import { Drafts, type Proposal } from './Drafts.tsx';
 import { NewRoadmap } from './NewRoadmap.tsx';
@@ -16,6 +15,7 @@ import { Baselines, type Baseline } from './Baselines.tsx';
 import { Insights, WhatIf } from './Insights.tsx';
 import { History } from './History.tsx';
 import { Restore } from './Restore.tsx';
+import { ModeBar, draftName } from './ModeBar.tsx';
 import { Header, type Entry, type Version } from './Header.tsx';
 import { useTheme } from './theme.ts';
 import { hashOf, Nav, parseHash, type Page } from './Nav.tsx';
@@ -98,6 +98,7 @@ export function App() {
     null,
   );
   const [resolving, setResolving] = useState<Proposal | null>(null);
+  const [notice, setNotice] = useState<string>();
   // 014 FR-005: the page follows the address; `opened` is the roadmap asked for, so a repeated hash does not reload.
   const [page, setPage] = useState<Page>('plan');
   const [selection, setSelection] = useState<SelectionTarget[]>([]);
@@ -343,14 +344,22 @@ export function App() {
   const editor = entry.role === 'editor' || reviewer;
   const drafts = loaded.proposals.filter((p) => p.state === 'draft' && p.owner === userName());
   const editing = draft && !loaded.viewing ? draft : null;
+  const mine = editing && loaded.proposals.find((p) => p.id === editing.id);
+  // 014 FR-003: one click from the current plan to an editable chart.
+  const edit = () => {
+    setNotice(undefined);
+    if (drafts.length > 1) return go('drafts');
+    if (drafts.length === 1) return void resume(drafts[0]!);
+    void start(draftName(loaded.proposals.map((p) => p.name))).catch((e: Error) => setNotice(e.message));
+  };
   const refresh = () => void open(loaded.list, loaded.slug);
   // A viewer asking for Review or Drafts gets Plan: those pages are not theirs (014 User Story 3, scenario 7).
   const shown: Page = !editor && (page === 'review' || page === 'drafts') ? 'plan' : page;
   const content = {
     plan: (
       <>
-        {loaded.viewing && (
-          <p role="status" className="banner">
+        {loaded.viewing ? (
+          <ModeBar mode="read-only">
             {loaded.viewing.version !== undefined ? (
               <>
                 You are looking at version {loaded.viewing.version}, not the current plan. It is read-only.{' '}
@@ -373,27 +382,37 @@ export function App() {
                 </button>
               </>
             )}
-          </p>
-        )}
-        {editing && (
-          <p role="status" className="banner">
-            Editing draft “{editing.name}”. Each edit is saved as a change; edits a draft cannot carry are not sent.
-            {editing.notice && <> {editing.notice}</>}{' '}
-            <button
-              type="button"
-              onClick={() => {
-                setDraft(null);
-                void reloadProposals();
-              }}
-            >
-              Leave draft
-            </button>
-            {editing.error && <span role="alert"> {editing.error}</span>}
-          </p>
-        )}
-        {(editing ||
-          (editor && !loaded.viewing && Array.isArray(loaded.data?.tasks) && loaded.data.tasks.length === 0)) && (
-          <Checklist doc={(editing ? saved.current : loaded.data) as unknown as Doc} draft={!!editing} />
+          </ModeBar>
+        ) : editing ? (
+          <ModeBar
+            mode="editing"
+            name={editing.name}
+            changes={mine?.changeCount ?? 0}
+            stale={!!mine?.stale}
+            doc={saved.current!}
+            notice={editing.notice}
+            error={editing.error}
+            onStop={() => {
+              setDraft(null);
+              void reloadProposals();
+            }}
+            onResolve={() => {
+              setResolving(mine!);
+              go('drafts');
+            }}
+            onSubmit={() =>
+              void send(`${api}/proposals/${editing.id}/submit`).then(
+                () => {
+                  setDraft(null);
+                  setNotice(`“${editing.name}” is waiting for review. A reviewer other than you can approve it.`);
+                  void reloadProposals();
+                },
+                (e: Error) => setDraft((d) => d && { ...d, error: e.message }),
+              )
+            }
+          />
+        ) : (
+          <ModeBar mode="current" canEdit={editor} notice={notice} onEdit={edit} />
         )}
         <div className="chart">
           {/* key: a different document is a different chart, never a patched one */}

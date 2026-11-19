@@ -322,3 +322,19 @@ body,
   color: var(--text-secondary);
   font-size: 12px;
 }
+
+/* 014 FR-003: the mode bar above the chart; what is shown on the left, the action on the right. */
+.modebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.modebar p {
+  margin: 0;
+}
+.modebar .grow {
+  flex: 1;
+}

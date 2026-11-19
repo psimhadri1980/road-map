@@ -3,20 +3,25 @@ import { checks } from './checks.ts';
 
 const MARK = { ok: 'Done', fix: 'Fix', later: 'To do' } as const;
 
-/** The checklist for a draft, or for an empty roadmap (012 FR-007). The state is written, never colour alone. */
-export function Checklist(props: { doc: Doc; draft: boolean }) {
+/**
+ * A draft's checklist (012 FR-007), shown in the mode bar as a count that expands into the list (014 FR-004).
+ * The state is written, never colour alone.
+ */
+export function Checklist(props: { doc: Doc }) {
+  const list = checks(props.doc);
   return (
-    <section aria-labelledby="checklist-title">
-      <h2 id="checklist-title">Checklist</h2>
-      {!props.draft && <p>This roadmap is empty. Start a draft to fill it.</p>}
+    <details className="checklist">
+      <summary>
+        Checklist: {list.filter((c) => c.result === 'ok').length} of {list.length} done
+      </summary>
       <ul>
-        {checks(props.doc).map((c) => (
+        {list.map((c) => (
           <li key={c.id}>
             <strong>{MARK[c.result]}</strong> · {c.label}
             {c.reason && <span className="note"> · {c.reason}</span>}
           </li>
         ))}
       </ul>
-    </section>
+    </details>
   );
 }

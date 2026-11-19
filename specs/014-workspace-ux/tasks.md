@@ -13,7 +13,7 @@ One task, one PR, in order. Each ends with `run/run.sh stack:test` green.
   - the remembered collapse and the review count;
   - Review and Drafts hidden for viewers;
   - "Show on plan" from Review (Proposal read-only) and from Insights (task selected).
-- [ ] T004 `web/src/ModeBar.tsx`, `App.tsx`: mode bar, one-click Edit, checklist count (FR-003, FR-004). Done when unit tests cover:
+- [x] T004 `web/src/ModeBar.tsx`, `App.tsx`: mode bar, one-click Edit, checklist count (FR-003, FR-004). Done when unit tests cover:
   - current → Edit starts a draft named "Draft <date>" and the chart is editable;
   - two drafts → Edit opens Drafts;
   - Submit is disabled without changes;
