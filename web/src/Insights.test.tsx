@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import axe from 'axe-core';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { Insights } from './Insights.tsx';
 import type { Doc } from './changes.ts';
 
@@ -77,4 +77,27 @@ test.each(['light', 'dark'])('has no axe violations in the %s theme', async (the
   await screen.findByText(/Late \d+ d/);
   const r = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
   expect(r.violations).toEqual([]);
+});
+
+// 014 FR-005, User Story 3 scenario 6: a late task links to Plan with that task selected.
+test('a late task offers Show on plan with its id', async () => {
+  const onShow = vi.fn();
+  render(
+    <Insights
+      onShow={onShow}
+      doc={doc([
+        {
+          id: 'a',
+          name: 'Build',
+          type: 'task',
+          parent: null,
+          start: '2026-11-02',
+          duration: 10,
+          deadline: '2026-11-05',
+        },
+      ])}
+    />,
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Show Build on plan' }));
+  expect(onShow).toHaveBeenCalledWith('a');
 });

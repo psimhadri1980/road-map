@@ -27,7 +27,14 @@ afterEach(() => {
   signIn.mockReset();
   apiFetch.mockReset();
   signOut.mockReset();
+  location.hash = '';
+  localStorage.clear();
 });
+
+/** 014 FR-005: one page at a time, named by the address, as a reload would find it. */
+const at = (page: string) => {
+  location.hash = `#/sample/${page}`;
+};
 
 // FR-011a: a failed fetch gives a plain message, not a blank page or a stack trace.
 test.each([
@@ -119,6 +126,7 @@ const answer =
 test('opens an earlier version with a banner and goes back to current', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(answer());
+  at('history');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
   expect((await screen.findByRole('status')).textContent).toContain('version 1, not the current plan');
@@ -141,6 +149,7 @@ test('a failed load can be retried', async () => {
   render(<App />);
   await screen.findByRole('alert');
   apiFetch.mockImplementation(answer());
+  at('history');
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByRole('button', { name: /Version 2/ })).toBeTruthy();
 });
@@ -157,10 +166,13 @@ const asRole = (role: string, extra: Record<string, Response> = {}) =>
 test.each([['viewer'], ['editor']])('a %s has no restore or baseline controls', async (role) => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole(role));
+  at('history');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
   await screen.findByRole('status');
   expect(screen.queryByRole('button', { name: /Restore/ })).toBeNull();
+  at('history');
+  await screen.findByRole('button', { name: /Version 1/ });
   expect(screen.queryByRole('button', { name: /Create baseline/ })).toBeNull();
   // any member can list baselines and open the version one points to
   expect(screen.getByRole('button', { name: /^Kickoff ·/ })).toBeTruthy();
@@ -170,6 +182,7 @@ test.each([['viewer'], ['editor']])('a %s has no restore or baseline controls', 
 test('a reviewer restores after a confirmation', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole('reviewer'));
+  at('history');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
   fireEvent.click(await screen.findByRole('button', { name: 'Restore this version' }));
@@ -191,6 +204,7 @@ test('a refused restore shows the service text and changes nothing', async () =>
       '/api/roadmaps/sample/versions/1/restore': new Response('{"error":"No can do","code":"x"}', { status: 409 }),
     }),
   );
+  at('history');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
   fireEvent.click(await screen.findByRole('button', { name: 'Restore this version' }));
@@ -203,6 +217,7 @@ test('a refused restore shows the service text and changes nothing', async () =>
 test('a reviewer creates a baseline at the open version', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole('reviewer'));
+  at('history');
   render(<App />);
   fireEvent.change(await screen.findByLabelText(/Baseline name/), { target: { value: ' Q4 ' } });
   fireEvent.click(screen.getByRole('button', { name: /Create baseline at version 2/ }));
@@ -220,6 +235,7 @@ test.each([['light'], ['dark']])('the page has no accessibility violations in th
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole('reviewer'));
   document.documentElement.dataset['theme'] = theme;
+  at('history');
   const { container } = render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
   await screen.findByRole('status');
@@ -240,6 +256,7 @@ test('compares a version with the current plan', async () => {
       ),
     }),
   );
+  at('history');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Compare with current' }));
   expect(await screen.findByText('New one')).toBeTruthy();
@@ -258,6 +275,7 @@ const withDrafts = (role: string, extra: Record<string, Response> = {}) =>
 test.each(['editor', 'reviewer'])('a %s sees own drafts and the start form; a viewer sees neither', async (role) => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(withDrafts(role));
+  at('drafts');
   render(<App />);
   expect(await screen.findByRole('button', { name: 'Edit Mine' })).toBeTruthy();
   expect(screen.queryByText('Theirs')).toBeNull();
@@ -265,7 +283,7 @@ test.each(['editor', 'reviewer'])('a %s sees own drafts and the start form; a vi
   cleanup();
   apiFetch.mockImplementation(withDrafts('viewer'));
   render(<App />);
-  await screen.findByRole('button', { name: /Version 2/ });
+  await screen.findByRole('link', { name: 'Plan', current: 'page' });
   expect(screen.queryByRole('button', { name: 'Edit as draft' })).toBeNull();
   expect(screen.queryByRole('button', { name: /Edit Mine/ })).toBeNull();
 });
@@ -275,6 +293,7 @@ test('resuming a draft loads its document and shows the draft banner', async () 
   apiFetch.mockImplementation(
     withDrafts('editor', { '/api/roadmaps/sample/proposals/d1/document': new Response(STUB) }),
   );
+  at('drafts');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
   expect((await screen.findByRole('status')).textContent).toContain('Editing draft “Mine”');
@@ -289,6 +308,7 @@ test('starting a draft creates a Proposal with no changes', async () => {
       '/api/roadmaps/sample/proposals/d1/document': new Response(STUB),
     }),
   );
+  at('drafts');
   render(<App />);
   fireEvent.change(await screen.findByLabelText(/Draft name/), { target: { value: 'Plan B' } });
   apiFetch.mockImplementation((p: string, i?: unknown) =>
@@ -313,6 +333,7 @@ test('starting a draft creates a Proposal with no changes', async () => {
 test('discarding asks first, then calls discard', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(withDrafts('editor'));
+  at('drafts');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Discard Mine' }));
   expect(screen.getByText(/The draft and its changes are dropped/)).toBeTruthy();
@@ -332,6 +353,7 @@ const withSubmitted = (role: string, extra: Record<string, Response> = {}) =>
 test('a reviewer decides on others, never on own; return and reject need a note', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(withSubmitted('reviewer'));
+  at('review');
   render(<App />);
   expect(await screen.findByRole('button', { name: 'Approve Theirs' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Approve Mine' })).toBeNull();
@@ -351,6 +373,7 @@ test('a reviewer decides on others, never on own; return and reject need a note'
 test('an editor has no decision controls', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(withSubmitted('editor'));
+  at('review');
   render(<App />);
   await screen.findByRole('button', { name: 'Withdraw Mine' });
   expect(screen.queryByRole('button', { name: /^Approve/ })).toBeNull();
@@ -364,6 +387,7 @@ test('a refused decision shows the reason', async () => {
       '/api/roadmaps/sample/proposals/s1/approve': new Response('{"error":"out of date","code":"x"}', { status: 409 }),
     }),
   );
+  at('review');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Approve Theirs' }));
   expect((await screen.findByRole('alert')).textContent).toBe('out of date');
@@ -378,6 +402,7 @@ test('shows the changes of a waiting Proposal', async () => {
       ),
     }),
   );
+  at('review');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Show changes of Theirs' }));
   expect(await screen.findByText('New one')).toBeTruthy();
@@ -392,6 +417,7 @@ test('submit is disabled for a draft without changes', async () => {
       ),
     }),
   );
+  at('drafts');
   render(<App />);
   expect(((await screen.findByRole('button', { name: 'Submit Empty' })) as HTMLButtonElement).disabled).toBe(true);
 });
@@ -408,6 +434,7 @@ test('brings a stale draft up to date with picks, and undoes', async () => {
       '/api/roadmaps/sample/proposals/d5/conflicts': new Response('[{"position":1,"entity":"task","id":"t2"}]'),
     }),
   );
+  at('drafts');
   render(<App />);
   expect(await screen.findByText('Out of date')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Bring Old up to date' }));
@@ -437,6 +464,7 @@ test('a refused undo shows the reason', async () => {
       ),
     }),
   );
+  at('drafts');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Bring Old up to date' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Undo last refresh' }));
@@ -451,8 +479,9 @@ test.each([
 ])('a %s gets the new-roadmap form: %s', async (role, shown) => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole(role));
+  location.hash = '#/roadmaps';
   render(<App />);
-  await screen.findByRole('button', { name: /Version 2/ });
+  await screen.findByRole('heading', { name: 'Roadmaps' });
   expect(!!screen.queryByRole('button', { name: 'Create roadmap' })).toBe(shown);
 });
 
@@ -460,6 +489,7 @@ test.each([
 test('a refused create shows the service message', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole('editor'));
+  location.hash = '#/roadmaps';
   render(<App />);
   fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Plan' } });
   apiFetch.mockImplementation(() =>
@@ -473,6 +503,7 @@ test('a refused create shows the service message', async () => {
 test('a created roadmap is opened', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole('editor'));
+  location.hash = '#/roadmaps';
   render(<App />);
   fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Plan' } });
   apiFetch.mockImplementation((p: string, i?: unknown) =>
@@ -508,7 +539,88 @@ test('the checklist shows on an empty roadmap and flags a draft task without a s
   );
   render(<App />);
   expect((await screen.findByText(/This roadmap is empty/)).textContent).toBeTruthy();
+  at('drafts');
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
   expect((await screen.findByText(/No start: Build\./)).textContent).toBeTruthy();
   expect(screen.queryByText(/This roadmap is empty/)).toBeNull();
+});
+
+// 014 FR-005, User Story 3 scenario 1: one page at a time, and the menu marks it.
+test('shows only the page the address names, and the menu marks it', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(withSubmitted('reviewer'));
+  at('review');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'Waiting for review' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: /Review/ }).getAttribute('aria-current')).toBe('page');
+  expect(screen.queryByRole('heading', { name: 'Versions' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Your drafts' })).toBeNull();
+});
+
+// Scenario 2: the address is the state, so a reload or back finds the same page.
+test('follows the address when it changes, as back and reload do', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('editor'));
+  at('history');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'Versions' })).toBeTruthy();
+  at('drafts');
+  fireEvent(window, new HashChangeEvent('hashchange'));
+  expect(await screen.findByRole('heading', { name: 'Your drafts' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Versions' })).toBeNull();
+  expect(apiFetch.mock.calls.filter(([p]) => p === '/api/roadmaps/sample')).toHaveLength(1); // not reloaded
+});
+
+// Edge case: an address naming a roadmap the person cannot see opens Roadmaps with a notice.
+test.each(['#/no-such/plan', '#/sample/nonsense'])('an unknown address %s opens Roadmaps with a notice', async (h) => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('editor'));
+  location.hash = h;
+  render(<App />);
+  expect((await screen.findByRole('status')).textContent).toContain('not available');
+  expect(screen.getByRole('link', { name: 'S' })).toBeTruthy();
+  expect(apiFetch).not.toHaveBeenCalledWith('/api/roadmaps/no-such');
+});
+
+// Scenario 3: the collapsed menu stays collapsed after a reload.
+test('remembers a collapsed menu', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('editor'));
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Collapse menu' }));
+  cleanup();
+  apiFetch.mockImplementation(asRole('editor')); // a Response body reads once
+  render(<App />);
+  expect(await screen.findByRole('button', { name: 'Expand menu' })).toBeTruthy();
+  expect(screen.getByRole('navigation').className).toContain('collapsed');
+});
+
+// Scenarios 4 and 7: the review count for a reviewer; no Review or Drafts for a viewer.
+test('the menu counts waiting Proposals, and a viewer has no Review or Drafts', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(withSubmitted('reviewer'));
+  render(<App />);
+  expect((await screen.findByRole('link', { name: /Review/ })).textContent).toBe('Review 2');
+  cleanup();
+  apiFetch.mockImplementation(withSubmitted('viewer'));
+  at('review');
+  render(<App />);
+  expect(await screen.findByRole('link', { name: 'Plan', current: 'page' })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: /Review/ })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Drafts' })).toBeNull();
+});
+
+// Scenario 5: a Proposal from Review shows read-only on Plan, with a way back.
+test('shows a Proposal on Plan read-only and goes back to Review', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withSubmitted('reviewer', { '/api/roadmaps/sample/proposals/s1/document': new Response(STUB) }),
+  );
+  at('review');
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Show Theirs on plan' }));
+  expect((await screen.findByRole('status')).textContent).toContain('Proposal “Theirs”, not the current plan');
+  expect(location.hash).toBe('#/sample/plan');
+  fireEvent.click(screen.getByRole('button', { name: 'Back to review' }));
+  expect(await screen.findByRole('button', { name: 'Approve Theirs' })).toBeTruthy();
 });

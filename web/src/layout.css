@@ -128,7 +128,7 @@ button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-/* The page is one full-height column: controls on top, the chart takes everything left. */
+/* The page is one full-height column: header, then menu and page side by side (014 plan, Layout). */
 html,
 body,
 #root {
@@ -140,30 +140,101 @@ body,
   flex-direction: column;
   height: 100%;
 }
-.page > .work {
+.shell {
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 12px;
 }
-.work > .chart {
-  flex: 1;
-  min-width: 0;
-}
-.side {
-  width: 260px;
+.menu {
+  width: 232px;
+  flex: none;
   overflow: auto;
-  padding: 0 8px;
+  padding: var(--sp-03);
+  background: var(--layer-01);
+  border-right: 1px solid var(--border-subtle);
+  box-sizing: border-box;
 }
-.side ul {
+.menu ul {
   list-style: none;
-  margin: 0;
+  margin: 0 0 var(--sp-04);
   padding: 0;
 }
-.side button {
+.menu a {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--sp-03) var(--sp-04);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.menu a:hover {
+  background: var(--layer-hover);
+}
+.menu a[aria-current='page'] {
+  background: var(--layer-selected-subtle);
+  box-shadow: inset 3px 0 0 var(--interactive);
+  font-weight: 600;
+}
+.menu-roadmap {
+  margin: var(--sp-04) var(--sp-04) var(--sp-02);
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+/* Collapsed: a narrow strip of initials; each link keeps its full name as its accessible name and title. */
+.menu.collapsed {
+  width: 56px;
+}
+.menu.collapsed .label {
+  display: inline-block;
+  width: 1ch;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.menu.collapsed .count,
+.menu.collapsed .menu-roadmap {
+  display: none;
+}
+.menu .collapse {
   width: 100%;
+  padding: 0 var(--sp-02);
+}
+.content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: var(--sp-05);
+}
+.content.plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-03);
+  overflow: hidden;
+}
+.content.plan > .chart {
+  flex: 1;
+  min-height: 0;
+}
+.content ul {
+  list-style: none;
+  padding: 0;
+}
+.content li {
+  margin-bottom: var(--sp-03);
+}
+.content table {
+  border-collapse: collapse;
+  margin-bottom: var(--sp-05);
+}
+.content th,
+.content td {
   text-align: left;
-  margin-bottom: 4px;
+  padding: var(--sp-03) var(--sp-05) var(--sp-03) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.picker {
+  padding: 0 var(--sp-04) var(--sp-03);
 }
 .note {
   overflow-wrap: anywhere;
@@ -173,13 +244,31 @@ body,
   padding: 6px 12px;
   background: var(--warning-subtle);
 }
-@media (max-width: 800px) {
-  .page > .work {
+/* Narrow windows: the menu becomes a row of links above the page (014 edge cases). */
+@media (max-width: 720px) {
+  .shell {
     flex-direction: column;
   }
-  .side {
+  .menu,
+  .menu.collapsed {
     width: auto;
-    max-height: 30%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-03);
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .menu ul {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0;
+  }
+  .menu-roadmap,
+  .menu .collapse {
+    display: none;
+  }
+  .menu.collapsed .label {
+    width: auto;
   }
 }
 /* Slim, rounded scrollbars inside the chart. Grey with transparency, so one rule suits light and dark. */

@@ -15,12 +15,14 @@ export function Review(props: {
   me: string;
   role: string | undefined;
   onChanged: () => void;
+  /** 014 FR-005: opens the Proposal's document read-only on Plan. */
+  onShow?: (p: Proposal) => void;
 }) {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [shown, setShown] = useState<{ p: Proposal; diffs: Difference[] } | null>(null);
   const waiting = props.proposals.filter((p) => p.state === 'submitted');
-  if (waiting.length === 0 || (props.role !== 'editor' && props.role !== 'reviewer')) return null;
+  if (props.role !== 'editor' && props.role !== 'reviewer') return null;
   const base = `/api/roadmaps/${encodeURIComponent(props.slug)}/proposals`;
   const act = (p: Proposal, action: string) => {
     setError('');
@@ -42,6 +44,7 @@ export function Review(props: {
   return (
     <section aria-labelledby="review-title">
       <h2 id="review-title">Waiting for review</h2>
+      {waiting.length === 0 && <p>Nothing is waiting for review.</p>}
       <ul>
         {waiting.map((p) => {
           const mine = p.owner === props.me;
@@ -53,6 +56,14 @@ export function Review(props: {
               <button type="button" onClick={() => void changes(p)}>
                 Show changes of {p.name}
               </button>
+              {props.onShow && (
+                <>
+                  {' '}
+                  <button type="button" onClick={() => props.onShow!(p)}>
+                    Show {p.name} on plan
+                  </button>
+                </>
+              )}
               {mine && (
                 <>
                   {' '}

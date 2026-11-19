@@ -18,7 +18,8 @@ const LIVE_TEXT = {
  * every action (010 FR-002, constitution III).
  */
 export function Header(props: {
-  entry: Entry;
+  /** Absent when no roadmap is open (014 User Story 4). */
+  entry?: Entry;
   current?: Version;
   theme: Theme;
   /** The live stream's state (008 FR-009): text and a mark, never colour alone. */
@@ -29,9 +30,9 @@ export function Header(props: {
   const { entry, current } = props;
   return (
     <header className="bar">
-      <h1>{entry.name}</h1>
-      {entry.team && <span className="chip">Team {entry.team}</span>}
-      {entry.role && <span className="chip">Your role: {entry.role}</span>}
+      <h1>{entry?.name ?? 'Choose a roadmap'}</h1>
+      {entry?.team && <span className="chip">Team {entry.team}</span>}
+      {entry?.role && <span className="chip">Your role: {entry.role}</span>}
       {current && (
         <span className="chip">
           Version {current.version} · <time dateTime={current.at}>{new Date(current.at).toLocaleString()}</time>

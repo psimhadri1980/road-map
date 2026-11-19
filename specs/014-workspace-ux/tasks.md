@@ -7,7 +7,7 @@ One task, one PR, in order. Each ends with `run/run.sh stack:test` green.
   - the same reviewer is refused approve, return and reject on it;
   - the page shows draft controls to reviewers.
 - [x] T002 `web/src/layout.css`, `web/src/tokens.test.ts`: tokens, three button kinds, focus ring (FR-007, FR-008). Done when the contrast test passes for both themes and existing tests are green.
-- [ ] T003 `web/src/Nav.tsx`, `App.tsx`, `Drafts.tsx`, `Review.tsx`, `Insights.tsx`: the left menu and pages (FR-005, FR-009). Done when unit tests cover:
+- [x] T003 `web/src/Nav.tsx`, `App.tsx`, `Drafts.tsx`, `Review.tsx`, `Insights.tsx`: the left menu and pages (FR-005, FR-009). Done when unit tests cover:
   - one page visible at a time, and `aria-current` on the menu item;
   - `#/<slug>/<page>` survives reload and back, and an unknown roadmap falls back to Roadmaps;
   - the remembered collapse and the review count;

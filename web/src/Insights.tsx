@@ -11,7 +11,7 @@ type Schedule = Awaited<ReturnType<typeof scheduleOffThread>>['result'];
  * lateness in days as text, the critical-task count and every other problem. Derived in the browser and
  * stored nowhere. The chart's own toolbar draws the critical path and float; this lists them in words.
  */
-export function Insights(props: { doc: Doc }) {
+export function Insights(props: { doc: Doc; onShow?: (taskId: string) => void }) {
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   useEffect(() => {
     let current = true;
@@ -39,6 +39,14 @@ export function Insights(props: { doc: Doc }) {
         {late.map((i, n) => (
           <li key={`late-${n}`}>
             <strong>Late {i.by ?? 0} d</strong> · {name(i.taskId)}
+            {props.onShow && i.taskId && (
+              <>
+                {' '}
+                <button type="button" onClick={() => props.onShow!(i.taskId!)}>
+                  Show {name(i.taskId)} on plan
+                </button>
+              </>
+            )}
           </li>
         ))}
         {checks(props.doc)
