@@ -27,7 +27,14 @@ afterEach(() => {
   signIn.mockReset();
   apiFetch.mockReset();
   signOut.mockReset();
+  location.hash = '';
+  localStorage.clear();
 });
+
+/** 014 FR-005: one page at a time, named by the address, as a reload would find it. */
+const at = (page: string) => {
+  location.hash = `#/sample/${page}`;
+};
 
 // FR-011a: a failed fetch gives a plain message, not a blank page or a stack trace.
 test.each([
@@ -79,7 +86,7 @@ test('lists the user roadmaps, opens the first, and opens the one chosen', async
   );
   render(<App />);
   const picker = await screen.findByLabelText<HTMLSelectElement>('Roadmap');
-  expect([...picker.options].map((o) => o.text)).toEqual(['Beta roadmap', 'Platform migration']);
+  expect([...picker.options].map((o) => o.text)).toEqual(['Beta roadmap', 'Platform migration', 'All roadmaps']);
   expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/beta-plan');
   fireEvent.change(picker, { target: { value: 'sample' } });
   await waitFor(() => expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample'));
@@ -119,6 +126,7 @@ const answer =
 test('opens an earlier version with a banner and goes back to current', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(answer());
+  at('history');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
   expect((await screen.findByRole('status')).textContent).toContain('version 1, not the current plan');
@@ -141,6 +149,7 @@ test('a failed load can be retried', async () => {
   render(<App />);
   await screen.findByRole('alert');
   apiFetch.mockImplementation(answer());
+  at('history');
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByRole('button', { name: /Version 2/ })).toBeTruthy();
 });
@@ -157,10 +166,13 @@ const asRole = (role: string, extra: Record<string, Response> = {}) =>
 test.each([['viewer'], ['editor']])('a %s has no restore or baseline controls', async (role) => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole(role));
+  at('history');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
   await screen.findByRole('status');
   expect(screen.queryByRole('button', { name: /Restore/ })).toBeNull();
+  at('history');
+  await screen.findByRole('button', { name: /Version 1/ });
   expect(screen.queryByRole('button', { name: /Create baseline/ })).toBeNull();
   // any member can list baselines and open the version one points to
   expect(screen.getByRole('button', { name: /^Kickoff ·/ })).toBeTruthy();
@@ -170,6 +182,7 @@ test.each([['viewer'], ['editor']])('a %s has no restore or baseline controls', 
 test('a reviewer restores after a confirmation', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole('reviewer'));
+  at('history');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
   fireEvent.click(await screen.findByRole('button', { name: 'Restore this version' }));
@@ -191,6 +204,7 @@ test('a refused restore shows the service text and changes nothing', async () =>
       '/api/roadmaps/sample/versions/1/restore': new Response('{"error":"No can do","code":"x"}', { status: 409 }),
     }),
   );
+  at('history');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
   fireEvent.click(await screen.findByRole('button', { name: 'Restore this version' }));
@@ -203,6 +217,7 @@ test('a refused restore shows the service text and changes nothing', async () =>
 test('a reviewer creates a baseline at the open version', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole('reviewer'));
+  at('history');
   render(<App />);
   fireEvent.change(await screen.findByLabelText(/Baseline name/), { target: { value: ' Q4 ' } });
   fireEvent.click(screen.getByRole('button', { name: /Create baseline at version 2/ }));
@@ -220,6 +235,7 @@ test.each([['light'], ['dark']])('the page has no accessibility violations in th
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole('reviewer'));
   document.documentElement.dataset['theme'] = theme;
+  at('history');
   const { container } = render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
   await screen.findByRole('status');
@@ -240,6 +256,7 @@ test('compares a version with the current plan', async () => {
       ),
     }),
   );
+  at('history');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Compare with current' }));
   expect(await screen.findByText('New one')).toBeTruthy();
@@ -254,10 +271,11 @@ const DRAFTS =
 const withDrafts = (role: string, extra: Record<string, Response> = {}) =>
   asRole(role, { '/api/roadmaps/sample/proposals': new Response(DRAFTS), ...extra });
 
-// 011 FR-004, FR-010: only an editor gets the start control; only the user's own drafts are listed.
-test('an editor sees own drafts and the start form; a viewer sees neither', async () => {
+// 011 FR-004, FR-010, 014 FR-001: editors and reviewers get the start control; only own drafts are listed.
+test.each(['editor', 'reviewer'])('a %s sees own drafts and the start form; a viewer sees neither', async (role) => {
   signIn.mockResolvedValue(undefined);
-  apiFetch.mockImplementation(withDrafts('editor'));
+  apiFetch.mockImplementation(withDrafts(role));
+  at('drafts');
   render(<App />);
   expect(await screen.findByRole('button', { name: 'Edit Mine' })).toBeTruthy();
   expect(screen.queryByText('Theirs')).toBeNull();
@@ -265,7 +283,7 @@ test('an editor sees own drafts and the start form; a viewer sees neither', asyn
   cleanup();
   apiFetch.mockImplementation(withDrafts('viewer'));
   render(<App />);
-  await screen.findByRole('button', { name: /Version 2/ });
+  await screen.findByRole('link', { name: 'Plan', current: 'page' });
   expect(screen.queryByRole('button', { name: 'Edit as draft' })).toBeNull();
   expect(screen.queryByRole('button', { name: /Edit Mine/ })).toBeNull();
 });
@@ -275,10 +293,11 @@ test('resuming a draft loads its document and shows the draft banner', async () 
   apiFetch.mockImplementation(
     withDrafts('editor', { '/api/roadmaps/sample/proposals/d1/document': new Response(STUB) }),
   );
+  at('drafts');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
   expect((await screen.findByRole('status')).textContent).toContain('Editing draft “Mine”');
-  fireEvent.click(screen.getByRole('button', { name: 'Leave draft' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Stop editing' }));
   await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
 });
 
@@ -289,6 +308,7 @@ test('starting a draft creates a Proposal with no changes', async () => {
       '/api/roadmaps/sample/proposals/d1/document': new Response(STUB),
     }),
   );
+  at('drafts');
   render(<App />);
   fireEvent.change(await screen.findByLabelText(/Draft name/), { target: { value: 'Plan B' } });
   apiFetch.mockImplementation((p: string, i?: unknown) =>
@@ -313,6 +333,7 @@ test('starting a draft creates a Proposal with no changes', async () => {
 test('discarding asks first, then calls discard', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(withDrafts('editor'));
+  at('drafts');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Discard Mine' }));
   expect(screen.getByText(/The draft and its changes are dropped/)).toBeTruthy();
@@ -332,6 +353,7 @@ const withSubmitted = (role: string, extra: Record<string, Response> = {}) =>
 test('a reviewer decides on others, never on own; return and reject need a note', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(withSubmitted('reviewer'));
+  at('review');
   render(<App />);
   expect(await screen.findByRole('button', { name: 'Approve Theirs' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Approve Mine' })).toBeNull();
@@ -351,6 +373,7 @@ test('a reviewer decides on others, never on own; return and reject need a note'
 test('an editor has no decision controls', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(withSubmitted('editor'));
+  at('review');
   render(<App />);
   await screen.findByRole('button', { name: 'Withdraw Mine' });
   expect(screen.queryByRole('button', { name: /^Approve/ })).toBeNull();
@@ -364,6 +387,7 @@ test('a refused decision shows the reason', async () => {
       '/api/roadmaps/sample/proposals/s1/approve': new Response('{"error":"out of date","code":"x"}', { status: 409 }),
     }),
   );
+  at('review');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Approve Theirs' }));
   expect((await screen.findByRole('alert')).textContent).toBe('out of date');
@@ -378,6 +402,7 @@ test('shows the changes of a waiting Proposal', async () => {
       ),
     }),
   );
+  at('review');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Show changes of Theirs' }));
   expect(await screen.findByText('New one')).toBeTruthy();
@@ -392,6 +417,7 @@ test('submit is disabled for a draft without changes', async () => {
       ),
     }),
   );
+  at('drafts');
   render(<App />);
   expect(((await screen.findByRole('button', { name: 'Submit Empty' })) as HTMLButtonElement).disabled).toBe(true);
 });
@@ -408,6 +434,7 @@ test('brings a stale draft up to date with picks, and undoes', async () => {
       '/api/roadmaps/sample/proposals/d5/conflicts': new Response('[{"position":1,"entity":"task","id":"t2"}]'),
     }),
   );
+  at('drafts');
   render(<App />);
   expect(await screen.findByText('Out of date')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Bring Old up to date' }));
@@ -437,6 +464,7 @@ test('a refused undo shows the reason', async () => {
       ),
     }),
   );
+  at('drafts');
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Bring Old up to date' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Undo last refresh' }));
@@ -451,16 +479,20 @@ test.each([
 ])('a %s gets the new-roadmap form: %s', async (role, shown) => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole(role));
+  location.hash = '#/roadmaps';
   render(<App />);
-  await screen.findByRole('button', { name: /Version 2/ });
-  expect(!!screen.queryByRole('button', { name: 'Create roadmap' })).toBe(shown);
+  await screen.findByRole('heading', { name: 'Roadmaps' });
+  expect(!!screen.queryByRole('button', { name: 'New roadmap' })).toBe(shown);
+  expect(!!screen.queryByRole('option', { name: 'New roadmap' })).toBe(shown);
 });
 
 // 012 FR-006: the service's refusal is shown as it is and nothing is opened.
 test('a refused create shows the service message', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole('editor'));
+  location.hash = '#/roadmaps';
   render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'New roadmap' }));
   fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Plan' } });
   apiFetch.mockImplementation(() =>
     Promise.resolve(new Response('{"error":"The time zone must be an IANA zone name."}', { status: 422 })),
@@ -473,7 +505,9 @@ test('a refused create shows the service message', async () => {
 test('a created roadmap is opened', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(asRole('editor'));
+  location.hash = '#/roadmaps';
   render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'New roadmap' }));
   fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Plan' } });
   apiFetch.mockImplementation((p: string, i?: unknown) =>
     Promise.resolve(
@@ -496,8 +530,8 @@ test('a created roadmap is opened', async () => {
   });
 });
 
-// 012 FR-007: an editor of an empty roadmap sees the checklist; a draft's checklist names an undated task.
-test('the checklist shows on an empty roadmap and flags a draft task without a start', async () => {
+// 012 FR-007, 014 FR-004: the checklist belongs to a draft, as a count in the mode bar; it names an undated task.
+test('a draft shows its checklist as a count; the current plan has none', async () => {
   signIn.mockResolvedValue(undefined);
   apiFetch.mockImplementation(
     withDrafts('editor', {
@@ -506,9 +540,306 @@ test('the checklist shows on an empty roadmap and flags a draft task without a s
       ),
     }),
   );
+  at('drafts');
   render(<App />);
-  expect((await screen.findByText(/This roadmap is empty/)).textContent).toBeTruthy();
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
-  expect((await screen.findByText(/No start: Build\./)).textContent).toBeTruthy();
-  expect(screen.queryByText(/This roadmap is empty/)).toBeNull();
+  expect((await screen.findByText(/^Checklist: \d+ of \d+ done$/)).textContent).toBeTruthy();
+  expect(screen.getByText(/No start: Build\./)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Stop editing' }));
+  await waitFor(() => expect(screen.queryByText(/^Checklist:/)).toBeNull());
+});
+
+// 014 FR-003: one click from the current plan to an editable draft named after the day.
+test('Edit on the current plan starts a dated draft and shows the editing bar', async () => {
+  signIn.mockResolvedValue(undefined);
+  const made =
+    '{"id":"n1","name":"x","state":"draft","owner":"dave","changeCount":0,"baseVersion":2,"headVersion":2,"stale":false}';
+  apiFetch.mockImplementation((p: string, i?: unknown) =>
+    i
+      ? Promise.resolve(new Response(made, { status: 201 }))
+      : asRole('editor', { '/api/roadmaps/sample/proposals': new Response('[]') })(p),
+  );
+  render(<App />);
+  expect(await screen.findByText('Current plan')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+  const name = `Draft ${new Date().toLocaleDateString('en-CA')}`;
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals', {
+      method: 'POST',
+      body: JSON.stringify({ name, changes: [] }),
+    }),
+  );
+  expect((await screen.findByRole('status')).textContent).toContain('Editing draft');
+  // 0 changes: Submit is off, and says why in words.
+  const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Submit for review' });
+  expect(submit.disabled).toBe(true);
+  expect(submit.getAttribute('aria-describedby')).toBe('submit-why');
+  expect(screen.getByText('Make a change first.')).toBeTruthy();
+});
+
+// 014 FR-003: with more than one own draft, Edit asks which, on Drafts; a viewer has no Edit.
+test('Edit with two own drafts opens Drafts; a viewer has no Edit', async () => {
+  signIn.mockResolvedValue(undefined);
+  const two =
+    '[{"id":"d1","name":"Mine","state":"draft","owner":"dave","changeCount":2,"baseVersion":2,"headVersion":2,"stale":false},' +
+    '{"id":"d4","name":"Also mine","state":"draft","owner":"dave","changeCount":0,"baseVersion":2,"headVersion":2,"stale":false}]';
+  apiFetch.mockImplementation(asRole('editor', { '/api/roadmaps/sample/proposals': new Response(two) }));
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+  expect(await screen.findByRole('button', { name: 'Edit Also mine' })).toBeTruthy();
+  expect(location.hash).toBe('#/sample/drafts');
+  cleanup();
+  location.hash = '';
+  apiFetch.mockImplementation(asRole('viewer'));
+  render(<App />);
+  await screen.findByText('Current plan');
+  expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+});
+
+// 014 FR-003: Submit from the bar sends the draft and says who can approve it.
+test('Submit for review from the bar sends the draft', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withDrafts('editor', { '/api/roadmaps/sample/proposals/d1/document': new Response(STUB) }),
+  );
+  at('drafts');
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Submit for review' }));
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals/d1/submit', { method: 'POST', body: '{}' }),
+  );
+  expect((await screen.findByRole('status')).textContent).toContain('A reviewer other than you can approve it.');
+});
+
+// 014 FR-005, User Story 3 scenario 1: one page at a time, and the menu marks it.
+test('shows only the page the address names, and the menu marks it', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(withSubmitted('reviewer'));
+  at('review');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'Waiting for review' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: /Review/ }).getAttribute('aria-current')).toBe('page');
+  expect(screen.queryByRole('heading', { name: 'Versions' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Your drafts' })).toBeNull();
+});
+
+// Scenario 2: the address is the state, so a reload or back finds the same page.
+test('follows the address when it changes, as back and reload do', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('editor'));
+  at('history');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'Versions' })).toBeTruthy();
+  at('drafts');
+  fireEvent(window, new HashChangeEvent('hashchange'));
+  expect(await screen.findByRole('heading', { name: 'Your drafts' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Versions' })).toBeNull();
+  expect(apiFetch.mock.calls.filter(([p]) => p === '/api/roadmaps/sample')).toHaveLength(1); // not reloaded
+});
+
+// Edge case: an address naming a roadmap the person cannot see opens Roadmaps with a notice.
+test.each(['#/no-such/plan', '#/sample/nonsense'])('an unknown address %s opens Roadmaps with a notice', async (h) => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('editor'));
+  location.hash = h;
+  render(<App />);
+  expect((await screen.findByRole('status')).textContent).toContain('not available');
+  expect(screen.getByRole('link', { name: 'S' })).toBeTruthy();
+  expect(apiFetch).not.toHaveBeenCalledWith('/api/roadmaps/no-such');
+});
+
+// Scenario 3: the collapsed menu stays collapsed after a reload.
+test('remembers a collapsed menu', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('editor'));
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Collapse menu' }));
+  cleanup();
+  apiFetch.mockImplementation(asRole('editor')); // a Response body reads once
+  render(<App />);
+  expect(await screen.findByRole('button', { name: 'Expand menu' })).toBeTruthy();
+  expect(screen.getByRole('navigation').className).toContain('collapsed');
+});
+
+// Scenarios 4 and 7: the review count for a reviewer; no Review or Drafts for a viewer.
+test('the menu counts waiting Proposals, and a viewer has no Review or Drafts', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(withSubmitted('reviewer'));
+  render(<App />);
+  expect((await screen.findByRole('link', { name: /Review/ })).textContent).toBe('Review 2');
+  cleanup();
+  apiFetch.mockImplementation(withSubmitted('viewer'));
+  at('review');
+  render(<App />);
+  expect(await screen.findByRole('link', { name: 'Plan', current: 'page' })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: /Review/ })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Drafts' })).toBeNull();
+});
+
+// Scenario 5: a Proposal from Review shows read-only on Plan, with a way back.
+test('shows a Proposal on Plan read-only and goes back to Review', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withSubmitted('reviewer', { '/api/roadmaps/sample/proposals/s1/document': new Response(STUB) }),
+  );
+  at('review');
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Show Theirs on plan' }));
+  expect((await screen.findByRole('status')).textContent).toContain('Proposal “Theirs”, not the current plan');
+  expect(location.hash).toBe('#/sample/plan');
+  fireEvent.click(screen.getByRole('button', { name: 'Back to review' }));
+  expect(await screen.findByRole('button', { name: 'Approve Theirs' })).toBeTruthy();
+});
+
+// 014 FR-002, User Story 1: an empty roadmap says what to do, per role.
+const EMPTY = '{"roadmap":{"id":"r","start":"2026-12-01"},"tasks":[],"links":[]}';
+test.each(['editor', 'reviewer'])('a %s sees "No tasks yet" with Start editing', async (role) => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole(role, { '/api/roadmaps/sample': new Response(EMPTY) }));
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'No tasks yet' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Start editing' })).toBeTruthy();
+});
+
+test('a viewer is told who can add tasks, with no button', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('viewer', { '/api/roadmaps/sample': new Response(EMPTY) }));
+  render(<App />);
+  expect(await screen.findByText('Editors and reviewers of team alpha can add tasks.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Start editing' })).toBeNull();
+});
+
+// User Story 1 scenarios 3 and 4: Start editing gives the First task form, which saves an ordinary change.
+test('Start editing, then the First task form adds a task to the draft', async () => {
+  signIn.mockResolvedValue(undefined);
+  const made =
+    '{"id":"n1","name":"x","state":"draft","owner":"dave","changeCount":0,"baseVersion":2,"headVersion":2,"stale":false}';
+  apiFetch.mockImplementation((p: string, i?: unknown) =>
+    Promise.resolve(
+      i
+        ? new Response(made, { status: 201 })
+        : p === '/api/roadmaps/sample' || p.endsWith('/document')
+          ? new Response(EMPTY)
+          : p.endsWith('/proposals')
+            ? new Response('[]')
+            : new Response(
+                p === '/api/roadmaps' ? '[{"slug":"sample","name":"S","team":"alpha","role":"reviewer"}]' : '[]',
+              ),
+    ),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Start editing' }));
+  const name = await screen.findByLabelText<HTMLInputElement>('Name');
+  expect(screen.getByLabelText<HTMLInputElement>('Start').value).toBe('2026-12-01');
+  expect(name.required).toBe(true);
+  expect(name.validity.valueMissing).toBe(true); // an empty name is refused at the field
+  fireEvent.change(name, { target: { value: 'Kick-off' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add task' }));
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals/n1/changes', {
+      method: 'POST',
+      body: expect.stringMatching(/"op":"create".*"name":"Kick-off".*"start":"2026-12-01"/),
+    }),
+  );
+  expect(await screen.findByText(/To add more, type in the last row/)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Add task' })).toBeNull();
+});
+
+// User Story 1 scenario 5: a draft with no tasks left (every task deleted) shows the form again.
+test('a draft with no tasks shows the First task form', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withDrafts('editor', { '/api/roadmaps/sample/proposals/d1/document': new Response(EMPTY) }),
+  );
+  at('drafts');
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
+  expect(await screen.findByRole('heading', { name: 'First task' })).toBeTruthy();
+});
+
+// 014 FR-010: Teams and access lists each team once with the person's role, and what each role may do.
+test('Teams and access lists teams, roles and what each role may do', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    answer({
+      '/api/roadmaps': new Response(
+        '[{"slug":"sample","name":"S","team":"alpha","role":"reviewer"},{"slug":"t","name":"T","team":"alpha","role":"reviewer"},{"slug":"u","name":"U","team":"beta","role":"viewer"}]',
+      ),
+    }),
+  );
+  location.hash = '#/access';
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'Teams and access' })).toBeTruthy();
+  expect(screen.getAllByRole('row').map((r) => r.textContent)).toEqual([
+    'TeamYour role',
+    'alphareviewer',
+    'betaviewer',
+  ]);
+  expect(screen.getByText(/restore versions and save baselines/)).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Teams and access' }).getAttribute('aria-current')).toBe('page');
+});
+
+// 014 User Story 4 scenario 2: the dialog offers only teams the person edits or reviews.
+test('the New roadmap dialog lists only teams the person edits or reviews', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    answer({
+      '/api/roadmaps': new Response(
+        '[{"slug":"sample","name":"S","team":"alpha","role":"editor"},{"slug":"u","name":"U","team":"beta","role":"viewer"},{"slug":"v","name":"V","team":"gamma","role":"reviewer"}]',
+      ),
+    }),
+  );
+  render(<App />);
+  fireEvent.change(await screen.findByLabelText('Roadmap'), { target: { value: 'new' } });
+  const dialog = await screen.findByRole('dialog', { name: 'New roadmap' });
+  expect([...dialog.querySelectorAll('option')].map((o) => o.textContent)).toEqual(['alpha', 'gamma']);
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+});
+
+// 014 FR-008, SC-004 (jsdom part; contrast in both themes is checked in a real browser, see the quickstart).
+const AXE = { rules: { 'color-contrast': { enabled: false } } };
+test.each(['plan', 'review', 'drafts', 'history', 'insights'])(
+  'the %s page has no accessibility violations',
+  async (page) => {
+    signIn.mockResolvedValue(undefined);
+    apiFetch.mockImplementation(withDrafts('reviewer'));
+    at(page);
+    const { container } = render(<App />);
+    await screen.findByRole('link', { current: 'page' });
+    expect((await axe.run(container, AXE)).violations.map((v) => v.id)).toEqual([]);
+  },
+);
+
+test.each(['#/roadmaps', '#/access'])('%s has no accessibility violations', async (hash) => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('editor'));
+  location.hash = hash;
+  const { container } = render(<App />);
+  await screen.findByRole('heading', { level: 2 });
+  expect((await axe.run(container, AXE)).violations.map((v) => v.id)).toEqual([]);
+});
+
+test('each Plan mode has no accessibility violations: empty, editing, version', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withDrafts('reviewer', {
+      '/api/roadmaps/sample': new Response('{"roadmap":{"id":"r","start":"2026-12-01"},"tasks":[],"links":[]}'),
+      '/api/roadmaps/sample/proposals/d1/document': new Response(
+        '{"roadmap":{"id":"r","start":"2026-12-01"},"tasks":[],"links":[]}',
+      ),
+    }),
+  );
+  const { container } = render(<App />);
+  await screen.findByRole('button', { name: 'Start editing' });
+  expect((await axe.run(container, AXE)).violations.map((v) => v.id)).toEqual([]);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' })); // one own draft: resumes it
+  await screen.findByRole('heading', { name: 'First task' });
+  expect((await axe.run(container, AXE)).violations.map((v) => v.id)).toEqual([]);
+  fireEvent.click(screen.getByRole('button', { name: 'Stop editing' }));
+  at('history');
+  fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
+  await screen.findByText(/version 1, not the current plan/);
+  expect((await axe.run(container, AXE)).violations.map((v) => v.id)).toEqual([]);
 });

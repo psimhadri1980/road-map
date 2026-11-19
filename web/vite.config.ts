@@ -5,5 +5,6 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [react()],
   build: { sourcemap: false },
-  test: { environment: 'jsdom' },
+  // css.include: Vitest blanks CSS by default, even ?raw; tokens.test.ts reads layout.css's text (014 FR-008).
+  test: { environment: 'jsdom', css: { include: [/layout\.css/] } },
 });

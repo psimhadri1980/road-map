@@ -1,11 +1,10 @@
-import { Gantt, type AccessRules } from '@gantt/react';
+import { Gantt, type AccessRules, type SelectionTarget } from '@gantt/react';
 import '@gantt/react/src/gantt.css';
 import './layout.css';
 import { useEffect, useRef, useState } from 'react';
 import { watch, type LiveState } from './live.ts';
 import { apiFetch, signIn, signOut, userName } from './auth.ts';
 import { documentToChanges, type Doc } from './changes.ts';
-import { Checklist } from './Checklist.tsx';
 import { Conflicts } from './Conflicts.tsx';
 import { Drafts, type Proposal } from './Drafts.tsx';
 import { NewRoadmap } from './NewRoadmap.tsx';
@@ -16,8 +15,13 @@ import { Baselines, type Baseline } from './Baselines.tsx';
 import { Insights, WhatIf } from './Insights.tsx';
 import { History } from './History.tsx';
 import { Restore } from './Restore.tsx';
+import { ModeBar, draftName } from './ModeBar.tsx';
+import { EmptyState } from './EmptyState.tsx';
 import { Header, type Entry, type Version } from './Header.tsx';
 import { useTheme } from './theme.ts';
+import { hashOf, Nav, parseHash, type Page } from './Nav.tsx';
+import { Roadmaps } from './Roadmaps.tsx';
+import { Access } from './Access.tsx';
 
 /**
  * View-only: the server is the authority (constitution III) and this spec has no editing, so the
@@ -60,6 +64,8 @@ type Loaded =
   | { state: 'error' }
   | { state: 'none' }
   | { state: 'denied' }
+  /** Signed in, no roadmap open: Roadmaps (014 FR-005), with a notice when the address named one not available. */
+  | { state: 'home'; list: Entry[]; notice?: string }
   | {
       state: 'ready';
       list: Entry[];
@@ -67,8 +73,11 @@ type Loaded =
       versions: Version[];
       baselines: Baseline[];
       proposals: Proposal[];
-      /** An earlier version on screen, read-only (010 FR-005); absent means the current plan. */
-      viewing?: { version: number; doc: React.ComponentProps<typeof Gantt>['data'] };
+      /**
+       * Read-only on screen instead of the current plan: an earlier version (010 FR-005) or a Proposal shown from
+       * Review (014 FR-005). Absent means the current plan.
+       */
+      viewing?: { version?: number; proposal?: string; doc: React.ComponentProps<typeof Gantt>['data'] };
       data: React.ComponentProps<typeof Gantt>['data'];
     };
 
@@ -83,7 +92,8 @@ const fetchJson = (path: string) =>
  */
 export function App() {
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' });
-  const [theme, flipTheme] = useTheme();
+  const [theme, themeChoice, chooseTheme] = useTheme();
+  const [creating, setCreating] = useState(false);
   const [compare, setCompare] = useState<{ against: string; diffs: Difference[] } | null>(null);
   // The draft being edited (011 FR-003). `saved` is the document the service has; a refused change puts the
   // chart back to it by changing `rev`, which remounts the chart. Saves go one at a time, in order.
@@ -91,6 +101,12 @@ export function App() {
     null,
   );
   const [resolving, setResolving] = useState<Proposal | null>(null);
+  const [notice, setNotice] = useState<string>();
+  // 014 FR-005: the page follows the address; `opened` is the roadmap asked for, so a repeated hash does not reload.
+  const [page, setPage] = useState<Page>('plan');
+  const [selection, setSelection] = useState<SelectionTarget[]>([]);
+  const opened = useRef<string | undefined>(undefined);
+  const list = useRef<Entry[] | null>(null);
   const saved = useRef<Doc | null>(null);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   // A 404 and a 403 look the same to the user (spec 003: the answers are identical, so is the message).
@@ -132,9 +148,11 @@ export function App() {
     return watch(watching, () => void reread(), setLive);
   }, [watching]);
   const open = (list: Entry[], slug: string): Promise<void> => {
+    opened.current = slug;
     setCompare(null);
     setDraft(null);
     setResolving(null);
+    setSelection([]);
     retry.current = () => {
       setLoaded({ state: 'loading' });
       void open(list, slug);
@@ -159,16 +177,48 @@ export function App() {
       )
       .catch(failed);
   };
+  /** Shows what the address names: a roadmap's page, Roadmaps, or Roadmaps with a notice when it names nothing known. */
+  const route = (all: Entry[]) => {
+    const r = parseHash(location.hash);
+    if (all.length === 0) return setLoaded({ state: 'none' });
+    if (r.slug && r.page && all.some((e) => e.slug === r.slug)) {
+      setPage(r.page);
+      if (r.slug !== opened.current) void open(all, r.slug);
+    } else if (r.page && !r.slug) {
+      setPage(r.page);
+      if (!opened.current) setLoaded({ state: 'home', list: all });
+    } else if (location.hash.length > 1) {
+      opened.current = undefined;
+      setDraft(null);
+      setPage('roadmaps');
+      setLoaded({ state: 'home', list: all, notice: 'That roadmap or page is not available. Choose a roadmap.' });
+    } else if (!opened.current) {
+      setPage('plan');
+      void open(all, all[0]!.slug); // no address: the first roadmap, as before 014
+    }
+  };
+  const routeNow = useRef(route);
+  routeNow.current = route;
+  /** Moves to a page; the address changes too, so reload and back come here again. */
+  const go = (page: Page, slug = opened.current) => {
+    location.hash = hashOf(page, slug);
+    if (list.current) route(list.current);
+  };
   useEffect(() => {
+    const changed = () => list.current && routeNow.current(list.current);
+    addEventListener('hashchange', changed);
     signIn().then(
       () =>
         fetchJson('/api/roadmaps')
-          .then((list: Entry[]) => (list[0] ? open(list, list[0].slug) : setLoaded({ state: 'none' })))
+          .then((all: Entry[]) => {
+            list.current = all;
+            routeNow.current(all);
+          })
           .catch(failed),
       () => setLoaded({ state: 'no-sign-in' }),
     );
-    // Sign-in runs once on mount; `open` only closes over state setters and a ref.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => removeEventListener('hashchange', changed);
+    // Sign-in runs once on mount; routing goes through the ref.
   }, []);
 
   if (loaded.state === 'no-sign-in')
@@ -196,10 +246,67 @@ export function App() {
         <p>You have no roadmaps yet.</p>
       </>
     );
+  const ownTeams = (all: Entry[]) => [
+    // Only decides whether the form is drawn; the service refuses a viewer's create regardless (012 FR-006).
+    ...new Set(all.filter((r) => (r.role === 'editor' || r.role === 'reviewer') && r.team).map((r) => r.team!)),
+  ];
+  const created = (slug: string) =>
+    fetchJson('/api/roadmaps').then((all: Entry[]) => {
+      list.current = all;
+      go('plan', slug);
+    }, failed);
+  const header = (all: Entry[], entry?: Entry) => (
+    <>
+      <Header
+        entry={entry}
+        list={all}
+        current={loaded.state === 'ready' ? loaded.versions[0] : undefined}
+        user={userName()}
+        theme={themeChoice}
+        live={entry ? live : undefined}
+        canCreate={ownTeams(all).length > 0}
+        onChoose={(to) => (to === 'new' ? setCreating(true) : to === 'roadmaps' ? go('roadmaps') : go('plan', to))}
+        onTheme={chooseTheme}
+        onSignOut={() => void signOut()}
+      />
+      {creating && (
+        <NewRoadmap
+          teams={ownTeams(all)}
+          onClose={() => setCreating(false)}
+          onCreated={(slug) => {
+            setCreating(false);
+            void created(slug);
+          }}
+        />
+      )}
+    </>
+  );
+  const roadmaps = (all: Entry[], notice?: string) => (
+    <Roadmaps list={all} notice={notice}>
+      {ownTeams(all).length > 0 && (
+        <button type="button" className="primary" onClick={() => setCreating(true)}>
+          New roadmap
+        </button>
+      )}
+    </Roadmaps>
+  );
+  if (loaded.state === 'home')
+    return (
+      <div className="page">
+        {header(loaded.list)}
+        <div className="shell">
+          <Nav page={page === 'access' ? 'access' : 'roadmaps'} writer={false} waiting={0} />
+          <main className="content">
+            {page === 'access' ? <Access list={loaded.list} /> : roadmaps(loaded.list, loaded.notice)}
+          </main>
+        </div>
+      </div>
+    );
   const openVersion = (v: number) => {
+    go('plan');
     if (v === loaded.versions[0]?.version) return setLoaded({ ...loaded, viewing: undefined });
     fetchJson(`/api/roadmaps/${encodeURIComponent(loaded.slug)}/versions/${v}`)
-      .then((doc) => setLoaded({ ...loaded, viewing: { version: v, doc } }))
+      .then((doc) => setLoaded((l) => (l.state === 'ready' ? { ...l, viewing: { version: v, doc } } : l)))
       .catch(failed);
   };
   const compareWith = (v: number, against: string) =>
@@ -218,6 +325,7 @@ export function App() {
         saved.current = doc;
         setDraft({ id: p.id, name: p.name, rev: 0 });
         setLoaded((l) => (l.state === 'ready' ? { ...l, viewing: undefined } : l));
+        go('plan');
       })
       .catch(failed);
   const start = (name: string) =>
@@ -225,6 +333,19 @@ export function App() {
       void reloadProposals();
       return resume(p as Proposal);
     });
+  // 014 FR-005: a Proposal from Review, read-only on Plan with a way back.
+  const showProposal = (p: Proposal) =>
+    fetchJson(`${api}/proposals/${p.id}/document`)
+      .then((doc) => {
+        setLoaded((l) => (l.state === 'ready' ? { ...l, viewing: { proposal: p.name, doc } } : l));
+        go('plan');
+      })
+      .catch(failed);
+  // 014 FR-005: an Insights item opens Plan with its task selected.
+  const showTask = (taskId: string) => {
+    setSelection([{ type: 'row', taskId }]);
+    go('plan');
+  };
   const save = (doc: Doc) => {
     const before = saved.current!;
     const { changes, unsupported } = documentToChanges(before, doc);
@@ -242,134 +363,215 @@ export function App() {
         },
       );
   };
+  // 014 FR-002: the first task of an empty draft, as an ordinary change; the remount shows it in the grid.
+  const addFirst = (t: { name: string; start: string }) => {
+    const doc = saved.current!;
+    const id = `t${Date.now().toString(36)}`;
+    save({
+      ...doc,
+      tasks: [...doc.tasks, { id, name: t.name, type: 'task', parent: null, start: t.start, duration: 1 }],
+    });
+    setDraft(
+      (d) =>
+        d && {
+          ...d,
+          rev: d.rev + 1,
+          notice: 'To add more, type in the last row of the chart or press Insert.',
+        },
+    );
+  };
   const entry = loaded.list.find((r) => r.slug === loaded.slug) ?? { slug: loaded.slug, name: loaded.slug };
   // Only decides what is drawn; the service refuses a non-reviewer's restore or baseline regardless (010 FR-008).
   const reviewer = entry.role === 'reviewer';
-  const editor = entry.role === 'editor';
+  // Reviewers write their own drafts too (014 FR-001); the service holds the same rule.
+  const editor = entry.role === 'editor' || reviewer;
   const drafts = loaded.proposals.filter((p) => p.state === 'draft' && p.owner === userName());
   const editing = draft && !loaded.viewing ? draft : null;
+  const mine = editing && loaded.proposals.find((p) => p.id === editing.id);
+  // 014 FR-003: one click from the current plan to an editable chart.
+  const edit = () => {
+    setNotice(undefined);
+    if (drafts.length > 1) return go('drafts');
+    if (drafts.length === 1) return void resume(drafts[0]!);
+    void start(draftName(loaded.proposals.map((p) => p.name))).catch((e: Error) => setNotice(e.message));
+  };
   const refresh = () => void open(loaded.list, loaded.slug);
-  // Only decides whether the form is drawn; the service refuses a viewer's create regardless (012 FR-006).
-  const ownTeams = [
-    ...new Set(loaded.list.filter((r) => (r.role === 'editor' || r.role === 'reviewer') && r.team).map((r) => r.team!)),
-  ];
-  const created = (slug: string) => fetchJson('/api/roadmaps').then((list: Entry[]) => open(list, slug), failed);
-  return (
-    <div className="page">
-      <Header
-        entry={entry}
-        current={loaded.versions[0]}
-        theme={theme}
-        live={live}
-        onTheme={flipTheme}
-        onSignOut={() => void signOut()}
-      />
-      <label>
-        Roadmap{' '}
-        <select id="roadmap-picker" value={loaded.slug} onChange={(e) => void open(loaded.list, e.target.value)}>
-          {loaded.list.map((r) => (
-            <option key={r.slug} value={r.slug}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      {loaded.viewing && (
-        <p role="status" className="banner">
-          You are looking at version {loaded.viewing.version}, not the current plan. It is read-only.{' '}
-          <button type="button" onClick={() => setLoaded({ ...loaded, viewing: undefined })}>
-            Back to current
-          </button>
-          {reviewer && <Restore slug={loaded.slug} version={loaded.viewing.version} onDone={refresh} />}
-        </p>
-      )}
-      {editing && (
-        <p role="status" className="banner">
-          Editing draft “{editing.name}”. Each edit is saved as a change; edits a draft cannot carry are not sent.
-          {editing.notice && <> {editing.notice}</>}{' '}
-          <button
-            type="button"
-            onClick={() => {
+  // A viewer asking for Review or Drafts gets Plan: those pages are not theirs (014 User Story 3, scenario 7).
+  const shown: Page = !editor && (page === 'review' || page === 'drafts') ? 'plan' : page;
+  const content = {
+    plan: (
+      <>
+        {loaded.viewing ? (
+          <ModeBar mode="read-only">
+            {loaded.viewing.version !== undefined ? (
+              <>
+                You are looking at version {loaded.viewing.version}, not the current plan. It is read-only.{' '}
+                <button type="button" onClick={() => setLoaded({ ...loaded, viewing: undefined })}>
+                  Back to current
+                </button>
+                {reviewer && <Restore slug={loaded.slug} version={loaded.viewing.version} onDone={refresh} />}
+              </>
+            ) : (
+              <>
+                You are looking at Proposal “{loaded.viewing.proposal}”, not the current plan. It is read-only.{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoaded({ ...loaded, viewing: undefined });
+                    go('review');
+                  }}
+                >
+                  Back to review
+                </button>
+              </>
+            )}
+          </ModeBar>
+        ) : editing ? (
+          <ModeBar
+            mode="editing"
+            name={editing.name}
+            changes={mine?.changeCount ?? 0}
+            stale={!!mine?.stale}
+            doc={saved.current!}
+            notice={editing.notice}
+            error={editing.error}
+            onStop={() => {
               setDraft(null);
               void reloadProposals();
             }}
-          >
-            Leave draft
-          </button>
-          {editing.error && <span role="alert"> {editing.error}</span>}
-        </p>
-      )}
-      <div className="work">
+            onResolve={() => {
+              setResolving(mine!);
+              go('drafts');
+            }}
+            onSubmit={() =>
+              void send(`${api}/proposals/${editing.id}/submit`).then(
+                () => {
+                  setDraft(null);
+                  setNotice(`“${editing.name}” is waiting for review. A reviewer other than you can approve it.`);
+                  void reloadProposals();
+                },
+                (e: Error) => setDraft((d) => d && { ...d, error: e.message }),
+              )
+            }
+          />
+        ) : (
+          <ModeBar mode="current" canEdit={editor} notice={notice} onEdit={edit} />
+        )}
         <div className="chart">
           {/* key: a different document is a different chart, never a patched one */}
           <Gantt
-            key={loaded.viewing ? loaded.viewing.version : editing ? `draft-${editing.id}-${editing.rev}` : 'current'}
+            key={
+              loaded.viewing
+                ? (loaded.viewing.version ?? `p-${loaded.viewing.proposal}`)
+                : editing
+                  ? `draft-${editing.id}-${editing.rev}`
+                  : 'current'
+            }
             data={loaded.viewing?.doc ?? (editing ? (saved.current as unknown as typeof loaded.data) : loaded.data)}
             access={editing ? EDITING : VIEW_ONLY}
             readOnly={!editing}
             onDataChanged={editing ? (doc) => save(doc as unknown as Doc) : undefined}
+            emptyState={
+              loaded.viewing ? undefined : editing ? (
+                <EmptyState mode="draft" start={String(saved.current?.roadmap['start'] ?? '')} onAdd={addFirst} />
+              ) : editor ? (
+                <EmptyState mode="writer" onStart={edit} />
+              ) : (
+                <EmptyState mode="viewer" team={entry.team} />
+              )
+            }
+            selection={selection}
+            onSelectionChanged={(e) => setSelection(e.selection)}
             theme={theme}
             height="100%"
           />
         </div>
-        <div className="side">
-          <NewRoadmap teams={ownTeams} onCreated={(slug) => void created(slug)} />
-          {(editing ||
-            (editor && !loaded.viewing && Array.isArray(loaded.data?.tasks) && loaded.data.tasks.length === 0)) && (
-            <Checklist doc={(editing ? saved.current : loaded.data) as unknown as Doc} draft={!!editing} />
-          )}
-          <Drafts
+      </>
+    ),
+    review: (
+      <Review
+        slug={loaded.slug}
+        proposals={loaded.proposals}
+        me={userName()}
+        role={entry.role}
+        onChanged={refresh}
+        onShow={(p) => void showProposal(p)}
+      />
+    ),
+    drafts: (
+      <>
+        <Drafts
+          slug={loaded.slug}
+          drafts={drafts}
+          editor={editor}
+          editing={editing?.id}
+          onStart={start}
+          onResume={(p) => void resume(p)}
+          onResolve={setResolving}
+          onChanged={() => {
+            setDraft(null);
+            void reloadProposals();
+          }}
+        />
+        {resolving && (
+          <Conflicts
             slug={loaded.slug}
-            drafts={drafts}
-            editor={editor}
-            editing={editing?.id}
-            onStart={start}
-            onResume={(p) => void resume(p)}
-            onResolve={setResolving}
-            onChanged={() => {
-              setDraft(null);
-              void reloadProposals();
+            draft={resolving}
+            onDone={() => {
+              setResolving(null);
+              refresh();
             }}
+            onClose={() => setResolving(null)}
           />
-          {resolving && (
-            <Conflicts
-              slug={loaded.slug}
-              draft={resolving}
-              onDone={() => {
-                setResolving(null);
-                refresh();
-              }}
-              onClose={() => setResolving(null)}
-            />
-          )}
-          {editing && (
-            <WhatIf live={loaded.data as unknown as Doc} draft={saved.current as unknown as Doc} name={editing.name} />
-          )}
-          <Insights doc={(editing ? saved.current : (loaded.viewing?.doc ?? loaded.data)) as unknown as Doc} />
-          <Review
-            slug={loaded.slug}
-            proposals={loaded.proposals}
-            me={userName()}
-            role={entry.role}
-            onChanged={refresh}
-          />
-          <History
-            versions={loaded.versions}
-            shown={loaded.viewing?.version}
-            onOpen={openVersion}
-            onCompare={(v) => void compareWith(v, `version ${v}`)}
-          />
-          {compare && <Compare against={compare.against} diffs={compare.diffs} onClose={() => setCompare(null)} />}
-          <Baselines
-            slug={loaded.slug}
-            baselines={loaded.baselines}
-            version={loaded.viewing?.version ?? loaded.versions[0]?.version}
-            reviewer={reviewer}
-            onOpen={openVersion}
-            onCompare={(v, name) => void compareWith(v, `baseline ${name}`)}
-            onDone={refresh}
-          />
-        </div>
+        )}
+      </>
+    ),
+    history: (
+      <>
+        <History
+          versions={loaded.versions}
+          shown={loaded.viewing?.version}
+          onOpen={openVersion}
+          onCompare={(v) => void compareWith(v, `version ${v}`)}
+        />
+        {compare && <Compare against={compare.against} diffs={compare.diffs} onClose={() => setCompare(null)} />}
+        <Baselines
+          slug={loaded.slug}
+          baselines={loaded.baselines}
+          version={loaded.viewing?.version ?? loaded.versions[0]?.version}
+          reviewer={reviewer}
+          onOpen={openVersion}
+          onCompare={(v, name) => void compareWith(v, `baseline ${name}`)}
+          onDone={refresh}
+        />
+      </>
+    ),
+    insights: (
+      <>
+        <Insights
+          doc={(editing ? saved.current : (loaded.viewing?.doc ?? loaded.data)) as unknown as Doc}
+          onShow={showTask}
+        />
+        {editing && (
+          <WhatIf live={loaded.data as unknown as Doc} draft={saved.current as unknown as Doc} name={editing.name} />
+        )}
+      </>
+    ),
+    roadmaps: roadmaps(loaded.list),
+    access: <Access list={loaded.list} />,
+  }[shown];
+  return (
+    <div className="page">
+      {header(loaded.list, entry)}
+      <div className="shell">
+        <Nav
+          page={shown}
+          slug={loaded.slug}
+          name={entry.name}
+          writer={editor}
+          waiting={loaded.proposals.filter((p) => p.state === 'submitted').length}
+        />
+        <main className={shown === 'plan' ? 'content plan' : 'content'}>{content}</main>
       </div>
     </div>
   );

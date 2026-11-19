@@ -115,6 +115,24 @@ class LifecycleIT {
     assertEquals(409, act("carol", id, "return", "x"), "return from rejected");
   }
 
+  /** 014 FR-001: a reviewer writes their own draft but never reviews it. */
+  @Test
+  void aReviewerWritesTheirOwnDraftButDoesNotReviewIt() throws Exception {
+    var r = send("POST", base(), "carol", "{\"name\":\"C\",\"changes\":[" + RENAME + "]}");
+    assertEquals(201, r.getStatus(), r.getContentAsString());
+    String id = JSON.readTree(r.getContentAsString()).get("id").asString();
+    var more =
+        send("POST", base() + "/" + id + "/changes", "carol", "{\"changes\":[" + RENAME + "]}");
+    assertEquals(200, more.getStatus(), more.getContentAsString());
+    assertEquals(200, act("carol", id, "submit", null));
+    for (String a : new String[] {"approve", "return", "reject"}) {
+      assertEquals(403, act("carol", id, a, "mine"), a);
+    }
+    assertEquals(200, act("carol", id, "withdraw", null));
+    assertEquals(200, act("carol", id, "discard", null));
+    assertEquals("discarded", read(id).get("state").asString());
+  }
+
   @Test
   void rolesAndOwnershipAreEnforcedFromTheToken() throws Exception {
     String id = draft();

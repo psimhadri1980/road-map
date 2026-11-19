@@ -277,6 +277,7 @@ admin port are reachable only on the internal Podman network.
 | 011 draft and review              | Web UI: edit as draft, draft banner, change list against live or baseline, submit, reviewer approve/return/reject, stale and conflict refresh. Adds the version and Proposal diff endpoints                                                        | built (specs/011-draft-and-review) |
 | 012 create roadmap                | Create-roadmap API (owning team, name, scope, window) and the create wizard with pre-publish checks                                                                                                                                                | built (specs/012-create-roadmap)   |
 | 013 insights                      | Late dependency and float, what-if scenario, risk signals; computed in the browser by the gantt library if it can, else decided in the spec                                                                                                        | built (specs/013-insights)         |
+| 014 workspace UX                  | Web UI rework: left menu with one page at a time in the address, mode bar with one-click Edit, empty state and First task form, header switcher and account menu, Teams and access, New roadmap dialog. No API change                              | building (specs/014-workspace-ux)  |
 
 **Not in v1**: microservices, Kubernetes, Quadlet/systemd units, server-side scheduling, a second UI framework,
 email notifications, multi-region. Each can become a later spec.

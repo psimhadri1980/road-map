@@ -98,14 +98,11 @@ class ProposalIT {
   }
 
   @Test
-  void aViewerAndAReviewerMayReadButNotCreate() throws Exception {
+  void aViewerMayReadButNotCreate() throws Exception {
     Services.setTeam(slug, "alpha");
     assertEquals(403, send("POST", base(), "bob", "{\"name\":\"x\"}").getStatus());
     String id = create("alice", "Mine");
     assertEquals(200, send("GET", base() + "/" + id, "bob", null).getStatus());
-    Services.setTeam(slug, "beta"); // carol is a reviewer in beta
-    assertEquals(403, send("POST", base(), "carol", "{\"name\":\"x\"}").getStatus());
-    assertEquals(200, send("GET", base(), "carol", null).getStatus());
   }
 
   @Test
