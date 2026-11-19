@@ -371,3 +371,10 @@ body,
   display: grid;
   gap: 4px;
 }
+
+/* 014 User Story 4: the New roadmap dialog stacks its fields. */
+dialog form {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}

@@ -18,10 +18,10 @@ One task, one PR, in order. Each ends with `run/run.sh stack:test` green.
   - two drafts → Edit opens Drafts;
   - Submit is disabled without changes;
   - the read-only bar for a version and for a Proposal.
-- [ ] T005 `web/src/EmptyState.tsx`, `App.tsx`: the empty-roadmap state for each role, passed to the chart as `emptyState`, and the "First task" form inside a draft (FR-002). The form saves through the existing `save(doc)` path, so no API change. Done when:
+- [x] T005 `web/src/EmptyState.tsx`, `App.tsx`: the empty-roadmap state for each role, passed to the chart as `emptyState`, and the "First task" form inside a draft (FR-002). The form saves through the existing `save(doc)` path, so no API change. Done when:
   - unit tests cover editor, reviewer and viewer, the form (empty name refused, start defaults to the roadmap's start) and the form returning after every task is deleted;
   - in a real browser, a reviewer creates a roadmap and adds a task in at most 2 clicks plus typing (SC-001, SC-002).
-- [ ] T006 `web/src/Header.tsx`, `Roadmaps.tsx`, `Access.tsx`, `NewRoadmap.tsx`: header switcher, context, account menu, Roadmaps, Teams and access, New roadmap dialog (FR-006, FR-010). Done when:
+- [x] T006 `web/src/Header.tsx`, `Roadmaps.tsx`, `Access.tsx`, `NewRoadmap.tsx`: header switcher, context, account menu, Roadmaps, Teams and access, New roadmap dialog (FR-006, FR-010). Done when:
   - unit tests cover the switcher, the account menu (theme and sign out), the dialog's team list and opening the new roadmap's Plan;
   - axe passes for every page and Plan mode in both themes (SC-004);
   - the 1280 × 800 width check passes (SC-003);
