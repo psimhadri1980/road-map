@@ -21,6 +21,7 @@ import { Header, type Entry, type Version } from './Header.tsx';
 import { useTheme } from './theme.ts';
 import { hashOf, Nav, parseHash, type Page } from './Nav.tsx';
 import { Roadmaps } from './Roadmaps.tsx';
+import { Access } from './Access.tsx';
 
 /**
  * View-only: the server is the authority (constitution III) and this spec has no editing, so the
@@ -91,7 +92,8 @@ const fetchJson = (path: string) =>
  */
 export function App() {
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' });
-  const [theme, flipTheme] = useTheme();
+  const [theme, themeChoice, chooseTheme] = useTheme();
+  const [creating, setCreating] = useState(false);
   const [compare, setCompare] = useState<{ against: string; diffs: Difference[] } | null>(null);
   // The draft being edited (011 FR-003). `saved` is the document the service has; a refused change puts the
   // chart back to it by changing `rev`, which remounts the chart. Saves go one at a time, in order.
@@ -253,26 +255,49 @@ export function App() {
       list.current = all;
       go('plan', slug);
     }, failed);
-  const header = (entry?: Entry) => (
-    <Header
-      entry={entry}
-      current={loaded.state === 'ready' ? loaded.versions[0] : undefined}
-      theme={theme}
-      live={entry ? live : undefined}
-      onTheme={flipTheme}
-      onSignOut={() => void signOut()}
-    />
+  const header = (all: Entry[], entry?: Entry) => (
+    <>
+      <Header
+        entry={entry}
+        list={all}
+        current={loaded.state === 'ready' ? loaded.versions[0] : undefined}
+        user={userName()}
+        theme={themeChoice}
+        live={entry ? live : undefined}
+        canCreate={ownTeams(all).length > 0}
+        onChoose={(to) => (to === 'new' ? setCreating(true) : to === 'roadmaps' ? go('roadmaps') : go('plan', to))}
+        onTheme={chooseTheme}
+        onSignOut={() => void signOut()}
+      />
+      {creating && (
+        <NewRoadmap
+          teams={ownTeams(all)}
+          onClose={() => setCreating(false)}
+          onCreated={(slug) => {
+            setCreating(false);
+            void created(slug);
+          }}
+        />
+      )}
+    </>
+  );
+  const roadmaps = (all: Entry[], notice?: string) => (
+    <Roadmaps list={all} notice={notice}>
+      {ownTeams(all).length > 0 && (
+        <button type="button" className="primary" onClick={() => setCreating(true)}>
+          New roadmap
+        </button>
+      )}
+    </Roadmaps>
   );
   if (loaded.state === 'home')
     return (
       <div className="page">
-        {header()}
+        {header(loaded.list)}
         <div className="shell">
-          <Nav page="roadmaps" writer={false} waiting={0} />
+          <Nav page={page === 'access' ? 'access' : 'roadmaps'} writer={false} waiting={0} />
           <main className="content">
-            <Roadmaps list={loaded.list} notice={loaded.notice}>
-              <NewRoadmap teams={ownTeams(loaded.list)} onCreated={(slug) => void created(slug)} />
-            </Roadmaps>
+            {page === 'access' ? <Access list={loaded.list} /> : roadmaps(loaded.list, loaded.notice)}
           </main>
         </div>
       </div>
@@ -532,26 +557,12 @@ export function App() {
         )}
       </>
     ),
-    roadmaps: (
-      <Roadmaps list={loaded.list}>
-        <NewRoadmap teams={ownTeams(loaded.list)} onCreated={(slug) => void created(slug)} />
-      </Roadmaps>
-    ),
-    access: null,
+    roadmaps: roadmaps(loaded.list),
+    access: <Access list={loaded.list} />,
   }[shown];
   return (
     <div className="page">
-      {header(entry)}
-      <label className="picker">
-        Roadmap{' '}
-        <select id="roadmap-picker" value={loaded.slug} onChange={(e) => go('plan', e.target.value)}>
-          {loaded.list.map((r) => (
-            <option key={r.slug} value={r.slug}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      {header(loaded.list, entry)}
       <div className="shell">
         <Nav
           page={shown}

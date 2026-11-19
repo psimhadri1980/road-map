@@ -77,6 +77,7 @@ export function Nav(props: { page: Page; slug?: string; name?: string; writer: b
           </ul>
         </>
       )}
+      <ul>{link('access')}</ul>
       <button type="button" className="collapse" aria-expanded={!collapsed} onClick={toggle}>
         {collapsed ? 'Expand menu' : 'Collapse menu'}
       </button>

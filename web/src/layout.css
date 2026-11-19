@@ -233,9 +233,6 @@ body,
   padding: var(--sp-03) var(--sp-05) var(--sp-03) 0;
   border-bottom: 1px solid var(--border-subtle);
 }
-.picker {
-  padding: 0 var(--sp-04) var(--sp-03);
-}
 .note {
   overflow-wrap: anywhere;
 }
@@ -346,4 +343,31 @@ body,
   justify-items: start;
   margin: 48px auto;
   max-width: 420px;
+}
+
+/* 014 User Story 4: the account menu opens under its summary, over the page. */
+.account {
+  position: relative;
+}
+.account summary {
+  cursor: pointer;
+}
+.account-menu {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  min-width: 240px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--layer-01);
+  border: 1px solid var(--border-strong);
+}
+.account-menu p,
+.account-menu ul {
+  margin: 0;
+}
+.account-menu fieldset {
+  display: grid;
+  gap: 4px;
 }

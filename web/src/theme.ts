@@ -19,21 +19,38 @@ export function initialTheme(): Theme {
   return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-/** The current theme and a function that flips and remembers it; also sets `data-theme` on the page root. */
-export function useTheme(): [Theme, () => void] {
+/** What the person picked in the account menu (014 User Story 4); "system" follows the browser. */
+export type ThemeChoice = Theme | 'system';
+
+function storedChoice(): ThemeChoice {
+  try {
+    const stored = localStorage.getItem(KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch {
+    // no stored choice
+  }
+  return 'system';
+}
+
+/**
+ * The theme in force, the choice behind it, and a function that changes and remembers the choice; also sets
+ * `data-theme` on the page root. "Match the system" stores nothing, so the browser setting decides.
+ */
+export function useTheme(): [Theme, ThemeChoice, (c: ThemeChoice) => void] {
+  const [choice, setChoice] = useState<ThemeChoice>(storedChoice);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   useEffect(() => {
     document.documentElement.dataset['theme'] = theme;
   }, [theme]);
-  const flip = () =>
-    setTheme((t) => {
-      const next = t === 'dark' ? 'light' : 'dark';
-      try {
-        localStorage.setItem(KEY, next);
-      } catch {
-        // the choice still applies for this visit
-      }
-      return next;
-    });
-  return [theme, flip];
+  const choose = (c: ThemeChoice) => {
+    try {
+      if (c === 'system') localStorage.removeItem(KEY);
+      else localStorage.setItem(KEY, c);
+    } catch {
+      // the choice still applies for this visit
+    }
+    setChoice(c);
+    setTheme(c === 'system' ? initialTheme() : c);
+  };
+  return [theme, choice, choose];
 }

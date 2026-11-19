@@ -86,7 +86,7 @@ test('lists the user roadmaps, opens the first, and opens the one chosen', async
   );
   render(<App />);
   const picker = await screen.findByLabelText<HTMLSelectElement>('Roadmap');
-  expect([...picker.options].map((o) => o.text)).toEqual(['Beta roadmap', 'Platform migration']);
+  expect([...picker.options].map((o) => o.text)).toEqual(['Beta roadmap', 'Platform migration', 'All roadmaps']);
   expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/beta-plan');
   fireEvent.change(picker, { target: { value: 'sample' } });
   await waitFor(() => expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample'));
@@ -482,7 +482,8 @@ test.each([
   location.hash = '#/roadmaps';
   render(<App />);
   await screen.findByRole('heading', { name: 'Roadmaps' });
-  expect(!!screen.queryByRole('button', { name: 'Create roadmap' })).toBe(shown);
+  expect(!!screen.queryByRole('button', { name: 'New roadmap' })).toBe(shown);
+  expect(!!screen.queryByRole('option', { name: 'New roadmap' })).toBe(shown);
 });
 
 // 012 FR-006: the service's refusal is shown as it is and nothing is opened.
@@ -491,6 +492,7 @@ test('a refused create shows the service message', async () => {
   apiFetch.mockImplementation(asRole('editor'));
   location.hash = '#/roadmaps';
   render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'New roadmap' }));
   fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Plan' } });
   apiFetch.mockImplementation(() =>
     Promise.resolve(new Response('{"error":"The time zone must be an IANA zone name."}', { status: 422 })),
@@ -505,6 +507,7 @@ test('a created roadmap is opened', async () => {
   apiFetch.mockImplementation(asRole('editor'));
   location.hash = '#/roadmaps';
   render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'New roadmap' }));
   fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Plan' } });
   apiFetch.mockImplementation((p: string, i?: unknown) =>
     Promise.resolve(
@@ -753,4 +756,90 @@ test('a draft with no tasks shows the First task form', async () => {
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
   expect(await screen.findByRole('heading', { name: 'First task' })).toBeTruthy();
+});
+
+// 014 FR-010: Teams and access lists each team once with the person's role, and what each role may do.
+test('Teams and access lists teams, roles and what each role may do', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    answer({
+      '/api/roadmaps': new Response(
+        '[{"slug":"sample","name":"S","team":"alpha","role":"reviewer"},{"slug":"t","name":"T","team":"alpha","role":"reviewer"},{"slug":"u","name":"U","team":"beta","role":"viewer"}]',
+      ),
+    }),
+  );
+  location.hash = '#/access';
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'Teams and access' })).toBeTruthy();
+  expect(screen.getAllByRole('row').map((r) => r.textContent)).toEqual([
+    'TeamYour role',
+    'alphareviewer',
+    'betaviewer',
+  ]);
+  expect(screen.getByText(/restore versions and save baselines/)).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Teams and access' }).getAttribute('aria-current')).toBe('page');
+});
+
+// 014 User Story 4 scenario 2: the dialog offers only teams the person edits or reviews.
+test('the New roadmap dialog lists only teams the person edits or reviews', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    answer({
+      '/api/roadmaps': new Response(
+        '[{"slug":"sample","name":"S","team":"alpha","role":"editor"},{"slug":"u","name":"U","team":"beta","role":"viewer"},{"slug":"v","name":"V","team":"gamma","role":"reviewer"}]',
+      ),
+    }),
+  );
+  render(<App />);
+  fireEvent.change(await screen.findByLabelText('Roadmap'), { target: { value: 'new' } });
+  const dialog = await screen.findByRole('dialog', { name: 'New roadmap' });
+  expect([...dialog.querySelectorAll('option')].map((o) => o.textContent)).toEqual(['alpha', 'gamma']);
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+});
+
+// 014 FR-008, SC-004 (jsdom part; contrast in both themes is checked in a real browser, see the quickstart).
+const AXE = { rules: { 'color-contrast': { enabled: false } } };
+test.each(['plan', 'review', 'drafts', 'history', 'insights'])(
+  'the %s page has no accessibility violations',
+  async (page) => {
+    signIn.mockResolvedValue(undefined);
+    apiFetch.mockImplementation(withDrafts('reviewer'));
+    at(page);
+    const { container } = render(<App />);
+    await screen.findByRole('link', { current: 'page' });
+    expect((await axe.run(container, AXE)).violations.map((v) => v.id)).toEqual([]);
+  },
+);
+
+test.each(['#/roadmaps', '#/access'])('%s has no accessibility violations', async (hash) => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('editor'));
+  location.hash = hash;
+  const { container } = render(<App />);
+  await screen.findByRole('heading', { level: 2 });
+  expect((await axe.run(container, AXE)).violations.map((v) => v.id)).toEqual([]);
+});
+
+test('each Plan mode has no accessibility violations: empty, editing, version', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withDrafts('reviewer', {
+      '/api/roadmaps/sample': new Response('{"roadmap":{"id":"r","start":"2026-12-01"},"tasks":[],"links":[]}'),
+      '/api/roadmaps/sample/proposals/d1/document': new Response(
+        '{"roadmap":{"id":"r","start":"2026-12-01"},"tasks":[],"links":[]}',
+      ),
+    }),
+  );
+  const { container } = render(<App />);
+  await screen.findByRole('button', { name: 'Start editing' });
+  expect((await axe.run(container, AXE)).violations.map((v) => v.id)).toEqual([]);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' })); // one own draft: resumes it
+  await screen.findByRole('heading', { name: 'First task' });
+  expect((await axe.run(container, AXE)).violations.map((v) => v.id)).toEqual([]);
+  fireEvent.click(screen.getByRole('button', { name: 'Stop editing' }));
+  at('history');
+  fireEvent.click(await screen.findByRole('button', { name: /Version 1/ }));
+  await screen.findByText(/version 1, not the current plan/);
+  expect((await axe.run(container, AXE)).violations.map((v) => v.id)).toEqual([]);
 });
