@@ -23,8 +23,8 @@ the road-map gateway; that needs the project CA below.
 
 On first deploy `run/run.sh` creates a project CA (`ca.crt`, `ca.key`, CN "road-map development CA")
 and one server certificate per component signed by it, valid 365 days, naming `localhost` and
-`127.0.0.1`. The gateway serves `https://localhost:8443` with `gateway.crt`; port 18080 only redirects
-there. Deploy refuses a `gateway.crt` that the project CA did not issue, so a certificate supplied
+`127.0.0.1`. The gateway serves `https://127.0.0.1:8443` with `gateway.crt` (use that address, not
+`localhost`: sign-in only redirects back to it); port 18080 only redirects there. Deploy refuses a `gateway.crt` that the project CA did not issue, so a certificate supplied
 through `GATEWAY_TLS_CERT_FILE` must be signed by `ca.crt` too.
 
 To open the application without a certificate error, trust `ca.crt` (not `org-ca.crt`) as an authority:
