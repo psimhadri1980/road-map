@@ -338,3 +338,12 @@ body,
 .modebar .grow {
   flex: 1;
 }
+
+/* 014 FR-002: the empty state sits where the chart would be. */
+.empty {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  margin: 48px auto;
+  max-width: 420px;
+}

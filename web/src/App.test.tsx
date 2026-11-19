@@ -688,3 +688,69 @@ test('shows a Proposal on Plan read-only and goes back to Review', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Back to review' }));
   expect(await screen.findByRole('button', { name: 'Approve Theirs' })).toBeTruthy();
 });
+
+// 014 FR-002, User Story 1: an empty roadmap says what to do, per role.
+const EMPTY = '{"roadmap":{"id":"r","start":"2026-12-01"},"tasks":[],"links":[]}';
+test.each(['editor', 'reviewer'])('a %s sees "No tasks yet" with Start editing', async (role) => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole(role, { '/api/roadmaps/sample': new Response(EMPTY) }));
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'No tasks yet' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Start editing' })).toBeTruthy();
+});
+
+test('a viewer is told who can add tasks, with no button', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(asRole('viewer', { '/api/roadmaps/sample': new Response(EMPTY) }));
+  render(<App />);
+  expect(await screen.findByText('Editors and reviewers of team alpha can add tasks.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Start editing' })).toBeNull();
+});
+
+// User Story 1 scenarios 3 and 4: Start editing gives the First task form, which saves an ordinary change.
+test('Start editing, then the First task form adds a task to the draft', async () => {
+  signIn.mockResolvedValue(undefined);
+  const made =
+    '{"id":"n1","name":"x","state":"draft","owner":"dave","changeCount":0,"baseVersion":2,"headVersion":2,"stale":false}';
+  apiFetch.mockImplementation((p: string, i?: unknown) =>
+    Promise.resolve(
+      i
+        ? new Response(made, { status: 201 })
+        : p === '/api/roadmaps/sample' || p.endsWith('/document')
+          ? new Response(EMPTY)
+          : p.endsWith('/proposals')
+            ? new Response('[]')
+            : new Response(
+                p === '/api/roadmaps' ? '[{"slug":"sample","name":"S","team":"alpha","role":"reviewer"}]' : '[]',
+              ),
+    ),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Start editing' }));
+  const name = await screen.findByLabelText<HTMLInputElement>('Name');
+  expect(screen.getByLabelText<HTMLInputElement>('Start').value).toBe('2026-12-01');
+  expect(name.required).toBe(true);
+  expect(name.validity.valueMissing).toBe(true); // an empty name is refused at the field
+  fireEvent.change(name, { target: { value: 'Kick-off' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add task' }));
+  await waitFor(() =>
+    expect(apiFetch).toHaveBeenCalledWith('/api/roadmaps/sample/proposals/n1/changes', {
+      method: 'POST',
+      body: expect.stringMatching(/"op":"create".*"name":"Kick-off".*"start":"2026-12-01"/),
+    }),
+  );
+  expect(await screen.findByText(/To add more, type in the last row/)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Add task' })).toBeNull();
+});
+
+// User Story 1 scenario 5: a draft with no tasks left (every task deleted) shows the form again.
+test('a draft with no tasks shows the First task form', async () => {
+  signIn.mockResolvedValue(undefined);
+  apiFetch.mockImplementation(
+    withDrafts('editor', { '/api/roadmaps/sample/proposals/d1/document': new Response(EMPTY) }),
+  );
+  at('drafts');
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Mine' }));
+  expect(await screen.findByRole('heading', { name: 'First task' })).toBeTruthy();
+});

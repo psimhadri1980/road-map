@@ -16,6 +16,7 @@ import { Insights, WhatIf } from './Insights.tsx';
 import { History } from './History.tsx';
 import { Restore } from './Restore.tsx';
 import { ModeBar, draftName } from './ModeBar.tsx';
+import { EmptyState } from './EmptyState.tsx';
 import { Header, type Entry, type Version } from './Header.tsx';
 import { useTheme } from './theme.ts';
 import { hashOf, Nav, parseHash, type Page } from './Nav.tsx';
@@ -337,6 +338,23 @@ export function App() {
         },
       );
   };
+  // 014 FR-002: the first task of an empty draft, as an ordinary change; the remount shows it in the grid.
+  const addFirst = (t: { name: string; start: string }) => {
+    const doc = saved.current!;
+    const id = `t${Date.now().toString(36)}`;
+    save({
+      ...doc,
+      tasks: [...doc.tasks, { id, name: t.name, type: 'task', parent: null, start: t.start, duration: 1 }],
+    });
+    setDraft(
+      (d) =>
+        d && {
+          ...d,
+          rev: d.rev + 1,
+          notice: 'To add more, type in the last row of the chart or press Insert.',
+        },
+    );
+  };
   const entry = loaded.list.find((r) => r.slug === loaded.slug) ?? { slug: loaded.slug, name: loaded.slug };
   // Only decides what is drawn; the service refuses a non-reviewer's restore or baseline regardless (010 FR-008).
   const reviewer = entry.role === 'reviewer';
@@ -428,6 +446,15 @@ export function App() {
             access={editing ? EDITING : VIEW_ONLY}
             readOnly={!editing}
             onDataChanged={editing ? (doc) => save(doc as unknown as Doc) : undefined}
+            emptyState={
+              loaded.viewing ? undefined : editing ? (
+                <EmptyState mode="draft" start={String(saved.current?.roadmap['start'] ?? '')} onAdd={addFirst} />
+              ) : editor ? (
+                <EmptyState mode="writer" onStart={edit} />
+              ) : (
+                <EmptyState mode="viewer" team={entry.team} />
+              )
+            }
             selection={selection}
             onSelectionChanged={(e) => setSelection(e.selection)}
             theme={theme}
