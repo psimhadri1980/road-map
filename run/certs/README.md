@@ -7,7 +7,7 @@
 (git-ignored; staged into every image build context as `certs/`, without keys). With the settings empty, files you place here
 yourself under those names are used. Everything below refers to those copies.
 
-Put your internal CA chain in `org-ca.crt` (PEM text, one or more certificates; the same file you import into browsers and the OS trust store). When the file exists,
+Put your internal CA chain in `org-ca.crt` (PEM text, one or more certificates). When the file exists,
 every build and run trusts it in addition to the public CAs, so npm registries, proxies, OIDC,
 webhooks and Git sources behind your CA work. Without it nothing changes. The file is git-ignored.
 
@@ -15,8 +15,9 @@ webhooks and Git sources behind your CA work. Without it nothing changes. The fi
 - Final images (api, worker, ops, renderer): the same cert is appended to the system store (git, curl) and set as `NODE_EXTRA_CA_CERTS`; the renderer also adds each certificate to Chromium's NSS database. Images rebuild by themselves after it changes (it is part of their input hash): `run/run.sh podman:stack:deploy`.
 - Keycloak: `KC_TRUSTSTORE_PATHS` points at it.
 - Local runs (`run/run.sh local:...`, tests on local Node): `NODE_EXTRA_CA_CERTS` is set.
-  `org-ca.crt` is for reaching services behind your organization's CA. It does not make browsers trust
-  the road-map gateway; that needs the project CA below.
+
+`org-ca.crt` is for reaching services behind your organization's CA. It does not make browsers trust
+the road-map gateway; that needs the project CA below.
 
 ## Project CA and the gateway (what your browser must trust)
 
