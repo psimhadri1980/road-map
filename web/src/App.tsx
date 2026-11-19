@@ -245,7 +245,8 @@ export function App() {
   const entry = loaded.list.find((r) => r.slug === loaded.slug) ?? { slug: loaded.slug, name: loaded.slug };
   // Only decides what is drawn; the service refuses a non-reviewer's restore or baseline regardless (010 FR-008).
   const reviewer = entry.role === 'reviewer';
-  const editor = entry.role === 'editor';
+  // Reviewers write their own drafts too (014 FR-001); the service holds the same rule.
+  const editor = entry.role === 'editor' || reviewer;
   const drafts = loaded.proposals.filter((p) => p.state === 'draft' && p.owner === userName());
   const editing = draft && !loaded.viewing ? draft : null;
   const refresh = () => void open(loaded.list, loaded.slug);

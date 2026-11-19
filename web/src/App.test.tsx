@@ -254,10 +254,10 @@ const DRAFTS =
 const withDrafts = (role: string, extra: Record<string, Response> = {}) =>
   asRole(role, { '/api/roadmaps/sample/proposals': new Response(DRAFTS), ...extra });
 
-// 011 FR-004, FR-010: only an editor gets the start control; only the user's own drafts are listed.
-test('an editor sees own drafts and the start form; a viewer sees neither', async () => {
+// 011 FR-004, FR-010, 014 FR-001: editors and reviewers get the start control; only own drafts are listed.
+test.each(['editor', 'reviewer'])('a %s sees own drafts and the start form; a viewer sees neither', async (role) => {
   signIn.mockResolvedValue(undefined);
-  apiFetch.mockImplementation(withDrafts('editor'));
+  apiFetch.mockImplementation(withDrafts(role));
   render(<App />);
   expect(await screen.findByRole('button', { name: 'Edit Mine' })).toBeTruthy();
   expect(screen.queryByText('Theirs')).toBeNull();

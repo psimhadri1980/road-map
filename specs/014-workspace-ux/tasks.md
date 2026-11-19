@@ -2,7 +2,7 @@
 
 One task, one PR, in order. Each ends with `run/run.sh stack:test` green.
 
-- [ ] T001 `api/.../ProposalService.java`, `web/src/App.tsx`: reviewers write drafts (FR-001). Done when:
+- [x] T001 `api/.../ProposalService.java`, `web/src/App.tsx`: reviewers write drafts (FR-001). Done when:
   - an integration test shows a reviewer can create, change, submit and discard their own draft;
   - the same reviewer is refused approve, return and reject on it;
   - the page shows draft controls to reviewers.
