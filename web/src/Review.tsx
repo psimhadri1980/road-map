@@ -88,7 +88,7 @@ export function Review(props: {
                   <button type="button" disabled={!note} onClick={() => act(p, 'return')}>
                     Return {p.name}
                   </button>{' '}
-                  <button type="button" disabled={!note} onClick={() => act(p, 'reject')}>
+                  <button type="button" className="danger" disabled={!note} onClick={() => act(p, 'reject')}>
                     Reject {p.name}
                   </button>
                 </div>

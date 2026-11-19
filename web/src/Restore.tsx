@@ -37,7 +37,7 @@ export function Restore(props: { slug: string; version: number; onDone: () => vo
         <dialog ref={dialog} aria-labelledby="restore-title" onCancel={() => setAsking(false)}>
           <h2 id="restore-title">Restore version {props.version}?</h2>
           <p>This creates a new version with the content of version {props.version}. Nothing is deleted.</p>
-          <button type="button" aria-busy={busy} disabled={busy} onClick={go}>
+          <button type="button" className="primary" aria-busy={busy} disabled={busy} onClick={go}>
             Restore
           </button>{' '}
           <button type="button" onClick={() => setAsking(false)}>

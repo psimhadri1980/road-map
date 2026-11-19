@@ -106,7 +106,7 @@ export function Drafts(props: {
         <dialog ref={dialog} aria-labelledby="discard-title" onCancel={() => setDiscarding(null)}>
           <h2 id="discard-title">Discard {discarding.name}?</h2>
           <p>The draft and its changes are dropped. The roadmap is not affected.</p>
-          <button type="button" onClick={() => void discard(discarding)}>
+          <button type="button" className="danger" onClick={() => void discard(discarding)}>
             Discard
           </button>{' '}
           <button type="button" onClick={() => setDiscarding(null)}>

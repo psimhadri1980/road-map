@@ -23,10 +23,13 @@
   --support-success: #24a148;
   --support-warning: #8e6a00;
   --warning-subtle: rgba(142, 106, 0, 0.1);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.18);
   --sp-02: 4px;
   --sp-03: 8px;
   --sp-04: 12px;
   --sp-05: 16px;
+  --sp-06: 24px;
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-pill: 10px;
@@ -55,15 +58,38 @@
   --support-success: #42be65;
   --support-warning: #f1c21b;
   --warning-subtle: rgba(241, 194, 27, 0.14);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
   color-scheme: dark;
 }
+
+/* ---------- Base ---------- */
 body {
   background: var(--background);
   color: var(--text-primary);
-  font: 14px/18px var(--font-sans);
+  font: 14px/20px var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+h2 {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  margin: 0 0 var(--sp-05);
+}
+h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: var(--sp-06) 0 var(--sp-04);
+}
+p {
+  margin: 0 0 var(--sp-04);
 }
 a {
   color: var(--link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
 }
 button,
 input,
@@ -76,11 +102,27 @@ input,
 select,
 textarea {
   background: var(--layer-01);
+  color: var(--text-primary);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  padding: 0 var(--sp-03);
+  padding: 0 var(--sp-04);
   min-height: var(--size-control);
   box-sizing: border-box;
+  transition: border-color 0.12s;
+}
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--text-secondary);
+}
+input[type='radio'],
+input[type='checkbox'] {
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--interactive);
+}
+select {
+  cursor: pointer;
 }
 ::placeholder {
   color: var(--text-placeholder);
@@ -90,6 +132,46 @@ textarea {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
+/* A label that holds a text field stacks its caption above the field; radio and checkbox labels stay inline. */
+label:has(> input:not([type='radio'], [type='checkbox'])),
+label:has(> select) {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--sp-02);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+label:has(> input:not([type='radio'], [type='checkbox'])) > *,
+label:has(> select) > * {
+  font-size: 14px;
+}
+label:has(> input[type='radio'], > input[type='checkbox']) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-03);
+  cursor: pointer;
+}
+fieldset {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--sp-04) var(--sp-05);
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-03) var(--sp-05);
+}
+legend {
+  padding: 0 var(--sp-02);
+  font-weight: 600;
+}
+[role='alert'] {
+  color: var(--support-error);
+  font-weight: 500;
+}
+time {
+  font-variant-numeric: tabular-nums;
+}
+
 /*
  * Exactly three button kinds (FR-007). A plain <button> is secondary, so the page never shows the
  * browser's default button; .primary and .danger are the other two.
@@ -99,18 +181,28 @@ button {
   padding: 0 var(--sp-05);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
-  background: transparent;
+  background: var(--layer-01);
   color: var(--text-primary);
   font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
 }
 button:hover {
   background: var(--layer-hover);
+}
+button[aria-pressed='true'] {
+  border-color: var(--interactive);
+  background: var(--layer-selected-subtle);
 }
 button.primary {
   background: var(--button-primary);
   border-color: transparent;
   color: var(--text-on-color);
+  box-shadow: var(--shadow-sm);
 }
 button.primary:hover {
   background: var(--button-primary-hover);
@@ -121,14 +213,20 @@ button.danger {
 }
 /* Not the grey hover fill: error text on it falls below 4.5:1 in both themes. */
 button.danger:hover {
-  background: transparent;
+  background: var(--layer-01);
   box-shadow: inset 0 0 0 1px var(--support-error);
 }
-button:disabled {
+button:disabled,
+button:disabled:hover {
   opacity: 0.5;
   cursor: not-allowed;
+  background: var(--layer-01);
 }
-/* The page is one full-height column: header, then menu and page side by side (014 plan, Layout). */
+button.primary:disabled {
+  background: var(--button-primary);
+}
+
+/* ---------- Layout: header, then menu and page side by side (014 plan, Layout) ---------- */
 html,
 body,
 #root {
@@ -145,22 +243,150 @@ body,
   min-height: 0;
   display: flex;
 }
+
+/* Header (010 T001). Colours follow the theme the page sets on <html>. */
+.bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-03) var(--sp-04);
+  padding: var(--sp-03) var(--sp-05);
+  min-height: 48px;
+  box-sizing: border-box;
+  background: var(--layer-01);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 5;
+}
+.bar h1 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-03);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  margin: 0 var(--sp-03) 0 0;
+}
+/* The mark: three bars of a chart. Decoration only. */
+.bar h1::before {
+  content: '';
+  width: 18px;
+  height: 14px;
+  background:
+    linear-gradient(var(--interactive), var(--interactive)) 0 0 / 10px 3px no-repeat,
+    linear-gradient(var(--interactive), var(--interactive)) 4px 5.5px / 12px 3px no-repeat,
+    linear-gradient(var(--interactive), var(--interactive)) 8px 11px / 10px 3px no-repeat;
+}
+.bar select {
+  min-width: 200px;
+  font-weight: 500;
+}
+.bar .grow {
+  flex: 1;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-02);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--layer-02);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+li strong + .chip {
+  margin-left: var(--sp-03);
+}
+
+/* 014 User Story 4: the account menu opens under its summary, over the page. */
+.account {
+  position: relative;
+}
+.account summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-03);
+  min-height: var(--size-control);
+  padding: 0 var(--sp-04);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+.account summary::-webkit-details-marker {
+  display: none;
+}
+.account summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+.account summary:hover,
+.account[open] summary {
+  background: var(--layer-hover);
+}
+.account-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--sp-02));
+  z-index: 10;
+  min-width: 260px;
+  display: grid;
+  gap: var(--sp-04);
+  padding: var(--sp-05);
+  background: var(--layer-01);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+.account-menu p,
+.account-menu ul {
+  margin: 0;
+}
+.account-menu ul {
+  list-style: none;
+  padding: 0 0 var(--sp-04);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  display: grid;
+  gap: var(--sp-02);
+}
+.account-menu fieldset {
+  flex-direction: column;
+  gap: var(--sp-03);
+}
+
+/* Left menu (014 FR-005). */
 .menu {
   width: 232px;
   flex: none;
   overflow: auto;
-  padding: var(--sp-03);
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-04) var(--sp-03);
   background: var(--layer-01);
   border-right: 1px solid var(--border-subtle);
   box-sizing: border-box;
 }
 .menu ul {
   list-style: none;
-  margin: 0 0 var(--sp-04);
+  margin: 0 0 var(--sp-03);
   padding: 0;
+  display: grid;
+  gap: 2px;
 }
 .menu a {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   padding: var(--sp-03) var(--sp-04);
   border-radius: var(--radius-sm);
@@ -169,78 +395,337 @@ body,
 }
 .menu a:hover {
   background: var(--layer-hover);
+  text-decoration: none;
 }
 .menu a[aria-current='page'] {
   background: var(--layer-selected-subtle);
   box-shadow: inset 3px 0 0 var(--interactive);
   font-weight: 600;
 }
+.menu .count {
+  min-width: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: var(--radius-pill);
+  background: var(--button-primary);
+  color: var(--text-on-color);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 600;
+  text-align: center;
+}
 .menu-roadmap {
-  margin: var(--sp-04) var(--sp-04) var(--sp-02);
+  margin: var(--sp-04) var(--sp-04) var(--sp-03);
+  padding-top: var(--sp-04);
+  border-top: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
   overflow-wrap: anywhere;
+}
+.menu .collapse {
+  margin-top: auto;
+  width: 100%;
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0 var(--sp-02);
 }
 /* Collapsed: a narrow strip of initials; each link keeps its full name as its accessible name and title. */
 .menu.collapsed {
   width: 56px;
+}
+.menu.collapsed a {
+  justify-content: center;
+  padding: var(--sp-03) 0;
 }
 .menu.collapsed .label {
   display: inline-block;
   width: 1ch;
   overflow: hidden;
   white-space: nowrap;
+  font-weight: 600;
 }
 .menu.collapsed .count,
 .menu.collapsed .menu-roadmap {
   display: none;
 }
-.menu .collapse {
-  width: 100%;
-  padding: 0 var(--sp-02);
-}
+
+/* ---------- Page content ---------- */
 .content {
   flex: 1;
   min-width: 0;
   overflow: auto;
+  padding: var(--sp-06);
+}
+/* Pages other than Plan read as a column of cards, not stretched across a wide window. */
+.content:not(.plan) > * {
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.content > section {
+  background: var(--layer-01);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--sp-06);
+  margin-bottom: var(--sp-05);
+  box-shadow: var(--shadow-sm);
+}
+/* A section inside a card (changes of a proposal, say) is a panel of that card. */
+section section {
+  margin-top: var(--sp-05);
   padding: var(--sp-05);
+  background: var(--layer-02);
+  border-radius: var(--radius-md);
 }
-.content.plan {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-03);
-  overflow: hidden;
+section section h2 {
+  font-size: 16px;
 }
-.content.plan > .chart {
-  flex: 1;
-  min-height: 0;
+section > p:first-of-type:not([role]) {
+  color: var(--text-secondary);
 }
 .content ul {
   list-style: none;
   padding: 0;
+  margin: 0 0 var(--sp-04);
 }
 .content li {
-  margin-bottom: var(--sp-03);
+  padding: var(--sp-04) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  line-height: 32px;
 }
+.content li:last-child {
+  border-bottom: 0;
+}
+.content li > button {
+  margin-left: var(--sp-02);
+}
+/* History and Baselines: the whole entry is one button that opens it. */
+.content li > button:first-child {
+  margin-left: 0;
+  text-align: left;
+  white-space: normal;
+  line-height: 20px;
+  padding: var(--sp-03) var(--sp-04);
+  min-width: 260px;
+}
+.content li > div,
+.content li > fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-03);
+  margin-top: var(--sp-03);
+  line-height: 20px;
+}
+/* The form at the foot of a card (new draft, new baseline). */
+section > form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-03);
+  margin-top: var(--sp-05);
+  padding-top: var(--sp-05);
+  border-top: 1px solid var(--border-subtle);
+}
+section > form label {
+  flex: 1 1 220px;
+  max-width: 360px;
+}
+section > form [role='alert'] {
+  flex-basis: 100%;
+  margin: 0;
+}
+section > button {
+  margin-right: var(--sp-03);
+}
+/* Roadmaps, Teams and access. */
 .content table {
+  width: 100%;
   border-collapse: collapse;
   margin-bottom: var(--sp-05);
 }
 .content th,
 .content td {
   text-align: left;
-  padding: var(--sp-03) var(--sp-05) var(--sp-03) 0;
+  padding: var(--sp-04) var(--sp-05);
   border-bottom: 1px solid var(--border-subtle);
 }
+.content th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--layer-02);
+}
+.content th:first-child {
+  border-top-left-radius: var(--radius-sm);
+}
+.content th:last-child {
+  border-top-right-radius: var(--radius-sm);
+}
+.content tbody tr:hover {
+  background: var(--layer-selected-subtle);
+}
+.content td a {
+  font-weight: 500;
+}
+dl {
+  display: grid;
+  gap: var(--sp-03);
+  margin: 0;
+}
+dl > div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--sp-05);
+  padding: var(--sp-04) var(--sp-05);
+  background: var(--layer-02);
+  border-radius: var(--radius-sm);
+}
+dt {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+dd {
+  margin: 0;
+  color: var(--text-secondary);
+}
 .note {
+  color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
 .banner {
-  margin: 0;
-  padding: 6px 12px;
+  margin: 0 0 var(--sp-05);
+  padding: var(--sp-04) var(--sp-05);
   background: var(--warning-subtle);
+  border-left: 3px solid var(--support-warning);
+  border-radius: var(--radius-sm);
 }
+
+/* ---------- Plan ---------- */
+.content.plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+  overflow: hidden;
+  padding: var(--sp-05);
+}
+.content.plan > .chart {
+  flex: 1;
+  min-height: 0;
+  background: var(--layer-01);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+/* 014 FR-003: the mode bar above the chart; what is shown on the left, the action on the right. */
+.modebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-03) var(--sp-04);
+  padding: var(--sp-03) var(--sp-03) var(--sp-03) var(--sp-05);
+  min-height: 48px;
+  box-sizing: border-box;
+  background: var(--layer-01);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+.modebar p {
+  margin: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-03);
+}
+.modebar .grow {
+  flex: 1;
+}
+.modebar .note {
+  font-size: 12px;
+}
+.checklist summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.checklist ul {
+  margin: var(--sp-03) 0 0;
+  padding-left: var(--sp-05);
+}
+/* 014 FR-002: the empty state sits where the chart would be. */
+.empty {
+  display: grid;
+  gap: var(--sp-04);
+  justify-items: center;
+  text-align: center;
+  margin: 64px auto;
+  max-width: 400px;
+  padding: var(--sp-06) 32px 32px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--layer-01);
+}
+.empty h2 {
+  margin: 0;
+}
+.empty p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+form.empty {
+  justify-items: stretch;
+  text-align: left;
+  border-style: solid;
+  border-color: var(--border-subtle);
+  box-shadow: var(--shadow-lg);
+}
+form.empty button {
+  justify-self: end;
+}
+
+/* ---------- Dialogs ---------- */
+dialog {
+  width: min(440px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: var(--sp-06);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--layer-01);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+}
+dialog::backdrop {
+  background: rgba(22, 22, 22, 0.5);
+}
+dialog > p {
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-06);
+}
+dialog > button {
+  margin-right: var(--sp-03);
+}
+/* 014 User Story 4: fields stack full width, the buttons share the last row on the right. */
+dialog form {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-04) var(--sp-03);
+}
+dialog form label {
+  flex: 1 1 100%;
+}
+dialog form label > input,
+dialog form label > select {
+  width: 100%;
+}
+dialog form button {
+  margin-top: var(--sp-04);
+}
+
 /* Narrow windows: the menu becomes a row of links above the page (014 edge cases). */
 @media (max-width: 720px) {
   .shell {
@@ -249,7 +734,7 @@ body,
   .menu,
   .menu.collapsed {
     width: auto;
-    display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     gap: var(--sp-03);
     border-right: 0;
@@ -267,7 +752,18 @@ body,
   .menu.collapsed .label {
     width: auto;
   }
+  .content {
+    padding: var(--sp-04);
+  }
+  .content > section {
+    padding: var(--sp-05);
+  }
+  .bar select {
+    min-width: 0;
+    flex: 1;
+  }
 }
+
 /* Slim, rounded scrollbars inside the chart. Grey with transparency, so one rule suits light and dark. */
 .chart * {
   scrollbar-width: thin; /* Firefox */
@@ -296,85 +792,4 @@ body,
   .chart *::-webkit-scrollbar-thumb:hover {
     background-color: rgba(128, 128, 128, 0.75);
   }
-}
-/* Header (010 T001). Colours follow the theme the page sets on <html>. */
-.bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 12px;
-}
-.bar h1 {
-  font-size: 16px;
-  margin: 0;
-}
-.bar .grow {
-  flex: 1;
-}
-.chip {
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--layer-02);
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-/* 014 FR-003: the mode bar above the chart; what is shown on the left, the action on the right. */
-.modebar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-.modebar p {
-  margin: 0;
-}
-.modebar .grow {
-  flex: 1;
-}
-
-/* 014 FR-002: the empty state sits where the chart would be. */
-.empty {
-  display: grid;
-  gap: 12px;
-  justify-items: start;
-  margin: 48px auto;
-  max-width: 420px;
-}
-
-/* 014 User Story 4: the account menu opens under its summary, over the page. */
-.account {
-  position: relative;
-}
-.account summary {
-  cursor: pointer;
-}
-.account-menu {
-  position: absolute;
-  right: 0;
-  z-index: 10;
-  min-width: 240px;
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  background: var(--layer-01);
-  border: 1px solid var(--border-strong);
-}
-.account-menu p,
-.account-menu ul {
-  margin: 0;
-}
-.account-menu fieldset {
-  display: grid;
-  gap: 4px;
-}
-
-/* 014 User Story 4: the New roadmap dialog stacks its fields. */
-dialog form {
-  display: grid;
-  gap: 8px;
-  justify-items: start;
 }
