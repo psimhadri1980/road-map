@@ -5,7 +5,7 @@
   "packageManager": "pnpm@12.16.1",
   "devDependencies": {
     "prettier": "3.10.1",
-    "turbo": "^2.5.0",
+    "turbo": "^2.11.13",
     "yaml": "^2.8.0"
   }
 }
